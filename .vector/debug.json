@@ -1,0 +1,12 @@
+[
+  {
+    "label": "Debug Vector (CodeLLDB)",
+    "adapter": "CodeLLDB",
+    "build": { "label": "Build Vector", "command": "cargo", "args": ["build"] }
+  },
+  {
+    "label": "Debug Vector (GDB)",
+    "adapter": "GDB",
+    "build": { "label": "Build Vector", "command": "cargo", "args": ["build"] }
+  }
+]

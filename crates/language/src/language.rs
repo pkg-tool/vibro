@@ -1,4 +1,4 @@
-//! The `language` crate provides a large chunk of Zed's language-related
+//! The `language` crate provides a large chunk of Vector's language-related
 //! features (the other big contributors being project and lsp crates that revolve around LSP features).
 //! Namely, this crate:
 //! - Provides [`Language`], [`Grammar`] and [`LanguageRegistry`] types that
@@ -13,7 +13,6 @@ mod language_registry;
 pub mod language_settings;
 mod manifest;
 mod outline;
-pub mod proto;
 mod syntax_map;
 mod task_context;
 mod text_diff;
@@ -524,7 +523,7 @@ pub trait LspAdapter: 'static + Send + Sync + DynLspInstaller {
 
     /// Method only implemented by the default JSON language server adapter.
     /// Used to provide dynamic reloading of the JSON schemas used to
-    /// provide autocompletion and diagnostics in Zed setting and keybind
+    /// provide autocompletion and diagnostics in Vector setting and keybind
     /// files
     fn is_primary_zed_json_schema_adapter(&self) -> bool {
         false
@@ -856,7 +855,7 @@ pub struct LanguageConfig {
     pub scope_opt_in_language_servers: Vec<LanguageServerName>,
     #[serde(default)]
     pub overrides: HashMap<String, LanguageConfigOverride>,
-    /// A list of characters that Zed should treat as word characters for the
+    /// A list of characters that Vector should treat as word characters for the
     /// purpose of features that operate on word boundaries, like 'move to next word end'
     /// or a whole-word search in buffer search.
     #[serde(default)]
@@ -886,7 +885,7 @@ pub struct LanguageConfig {
     /// If configured, this language contains JSX style tags, and should support auto-closing of those tags.
     #[serde(default)]
     pub jsx_tag_auto_close: Option<JsxTagAutoCloseConfig>,
-    /// A list of characters that Zed should treat as word characters for completion queries.
+    /// A list of characters that Vector should treat as word characters for completion queries.
     #[serde(default)]
     pub completion_query_characters: HashSet<char>,
     /// A list of characters that Zed should treat as word characters for linked edit operations.
@@ -2216,7 +2215,7 @@ impl LanguageScope {
 
     /// Returns a list of language-specific word characters.
     ///
-    /// By default, Zed treats alphanumeric characters (and '_') as word characters for
+    /// By default, Vector treats alphanumeric characters (and '_') as word characters for
     /// the purpose of actions like 'move to next word end` or whole-word search.
     /// It additionally accounts for language's additional word characters.
     pub fn word_characters(&self) -> Option<&HashSet<char>> {

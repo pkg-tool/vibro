@@ -54,33 +54,32 @@ pub static LANGUAGE_GIT_COMMIT: std::sync::LazyLock<Arc<Language>> =
                 line_comments: vec![Arc::from("#")],
                 ..LanguageConfig::default()
             },
-            Some(tree_sitter_gitcommit::LANGUAGE.into()),
+            Some(tree_sitter_gitcommit::language()),
         ))
     });
 
 pub fn init(languages: Arc<LanguageRegistry>, fs: Arc<dyn Fs>, node: NodeRuntime, cx: &mut App) {
     #[cfg(feature = "load-grammars")]
     languages.register_native_grammars([
-        ("bash", tree_sitter_bash::LANGUAGE),
-        ("c", tree_sitter_c::LANGUAGE),
-        ("cpp", tree_sitter_cpp::LANGUAGE),
-        ("css", tree_sitter_css::LANGUAGE),
-        ("diff", tree_sitter_diff::LANGUAGE),
-        ("go", tree_sitter_go::LANGUAGE),
-        ("gomod", tree_sitter_go_mod::LANGUAGE),
-        ("gowork", tree_sitter_gowork::LANGUAGE),
-        ("jsdoc", tree_sitter_jsdoc::LANGUAGE),
-        ("json", tree_sitter_json::LANGUAGE),
-        ("jsonc", tree_sitter_json::LANGUAGE),
-        ("markdown", tree_sitter_md::LANGUAGE),
-        ("markdown-inline", tree_sitter_md::INLINE_LANGUAGE),
-        ("python", tree_sitter_python::LANGUAGE),
-        ("regex", tree_sitter_regex::LANGUAGE),
-        ("rust", tree_sitter_rust::LANGUAGE),
-        ("tsx", tree_sitter_typescript::LANGUAGE_TSX),
-        ("typescript", tree_sitter_typescript::LANGUAGE_TYPESCRIPT),
-        ("yaml", tree_sitter_yaml::LANGUAGE),
-        ("gitcommit", tree_sitter_gitcommit::LANGUAGE),
+        ("bash", tree_sitter_bash::LANGUAGE.into()),
+        ("c", tree_sitter_c::LANGUAGE.into()),
+        ("cpp", tree_sitter_cpp::LANGUAGE.into()),
+        ("css", tree_sitter_css::LANGUAGE.into()),
+        ("diff", tree_sitter_diff::LANGUAGE.into()),
+        ("go", tree_sitter_go::LANGUAGE.into()),
+        ("gomod", tree_sitter_go_mod::LANGUAGE.into()),
+        ("jsdoc", tree_sitter_jsdoc::LANGUAGE.into()),
+        ("json", tree_sitter_json::LANGUAGE.into()),
+        ("jsonc", tree_sitter_json::LANGUAGE.into()),
+        ("markdown", tree_sitter_md::LANGUAGE.into()),
+        ("markdown-inline", tree_sitter_md::INLINE_LANGUAGE.into()),
+        ("python", tree_sitter_python::LANGUAGE.into()),
+        ("regex", tree_sitter_regex::LANGUAGE.into()),
+        ("rust", tree_sitter_rust::LANGUAGE.into()),
+        ("tsx", tree_sitter_typescript::LANGUAGE_TSX.into()),
+        ("typescript", tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into()),
+        ("yaml", tree_sitter_yaml::language()),
+        ("gitcommit", tree_sitter_gitcommit::language()),
     ]);
 
     let c_lsp_adapter = Arc::new(c::CLspAdapter);

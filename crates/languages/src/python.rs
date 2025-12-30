@@ -14,6 +14,7 @@ use lsp::LanguageServerName;
 use lsp::{LanguageServerBinary, Uri};
 use node_runtime::{NodeRuntime, VersionStrategy};
 use pet_core::Configuration;
+use pet_core::Locator as _;
 use pet_core::os_environment::Environment;
 use pet_core::python_environment::{PythonEnvironment, PythonEnvironmentKind};
 use pet_virtualenv::is_virtualenv_dir;
@@ -755,7 +756,7 @@ const PYTHON_TEST_TARGET_TASK_VARIABLE: VariableName =
     VariableName::Custom(Cow::Borrowed("PYTHON_TEST_TARGET"));
 
 const PYTHON_ACTIVE_TOOLCHAIN_PATH: VariableName =
-    VariableName::Custom(Cow::Borrowed("PYTHON_ACTIVE_ZED_TOOLCHAIN"));
+    VariableName::Custom(Cow::Borrowed("PYTHON_ACTIVE_VECTOR_TOOLCHAIN"));
 
 const PYTHON_MODULE_NAME_TASK_VARIABLE: VariableName =
     VariableName::Custom(Cow::Borrowed("PYTHON_MODULE_NAME"));
@@ -867,7 +868,7 @@ impl ContextProvider for PythonContextProvider {
                     },
                     // Run test(s) for a specific target within a file
                     TaskTemplate {
-                        label: "unittest $ZED_CUSTOM_PYTHON_TEST_TARGET".to_owned(),
+                        label: "unittest $VECTOR_CUSTOM_PYTHON_TEST_TARGET".to_owned(),
                         command: PYTHON_ACTIVE_TOOLCHAIN_PATH.template_value(),
                         args: vec![
                             "-m".to_owned(),
@@ -899,7 +900,7 @@ impl ContextProvider for PythonContextProvider {
                     },
                     // Run test(s) for a specific target within a file
                     TaskTemplate {
-                        label: "pytest $ZED_CUSTOM_PYTHON_TEST_TARGET".to_owned(),
+                        label: "pytest $VECTOR_CUSTOM_PYTHON_TEST_TARGET".to_owned(),
                         command: PYTHON_ACTIVE_TOOLCHAIN_PATH.template_value(),
                         args: vec![
                             "-m".to_owned(),
@@ -1163,6 +1164,56 @@ fn micromamba_shell_name(kind: ShellKind) -> &'static str {
     }
 }
 
+fn find_worktree_virtual_env(worktree_root: &Path) -> Option<PythonEnvironment> {
+    let venv_root = worktree_root.join(".venv");
+    if !venv_root.is_dir() {
+        return None;
+    }
+
+    let executable = if cfg!(windows) {
+        [venv_root.join("Scripts").join("python.exe"), venv_root.join("Scripts").join("python")]
+            .into_iter()
+            .find(|path| path.is_file())
+    } else {
+        [venv_root.join("bin").join("python3"), venv_root.join("bin").join("python")]
+            .into_iter()
+            .find(|path| path.is_file())
+    }?;
+
+    Some(PythonEnvironment {
+        name: Some(".venv".to_string()),
+        executable: Some(executable),
+        kind: Some(PythonEnvironmentKind::Venv),
+        prefix: Some(venv_root),
+        project: Some(worktree_root.to_path_buf()),
+        ..Default::default()
+    })
+}
+
+fn find_python_on_path(project_env: &HashMap<String, String>) -> Option<PythonEnvironment> {
+    let path = project_env.get("PATH")?;
+    let candidates: &[&str] = if cfg!(windows) {
+        &["python.exe", "python3.exe", "python.bat"]
+    } else {
+        &["python3", "python"]
+    };
+
+    for dir in std::env::split_paths(path) {
+        for candidate in candidates {
+            let executable = dir.join(candidate);
+            if executable.is_file() {
+                return Some(PythonEnvironment {
+                    executable: Some(executable),
+                    kind: Some(PythonEnvironmentKind::GlobalPaths),
+                    ..Default::default()
+                });
+            }
+        }
+    }
+
+    None
+}
+
 #[async_trait]
 impl ToolchainLister for PythonToolchainProvider {
     async fn list(
@@ -1193,13 +1244,27 @@ impl ToolchainLister for PythonToolchainProvider {
             locator.configure(&config);
         }
 
-        let reporter = pet_reporter::collect::create_reporter();
-        pet::find::find_and_report_envs(&reporter, config, &locators, &environment, None);
+        let mut config = Configuration::default();
+        config.workspace_directories = Some(vec![worktree_root.clone()]);
 
-        let mut toolchains = reporter
-            .environments
-            .lock()
-            .map_or(Vec::new(), |mut guard| std::mem::take(&mut guard));
+        let conda_locator = Arc::new(pet_conda::Conda::from(&environment));
+        let poetry_locator = Arc::new(pet_poetry::Poetry::from(&environment));
+        conda_locator.configure(&config);
+        poetry_locator.configure(&config);
+
+        let reporter = pet_reporter::collect::create_reporter();
+        conda_locator.find(&reporter);
+        poetry_locator.find(&reporter);
+        toolchains.extend(
+            reporter
+                .environments
+                .lock()
+                .map_or(Vec::new(), |mut guard| std::mem::take(&mut guard)),
+        );
+
+        if let Some(path_python) = find_python_on_path(&env) {
+            toolchains.push(path_python);
+        }
 
         let wr = worktree_root;
         let wr_venv = get_worktree_venv_declaration(&wr).await;

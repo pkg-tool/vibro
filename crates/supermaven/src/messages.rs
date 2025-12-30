@@ -10,6 +10,7 @@ pub struct SetApiKey {
 #[derive(Debug, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum OutboundMessage {
+    #[allow(dead_code)]
     SetApiKey(SetApiKey),
     StateUpdate(StateUpdateMessage),
     #[allow(dead_code)]

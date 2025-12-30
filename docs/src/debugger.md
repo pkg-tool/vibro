@@ -88,7 +88,7 @@ All other fields are provided by the debug adapter and can contain [task variabl
   {
     // The label for the debug configuration and used to identify the debug session inside the debug panel & new process modal
     "label": "Example Start debugger config",
-    // The debug adapter that Zed should use to debug the program
+    // The debug adapter that Vector should use to debug the program
     "adapter": "Example adapter name",
     // Request:
     //  - launch: Zed will launch the program if specified, or show a debug terminal with the right configuration
@@ -96,8 +96,8 @@ All other fields are provided by the debug adapter and can contain [task variabl
     "request": "launch",
     // The program to debug. This field supports path resolution with ~ or . symbols.
     "program": "path_to_program",
-    // cwd: defaults to the current working directory of your project ($ZED_WORKTREE_ROOT)
-    "cwd": "$ZED_WORKTREE_ROOT"
+    // cwd: defaults to the current working directory of your project ($VECTOR_WORKTREE_ROOT)
+    "cwd": "$VECTOR_WORKTREE_ROOT"
   }
 ]
 ```
@@ -164,10 +164,10 @@ The settings for the debugger are grouped under the `debugger` key in `settings.
 
 - `dock`: Determines the position of the debug panel in the UI.
 - `stepping_granularity`: Determines the stepping granularity.
-- `save_breakpoints`: Whether the breakpoints should be reused across Zed sessions.
+- `save_breakpoints`: Whether the breakpoints should be reused across Vector sessions.
 - `button`: Whether to show the debug button in the status bar.
 - `timeout`: Time in milliseconds until timeout error when connecting to a TCP debug adapter.
-- `log_dap_communications`: Whether to log messages between active debug adapters and Zed.
+- `log_dap_communications`: Whether to log messages between active debug adapters and Vector.
 - `format_dap_log_messages`: Whether to format DAP messages when adding them to the debug adapter logger.
 
 ### Dock
@@ -302,7 +302,7 @@ Inline value hints can also be toggled from the Editor Controls menu in the edit
 
 ### Log Dap Communications
 
-- Description: Whether to log messages between active debug adapters and Zed. (Used for DAP development)
+- Description: Whether to log messages between active debug adapters and Vector. (Used for DAP development)
 - Default: false
 - Setting: debugger.log_dap_communications
 

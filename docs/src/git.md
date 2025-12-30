@@ -5,7 +5,7 @@ title: Zed Editor Git integration documentation
 
 # Git
 
-Zed currently offers a set of fundamental Git features, with support coming in the future for more advanced ones, like conflict resolution tools, line by line staging, and more.
+Vector currently offers a set of fundamental Git features, with support coming in the future for more advanced ones, like conflict resolution tools, line by line staging, and more.
 
 Here's an overview of all currently supported features:
 
@@ -48,7 +48,7 @@ The Git Panel also allows configuring the `soft_wrap` setting to adjust how comm
 
 ## Project Diff
 
-You can see all of the changes captured by Git in Zed by opening the Project Diff ({#kb git::Diff}), accessible via the {#action git::Diff} action in the Command Palette or the Git Panel.
+You can see all of the changes captured by Git in Vector by opening the Project Diff ({#kb git::Diff}), accessible via the {#action git::Diff} action in the Command Palette or the Git Panel.
 
 All of the changes displayed in the Project Diff behave exactly the same as any other multibuffer: they are all editable excerpts of files.
 
@@ -58,11 +58,11 @@ You can stage or unstage each hunk as well as a whole file by hitting the button
 
 ## Fetch, push, and pull
 
-Fetch, push, or pull from your Git repository in Zed via the buttons available on the Git Panel or via the Command Palette by looking at the respective actions: {#action git::Fetch}, {#action git::Push}, and {#action git::Pull}.
+Fetch, push, or pull from your Git repository in Vector via the buttons available on the Git Panel or via the Command Palette by looking at the respective actions: {#action git::Fetch}, {#action git::Push}, and {#action git::Pull}.
 
 ## Staging Workflow
 
-Zed has two primary staging workflows, using either the Project Diff or the panel directly.
+Vector has two primary staging workflows, using either the Project Diff or the panel directly.
 
 ### Using the Project Diff
 
@@ -82,14 +82,14 @@ Entries can be staged using each individual entry's checkbox. All changes can be
 
 ## Committing
 
-Zed offers two commit textareas:
+Vector offers two commit textareas:
 
 1. The first one is available right at the bottom of the Git Panel. Hitting {#kb git::Commit} immediately commits all of your staged changes.
 2. The second is available via the action {#action git::ExpandCommitEditor} or via hitting the {#kb git::ExpandCommitEditor} while focused in the Git Panel commit textarea.
 
 ### Undoing a Commit
 
-As soon as you commit in Zed, in the Git Panel, you'll see a bar right under the commit textarea, which will show the recently submitted commit.
+As soon as you commit in Vector, in the Git Panel, you'll see a bar right under the commit textarea, which will show the recently submitted commit.
 In there, you can use the "Uncommit" button, which performs the `git reset HEADˆ--soft` command.
 
 ### Configuring Commit Line Length
@@ -135,7 +135,7 @@ To open the stash diff view, select a stash from the stash picker and use the {#
 
 ## AI Support in Git
 
-Zed currently supports LLM-powered commit message generation.
+Vector currently supports LLM-powered commit message generation.
 You can ask AI to generate a commit message by focusing on the message editor within the Git Panel and either clicking on the pencil icon in the bottom left, or reaching for the {#action git::GenerateCommitMessage} ({#kb git::GenerateCommitMessage}) keybinding.
 
 > Note that you need to have an LLM provider configured for billing purposes, either via your own API keys or trialing/paying for Zed's hosted AI models. Visit [the AI configuration page](./ai/configuration.md) to learn how to do so.
@@ -159,9 +159,9 @@ More advanced AI integration with Git features may come in the future.
 
 ## Git Integrations
 
-Zed integrates with popular Git hosting services to ensure that Git commit hashes and references to Issues, Pull Requests, and Merge Requests become clickable links.
+Vector integrates with popular Git hosting services to ensure that Git commit hashes and references to Issues, Pull Requests, and Merge Requests become clickable links.
 
-Zed currently supports links to the hosted versions of
+Vector currently supports links to the hosted versions of
 [GitHub](https://github.com),
 [GitLab](https://gitlab.com),
 [Bitbucket](https://bitbucket.org),

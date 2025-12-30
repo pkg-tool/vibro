@@ -22,7 +22,6 @@ load-grammars = [
     "tree-sitter-gitcommit",
     "tree-sitter-go",
     "tree-sitter-go-mod",
-    "tree-sitter-gowork",
     "tree-sitter-jsdoc",
     "tree-sitter-json",
     "tree-sitter-md",
@@ -84,7 +83,6 @@ tree-sitter-diff = { workspace = true, optional = true }
 tree-sitter-gitcommit = { workspace = true, optional = true }
 tree-sitter-go = { workspace = true, optional = true }
 tree-sitter-go-mod = { workspace = true, optional = true }
-tree-sitter-gowork = { workspace = true, optional = true }
 tree-sitter-jsdoc = { workspace = true, optional = true }
 tree-sitter-json = { workspace = true, optional = true }
 tree-sitter-md = { workspace = true, optional = true }

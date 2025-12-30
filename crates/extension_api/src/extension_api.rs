@@ -1,4 +1,4 @@
-//! The Zed Rust Extension API allows you write extensions for [Zed](https://zed.dev/) in Rust.
+//! The Vector Rust Extension API allows you write extensions for [Vector](https://vector.dev/) in Rust.
 
 pub mod http_client;
 pub mod process;
@@ -25,16 +25,16 @@ pub use wit::{
         LaunchRequest, StartDebuggingRequestArguments, StartDebuggingRequestArgumentsRequest,
         TaskTemplate, TcpArguments, TcpArgumentsTemplate, resolve_tcp_template,
     },
-    zed::extension::github::{
+    vector::extension::github::{
         GithubRelease, GithubReleaseAsset, GithubReleaseOptions, github_release_by_tag_name,
         latest_github_release,
     },
-    zed::extension::nodejs::{
+    vector::extension::nodejs::{
         node_binary_path, npm_install_package, npm_package_installed_version,
         npm_package_latest_version,
     },
-    zed::extension::platform::{Architecture, Os, current_platform},
-    zed::extension::slash_command::{
+    vector::extension::platform::{Architecture, Os, current_platform},
+    vector::extension::slash_command::{
         SlashCommand, SlashCommandArgumentCompletion, SlashCommandOutput, SlashCommandOutputSection,
     },
 };
@@ -49,12 +49,12 @@ pub use wit::Guest;
 /// Constructs for interacting with language servers over the
 /// Language Server Protocol (LSP).
 pub mod lsp {
-    pub use crate::wit::zed::extension::lsp::{
+    pub use crate::wit::vector::extension::lsp::{
         Completion, CompletionKind, InsertTextFormat, Symbol, SymbolKind,
     };
 }
 
-/// A result returned from a Zed extension.
+/// A result returned from a Vector extension.
 pub type Result<T, E = String> = core::result::Result<T, E>;
 
 /// Updates the installation status for the given language server.
@@ -65,7 +65,7 @@ pub fn set_language_server_installation_status(
     wit::set_language_server_installation_status(&language_server_id.0, status)
 }
 
-/// A Zed extension.
+/// A Vector extension.
 pub trait Extension: Send + Sync {
     /// Returns a new instance of the extension.
     fn new() -> Self
@@ -261,7 +261,7 @@ pub trait Extension: Send + Sync {
     }
 }
 
-/// Registers the provided type as a Zed extension.
+/// Registers the provided type as a Vector extension.
 ///
 /// The type must implement the [`Extension`] trait.
 #[macro_export]
@@ -326,9 +326,10 @@ fn extension() -> &'static mut dyn Extension {
 static mut EXTENSION: Option<Box<dyn Extension>> = None;
 
 #[cfg(target_arch = "wasm32")]
-#[unsafe(link_section = "zed:api-version")]
+#[unsafe(link_section = "vector:api-version")]
 #[doc(hidden)]
-pub static ZED_API_VERSION: [u8; 6] = *include_bytes!(concat!(env!("OUT_DIR"), "/version_bytes"));
+pub static VECTOR_API_VERSION: [u8; 6] =
+    *include_bytes!(concat!(env!("OUT_DIR"), "/version_bytes"));
 
 mod wit {
     wit_bindgen::generate!({

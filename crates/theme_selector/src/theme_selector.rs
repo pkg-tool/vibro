@@ -45,7 +45,7 @@ pub fn init(cx: &mut App) {
 
 fn toggle_theme_selector(
     workspace: &mut Workspace,
-    toggle: &zed_actions::theme_selector::Toggle,
+    toggle: &vector_actions::theme_selector::Toggle,
     window: &mut Window,
     cx: &mut Context<Workspace>,
 ) {
@@ -63,7 +63,7 @@ fn toggle_theme_selector(
 
 fn toggle_icon_theme_selector(
     workspace: &mut Workspace,
-    toggle: &zed_actions::icon_theme_selector::Toggle,
+    toggle: &vector_actions::icon_theme_selector::Toggle,
     window: &mut Window,
     cx: &mut Context<Workspace>,
 ) {
@@ -502,7 +502,7 @@ impl PickerDelegate for ThemeSelectorDelegate {
                         .icon_size(IconSize::Small)
                         .icon_color(Color::Muted)
                         .on_click(cx.listener(|_, _, _, cx| {
-                            cx.open_url("https://zed.dev/docs/themes");
+                            cx.open_url("https://vector.dev/docs/themes");
                         })),
                 )
                 .child(

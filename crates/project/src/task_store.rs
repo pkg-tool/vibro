@@ -6,19 +6,17 @@ use std::{
 use anyhow::Context as _;
 use collections::HashMap;
 use fs::Fs;
-use gpui::{App, AsyncApp, Context, Entity, EventEmitter, Task, WeakEntity};
+use gpui::{App, Context, Entity, EventEmitter, Task};
 use language::{
     ContextLocation, ContextProvider as _, LanguageToolchainStore, Location,
-    proto::{deserialize_anchor, serialize_anchor},
 };
-use rpc::{AnyProtoClient, TypedEnvelope, proto};
 use settings::{InvalidSettingsError, SettingsLocation};
-use task::{TaskContext, TaskVariables, VariableName};
-use text::{BufferId, OffsetRangeExt};
+use task::{TaskContext, TaskVariables};
 use util::ResultExt;
+use worktree::File;
 
 use crate::{
-    BasicContextProvider, Inventory, ProjectEnvironment, buffer_store::BufferStore,
+    BasicContextProvider, Inventory, ProjectEnvironment,
     worktree_store::WorktreeStore,
 };
 
@@ -29,22 +27,10 @@ pub enum TaskStore {
 }
 
 pub struct StoreState {
-    mode: StoreMode,
+    environment: Entity<ProjectEnvironment>,
     task_inventory: Entity<Inventory>,
-    buffer_store: WeakEntity<BufferStore>,
     worktree_store: Entity<WorktreeStore>,
     toolchain_store: Arc<dyn LanguageToolchainStore>,
-}
-
-enum StoreMode {
-    Local {
-        downstream_client: Option<(AnyProtoClient, u64)>,
-        environment: Entity<ProjectEnvironment>,
-    },
-    Remote {
-        upstream_client: AnyProtoClient,
-        project_id: u64,
-    },
 }
 
 impl EventEmitter<crate::Event> for TaskStore {}
@@ -159,39 +145,14 @@ impl TaskStore {
     }
 
     pub fn local(
-        buffer_store: WeakEntity<BufferStore>,
         worktree_store: Entity<WorktreeStore>,
         toolchain_store: Arc<dyn LanguageToolchainStore>,
         environment: Entity<ProjectEnvironment>,
         cx: &mut Context<Self>,
     ) -> Self {
         Self::Functional(StoreState {
-            mode: StoreMode::Local {
-                downstream_client: None,
-                environment,
-            },
+            environment,
             task_inventory: Inventory::new(cx),
-            buffer_store,
-            toolchain_store,
-            worktree_store,
-        })
-    }
-
-    pub fn remote(
-        buffer_store: WeakEntity<BufferStore>,
-        worktree_store: Entity<WorktreeStore>,
-        toolchain_store: Arc<dyn LanguageToolchainStore>,
-        upstream_client: AnyProtoClient,
-        project_id: u64,
-        cx: &mut Context<Self>,
-    ) -> Self {
-        Self::Functional(StoreState {
-            mode: StoreMode::Remote {
-                upstream_client,
-                project_id,
-            },
-            task_inventory: Inventory::new(cx),
-            buffer_store,
             toolchain_store,
             worktree_store,
         })
@@ -204,28 +165,14 @@ impl TaskStore {
         cx: &mut App,
     ) -> Task<Option<TaskContext>> {
         match self {
-            TaskStore::Functional(state) => match &state.mode {
-                StoreMode::Local { environment, .. } => local_task_context_for_location(
-                    state.worktree_store.clone(),
-                    state.toolchain_store.clone(),
-                    environment.clone(),
-                    captured_variables,
-                    location,
-                    cx,
-                ),
-                StoreMode::Remote {
-                    upstream_client,
-                    project_id,
-                } => remote_task_context_for_location(
-                    *project_id,
-                    upstream_client.clone(),
-                    state.worktree_store.clone(),
-                    captured_variables,
-                    location,
-                    state.toolchain_store.clone(),
-                    cx,
-                ),
-            },
+            TaskStore::Functional(state) => local_task_context_for_location(
+                state.worktree_store.clone(),
+                state.toolchain_store.clone(),
+                state.environment.clone(),
+                captured_variables,
+                location,
+                cx,
+            ),
             TaskStore::Noop => Task::ready(None),
         }
     }
@@ -234,30 +181,6 @@ impl TaskStore {
         match self {
             TaskStore::Functional(state) => Some(&state.task_inventory),
             TaskStore::Noop => None,
-        }
-    }
-
-    pub fn shared(&mut self, remote_id: u64, new_downstream_client: AnyProtoClient, _cx: &mut App) {
-        if let Self::Functional(StoreState {
-            mode: StoreMode::Local {
-                downstream_client, ..
-            },
-            ..
-        }) = self
-        {
-            *downstream_client = Some((new_downstream_client, remote_id));
-        }
-    }
-
-    pub fn unshared(&mut self, _: &mut Context<Self>) {
-        if let Self::Functional(StoreState {
-            mode: StoreMode::Local {
-                downstream_client, ..
-            },
-            ..
-        }) = self
-        {
-            *downstream_client = None;
         }
     }
 
@@ -326,7 +249,7 @@ fn local_task_context_for_location(
             .update(|cx| {
                 combine_task_variables(
                     captured_variables,
-                    fs,
+                    Some(fs),
                     worktree_store.clone(),
                     location,
                     project_env.clone(),
@@ -498,4 +421,20 @@ fn combine_task_variables(
         }
         Ok(captured_variables)
     })
+}
+
+fn worktree_root(
+    worktree_store: &Entity<WorktreeStore>,
+    location: &Location,
+    cx: &App,
+) -> Option<PathBuf> {
+    File::from_dyn(location.buffer.read(cx).file())
+        .map(|file| file.worktree.read(cx).abs_path().to_path_buf())
+        .or_else(|| {
+            worktree_store
+                .read(cx)
+                .visible_worktrees(cx)
+                .next()
+                .map(|worktree| worktree.read(cx).abs_path().to_path_buf())
+        })
 }

@@ -3,6 +3,9 @@ mod input_handler;
 pub use lsp_types::request::*;
 pub use lsp_types::*;
 
+/// Compatibility alias: older code refers to LSP URIs as `Url`.
+pub type Url = Uri;
+
 use anyhow::{Context as _, Result, anyhow};
 use collections::{BTreeMap, HashMap};
 use futures::{
@@ -47,6 +50,18 @@ const CONTENT_LEN_HEADER: &str = "Content-Length: ";
 
 pub const LSP_REQUEST_TIMEOUT: Duration = Duration::from_secs(60 * 2);
 const SERVER_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
+
+pub fn url_from_file_path(path: impl AsRef<Path>) -> std::result::Result<Url, ()> {
+    let file_url = UrlUrl::from_file_path(path.as_ref()).map_err(|_| ())?;
+    file_url.as_str().parse::<Uri>().map_err(|_| ())
+}
+
+pub fn url_to_file_path(url: &Url) -> std::result::Result<PathBuf, ()> {
+    UrlUrl::parse(url.as_str())
+        .map_err(|_| ())?
+        .to_file_path()
+        .map_err(|_| ())
+}
 
 type NotificationHandler = Box<dyn Send + FnMut(Option<RequestId>, Value, &mut AsyncApp)>;
 type ResponseHandler = Box<dyn Send + FnOnce(Result<String, Error>)>;
@@ -710,7 +725,6 @@ impl LanguageServer {
                             ResourceOperationKind::Delete,
                         ]),
                         document_changes: Some(true),
-                        snippet_edit_support: Some(true),
                         ..WorkspaceEditClientCapabilities::default()
                     }),
                     file_operations: Some(WorkspaceFileOperationsClientCapabilities {
@@ -762,7 +776,7 @@ impl LanguageServer {
                                     "additionalTextEdits".to_string(),
                                     "command".to_string(),
                                     "documentation".to_string(),
-                                    // NB: Do not have this resolved, otherwise Zed becomes slow to complete things
+                                    // NB: Do not have this resolved, otherwise Vector becomes slow to complete things
                                     // "textEdit".to_string(),
                                 ],
                             }),
@@ -890,6 +904,7 @@ impl LanguageServer {
                     }),
                     ..WindowClientCapabilities::default()
                 }),
+                notebook_document: None,
             },
             trace: None,
             workspace_folders: Some(workspace_folders),
@@ -1628,8 +1643,28 @@ impl FakeLanguageServer {
         capabilities: ServerCapabilities,
         cx: &mut AsyncApp,
     ) -> (LanguageServer, FakeLanguageServer) {
-        let (stdin_writer, stdin_reader) = async_pipe::pipe();
-        let (stdout_writer, stdout_reader) = async_pipe::pipe();
+        use smol::Async;
+
+        let (client_stream, server_stream) = {
+            use std::net::{TcpListener, TcpStream};
+
+            let listener =
+                TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).expect("bind test socket");
+            let addr = listener.local_addr().expect("get test socket address");
+
+            let client_stream = TcpStream::connect(addr).expect("connect test socket");
+            let (server_stream, _) = listener.accept().expect("accept test socket");
+
+            (client_stream, server_stream)
+        };
+
+        let stdin_writer = Async::new(client_stream.try_clone().expect("clone test socket"))
+            .expect("wrap test socket");
+        let stdout_reader = Async::new(client_stream).expect("wrap test socket");
+
+        let stdout_writer = Async::new(server_stream.try_clone().expect("clone test socket"))
+            .expect("wrap test socket");
+        let stdin_reader = Async::new(server_stream).expect("wrap test socket");
         let (notifications_tx, notifications_rx) = channel::unbounded();
 
         let server_name = LanguageServerName(name.clone().into());
@@ -1641,7 +1676,7 @@ impl FakeLanguageServer {
             server_name.clone(),
             stdin_writer,
             stdout_reader,
-            None::<async_pipe::PipeReader>,
+            None::<Async<std::net::TcpStream>>,
             Arc::new(Mutex::new(None)),
             None,
             None,
@@ -1660,7 +1695,7 @@ impl FakeLanguageServer {
                     server_name,
                     stdout_writer,
                     stdin_reader,
-                    None::<async_pipe::PipeReader>,
+                    None::<Async<std::net::TcpStream>>,
                     Arc::new(Mutex::new(None)),
                     None,
                     None,

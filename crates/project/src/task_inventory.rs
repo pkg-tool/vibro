@@ -135,13 +135,13 @@ impl<T> Default for InventoryFor<T> {
 pub enum TaskSourceKind {
     /// bash-like commands spawned by users, not associated with any path
     UserInput,
-    /// Tasks from the worktree's .zed/task.json
+    /// Tasks from the worktree's `.vector/tasks.json`
     Worktree {
         id: WorktreeId,
         directory_in_worktree: Arc<RelPath>,
         id_base: Cow<'static, str>,
     },
-    /// ~/.config/zed/task.json - like global files with task definitions, applicable to any path
+    /// `~/.config/vector/tasks.json` - global task definitions, applicable to any path
     AbsPath {
         id_base: Cow<'static, str>,
         abs_path: PathBuf,
@@ -1098,8 +1098,6 @@ mod tests {
     use std::path::Path;
     use util::rel_path::rel_path;
 
-    use crate::task_store::TaskStore;
-
     use super::test_inventory::*;
     use super::*;
 
@@ -1545,7 +1543,6 @@ mod tests {
 
     fn init_test(_cx: &mut TestAppContext) {
         zlog::init_test();
-        TaskStore::init(None);
     }
 
     fn resolved_task_names(

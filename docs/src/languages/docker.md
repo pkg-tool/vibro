@@ -1,10 +1,10 @@
 # Docker
 
-Support for `Dockerfile` and `docker-compose.yaml` in Zed is provided by community-maintained extensions.
+Support for `Dockerfile` and `docker-compose.yaml` in Vector is provided by community-maintained extensions.
 
 ## Docker Compose
 
-Docker `compose.yaml` language support in Zed is provided by the [Docker Compose extension](https://github.com/eth0net/zed-docker-compose). Please report issues to: [https://github.com/eth0net/zed-docker-compose/issues](https://github.com/eth0net/zed-docker-compose/issues).
+Docker `compose.yaml` language support in Vector is provided by a community-maintained extension (search for "Docker Compose" in the Extensions view).
 
 - Language Server: [microsoft/compose-language-service](https://github.com/microsoft/compose-language-service)
 

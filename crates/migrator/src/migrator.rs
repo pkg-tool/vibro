@@ -661,7 +661,7 @@ mod tests {
             r#"
                 {
                     "features": {
-                        "inline_completion_provider": "zed"
+                        "inline_completion_provider": "vector"
                     },
                 }
             "#,
@@ -669,7 +669,7 @@ mod tests {
                 r#"
                 {
                     "features": {
-                        "edit_prediction_provider": "zed"
+                        "edit_prediction_provider": "vector"
                     },
                 }
             "#,

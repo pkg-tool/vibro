@@ -32,7 +32,7 @@ wasmtime::component::bindgen!({
     },
 });
 
-pub use self::zed::extension::*;
+pub use self::vector::extension::*;
 
 mod settings {
     #![allow(dead_code)]

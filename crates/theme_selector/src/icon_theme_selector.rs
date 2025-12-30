@@ -14,7 +14,7 @@ use theme::{
 use ui::{ListItem, ListItemSpacing, prelude::*, v_flex};
 use util::ResultExt;
 use workspace::{ModalView, ui::HighlightedLabel};
-use zed_actions::{ExtensionCategoryFilter, Extensions};
+use vector_actions::{ExtensionCategoryFilter, Extensions};
 
 pub(crate) struct IconThemeSelector {
     picker: Entity<Picker<IconThemeSelectorDelegate>>,
@@ -167,12 +167,6 @@ impl PickerDelegate for IconThemeSelectorDelegate {
             .icon_theme
             .name(SystemAppearance::global(cx).0);
 
-        telemetry::event!(
-            "Settings Changed",
-            setting = "icon_theme",
-            value = theme_name
-        );
-
         let appearance = Appearance::from(window.appearance());
 
         update_settings_file(self.fs.clone(), cx, move |settings, _| {
@@ -316,7 +310,7 @@ impl PickerDelegate for IconThemeSelectorDelegate {
                         .icon_size(IconSize::Small)
                         .icon_color(Color::Muted)
                         .on_click(|_event, _window, cx| {
-                            cx.open_url("https://zed.dev/docs/icon-themes");
+                            cx.open_url("https://vector.dev/docs/icon-themes");
                         }),
                 )
                 .child(

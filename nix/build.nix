@@ -27,7 +27,6 @@
   libgit2,
   libglvnd,
   libxkbcommon,
-  livekit-libwebrtc,
   nodejs_22,
   openssl,
   perl,
@@ -69,12 +68,12 @@ let
   gpu-lib = if withGLES then libglvnd else vulkan-loader;
   commonArgs =
     let
-      zedCargoLock = builtins.fromTOML (builtins.readFile ../crates/zed/Cargo.toml);
+      vectorCargoLock = builtins.fromTOML (builtins.readFile ../crates/vector/Cargo.toml);
       stdenv' = stdenv;
     in
     rec {
-      pname = "zed-editor";
-      version = zedCargoLock.package.version + "-nightly";
+      pname = "vector-editor";
+      version = vectorCargoLock.package.version + "-nightly";
       src = builtins.path {
         path = ../.;
         filter = mkIncludeFilter ../.;
@@ -172,7 +171,7 @@ let
         (darwinMinVersionHook "10.15")
       ];
 
-      cargoExtraArgs = "-p zed -p cli --locked --features=gpui/runtime_shaders";
+      cargoExtraArgs = "-p vector -p cli --locked --features=gpui/runtime_shaders";
 
       stdenv =
         pkgs:
@@ -198,7 +197,7 @@ let
             ../assets/fonts/ibm-plex-sans
           ];
         };
-        ZED_UPDATE_EXPLANATION = "Zed has been installed using Nix. Auto-updates have thus been disabled.";
+        VECTOR_UPDATE_EXPLANATION = "Vector has been installed using Nix. Auto-updates have thus been disabled.";
         RELEASE_VERSION = version;
         LK_CUSTOM_WEBRTC = livekit-libwebrtc;
         PROTOC = "${protobuf}/bin/protoc";
@@ -267,11 +266,11 @@ craneLib.buildPackage (
     dontUseCmakeConfigure = true;
 
     # without the env var generate-licenses fails due to crane's fetchCargoVendor, see:
-    # https://github.com/zed-industries/zed/issues/19971#issuecomment-2688455390
+    # https://github.com/vector-editor/vector/issues/19971#issuecomment-2688455390
     # TODO: put this in a separate derivation that depends on src to avoid running it on every build
     preBuild = ''
       ALLOW_MISSING_LICENSES=yes bash script/generate-licenses
-      echo nightly > crates/zed/RELEASE_CHANNEL
+      echo nightly > crates/vector/RELEASE_CHANNEL
     '';
 
     installPhase =
@@ -279,21 +278,21 @@ craneLib.buildPackage (
         ''
           runHook preInstall
 
-          pushd crates/zed
+          pushd crates/vector
           sed -i "s/package.metadata.bundle-nightly/package.metadata.bundle/" Cargo.toml
           export CARGO_BUNDLE_SKIP_BUILD=true
           app_path="$(cargo bundle --profile $CARGO_PROFILE | xargs)"
           popd
 
           mkdir -p $out/Applications $out/bin
-          # Zed expects git next to its own binary
+          # Vector expects git next to its own binary
           ln -s ${git}/bin/git "$app_path/Contents/MacOS/git"
           mv $TARGET_DIR/cli "$app_path/Contents/MacOS/cli"
           mv "$app_path" $out/Applications/
 
           # Physical location of the CLI must be inside the app bundle as this is used
           # to determine which app to start
-          ln -s "$out/Applications/Zed Nightly.app/Contents/MacOS/cli" $out/bin/zed
+          ln -s "$out/Applications/Vector Nightly.app/Contents/MacOS/cli" $out/bin/vector
 
           runHook postInstall
         ''
@@ -302,22 +301,20 @@ craneLib.buildPackage (
           runHook preInstall
 
           mkdir -p $out/bin $out/libexec
-          cp $TARGET_DIR/zed $out/libexec/zed-editor
-          cp $TARGET_DIR/cli  $out/bin/zed
-          ln -s $out/bin/zed $out/bin/zeditor  # home-manager expects the CLI binary to be here
+          cp $TARGET_DIR/vector $out/libexec/vector-editor
+          cp $TARGET_DIR/cli  $out/bin/vector
 
 
-          install -D "crates/zed/resources/app-icon-nightly@2x.png" \
-            "$out/share/icons/hicolor/1024x1024@2x/apps/zed.png"
-          install -D crates/zed/resources/app-icon-nightly.png \
-            $out/share/icons/hicolor/512x512/apps/zed.png
+          install -D "crates/vector/resources/app-icon-nightly@2x.png" \
+            "$out/share/icons/hicolor/1024x1024@2x/apps/vector.png"
+          install -D crates/vector/resources/app-icon-nightly.png \
+            $out/share/icons/hicolor/512x512/apps/vector.png
 
-          # TODO: icons should probably be named "zed-nightly"
           (
             export DO_STARTUP_NOTIFY="true"
-            export APP_CLI="zed"
-            export APP_ICON="zed"
-            export APP_NAME="Zed Nightly"
+            export APP_CLI="vector"
+            export APP_ICON="vector"
+            export APP_NAME="Vector Nightly"
             export APP_ARGS="%U"
             mkdir -p "$out/share/applications"
             ${lib.getExe envsubst} < "crates/zed/resources/zed.desktop.in" > "$out/share/applications/dev.zed.Zed-Nightly.desktop"
@@ -329,15 +326,15 @@ craneLib.buildPackage (
 
     # TODO: why isn't this also done on macOS?
     postFixup = lib.optionalString stdenv.hostPlatform.isLinux ''
-      wrapProgram $out/libexec/zed-editor --suffix PATH : ${lib.makeBinPath [ nodejs_22 ]}
+      wrapProgram $out/libexec/vector-editor --suffix PATH : ${lib.makeBinPath [ nodejs_22 ]}
     '';
 
     meta = {
-      description = "High-performance, multiplayer code editor from the creators of Atom and Tree-sitter";
-      homepage = "https://zed.dev";
-      changelog = "https://zed.dev/releases/preview";
+      description = "High-performance code editor";
+      homepage = "https://vector.dev";
+      changelog = "https://vector.dev/releases/preview";
       license = lib.licenses.gpl3Only;
-      mainProgram = "zed";
+      mainProgram = "vector";
       platforms = lib.platforms.linux ++ lib.platforms.darwin;
     };
   }

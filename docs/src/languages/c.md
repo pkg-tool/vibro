@@ -1,6 +1,6 @@
 # C
 
-C support is available natively in Zed.
+C support is available natively in Vector.
 
 - Tree-sitter: [tree-sitter/tree-sitter-c](https://github.com/tree-sitter/tree-sitter-c)
 - Language Server: [clangd/clangd](https://github.com/clangd/clangd)
@@ -40,7 +40,7 @@ IndentWidth: 2
 
 See [Clang-Format Style Options](https://clang.llvm.org/docs/ClangFormatStyleOptions.html) for a complete list of options.
 
-You can trigger formatting via {#kb editor::Format} or the `editor: format` action from the command palette or by adding `format_on_save` to your Zed settings:
+You can trigger formatting via {#kb editor::Format} or the `editor: format` action from the command palette or by adding `format_on_save` to your Vector settings:
 
 ```json [settings]
   "languages": {

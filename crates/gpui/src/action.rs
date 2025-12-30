@@ -187,7 +187,7 @@ impl dyn Action {
     }
 }
 
-/// Error type for `Keystroke::parse`. This is used instead of `anyhow::Error` so that Zed can use
+/// Error type for `Keystroke::parse`. This is used instead of `anyhow::Error` so that Vector can use
 /// markdown to display it.
 #[derive(Debug)]
 pub enum ActionBuildError {

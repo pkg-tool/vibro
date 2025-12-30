@@ -8,7 +8,7 @@ use collections::HashMap;
 use fs::{Fs, copy_recursive};
 use futures::{FutureExt, future::Shared};
 use gpui::{
-    App, AppContext as _, AsyncApp, Context, Entity, EntityId, EventEmitter, Task, WeakEntity,
+    App, AppContext as _, Context, Entity, EntityId, EventEmitter, Task, WeakEntity,
 };
 use rpc::{
     AnyProtoClient, ErrorExt, TypedEnvelope,
@@ -40,7 +40,6 @@ enum WorktreeStoreState {
 
 pub struct WorktreeStore {
     next_entry_id: Arc<AtomicUsize>,
-    downstream_client: Option<(AnyProtoClient, u64)>,
     retain_worktrees: bool,
     worktrees: Vec<WorktreeHandle>,
     worktrees_reordered: bool,
@@ -66,19 +65,10 @@ pub enum WorktreeStoreEvent {
 impl EventEmitter<WorktreeStoreEvent> for WorktreeStore {}
 
 impl WorktreeStore {
-    pub fn init(client: &AnyProtoClient) {
-        client.add_entity_request_handler(Self::handle_create_project_entry);
-        client.add_entity_request_handler(Self::handle_copy_project_entry);
-        client.add_entity_request_handler(Self::handle_delete_project_entry);
-        client.add_entity_request_handler(Self::handle_expand_project_entry);
-        client.add_entity_request_handler(Self::handle_expand_all_for_project_entry);
-    }
-
     pub fn local(retain_worktrees: bool, fs: Arc<dyn Fs>) -> Self {
         Self {
             next_entry_id: Default::default(),
             loading_worktrees: Default::default(),
-            downstream_client: None,
             worktrees: Vec::new(),
             worktrees_reordered: false,
             scanning_enabled: true,
@@ -490,7 +480,7 @@ impl WorktreeStore {
                 .ok();
             match result {
                 Ok(worktree) => Ok(worktree),
-                Err(err) => Err((*err).cloned()),
+                Err(err) => Err(anyhow!(err.to_string())),
             }
         })
     }
@@ -622,7 +612,6 @@ impl WorktreeStore {
         }
 
         cx.emit(WorktreeStoreEvent::WorktreeAdded(worktree.clone()));
-        self.send_project_updates(cx);
 
         let handle_id = worktree.entity_id();
         cx.subscribe(worktree, |_, worktree, event, cx| {
@@ -646,7 +635,7 @@ impl WorktreeStore {
             }
         })
         .detach();
-        cx.observe_release(worktree, move |this, worktree, cx| {
+        cx.observe_release(worktree, move |_, worktree, cx| {
             cx.emit(WorktreeStoreEvent::WorktreeReleased(
                 handle_id,
                 worktree.id(),
@@ -655,7 +644,6 @@ impl WorktreeStore {
                 handle_id,
                 worktree.id(),
             ));
-            this.send_project_updates(cx);
         })
         .detach();
     }
@@ -676,7 +664,6 @@ impl WorktreeStore {
                 false
             }
         });
-        self.send_project_updates(cx);
     }
 
     pub fn set_worktrees_reordered(&mut self, worktrees_reordered: bool) {

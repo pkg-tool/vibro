@@ -16,7 +16,7 @@ use collections::HashMap;
 use dap::{
     Capabilities, DapRegistry, DebugRequest, EvaluateArgumentsContext, StackFrameId,
     adapters::{
-        DapDelegate, DebugAdapterBinary, DebugAdapterName, DebugTaskDefinition, TcpArguments,
+        DapDelegate, DebugAdapterBinary, DebugAdapterName, DebugTaskDefinition,
     },
     client::SessionId,
     inline_value::VariableLookupKind,
@@ -28,7 +28,7 @@ use futures::{
     channel::mpsc::{self, UnboundedSender},
     future::{Shared, join_all},
 };
-use gpui::{App, AppContext, AsyncApp, Context, Entity, EventEmitter, SharedString, Task};
+use gpui::{App, AppContext, Context, Entity, EventEmitter, SharedString, Task};
 use http_client::HttpClient;
 use language::{Buffer, LanguageToolchainStore};
 use node_runtime::NodeRuntime;
@@ -45,7 +45,6 @@ use std::{
     borrow::Borrow,
     collections::BTreeMap,
     ffi::OsStr,
-    net::Ipv4Addr,
     path::{Path, PathBuf},
     sync::{Arc, Once},
 };
@@ -63,7 +62,6 @@ pub enum DapStoreEvent {
         message: Message,
     },
     Notification(String),
-    RemoteHasInitialized,
 }
 
 enum DapStoreMode {
@@ -91,7 +89,6 @@ pub struct RemoteDapStore {
 
 pub struct DapStore {
     mode: DapStoreMode,
-    downstream_client: Option<(AnyProtoClient, u64)>,
     breakpoint_store: Entity<BreakpointStore>,
     worktree_store: Entity<WorktreeStore>,
     sessions: BTreeMap<SessionId, Entity<Session>>,
@@ -114,7 +111,7 @@ pub struct PersistedAdapterOptions {
 }
 
 impl DapStore {
-    pub fn init(client: &AnyProtoClient, cx: &mut App) {
+    pub fn init(cx: &mut App) {
         static ADD_LOCATORS: Once = Once::new();
         ADD_LOCATORS.call_once(|| {
             let registry = DapRegistry::global(cx);
@@ -123,12 +120,8 @@ impl DapStore {
             registry.add_locator(Arc::new(locators::node::NodeLocator));
             registry.add_locator(Arc::new(locators::python::PythonLocator));
         });
-        client.add_entity_request_handler(Self::handle_run_debug_locator);
-        client.add_entity_request_handler(Self::handle_get_debug_adapter_binary);
-        client.add_entity_message_handler(Self::handle_log_to_debug_console);
     }
 
-    #[expect(clippy::too_many_arguments)]
     pub fn new_local(
         http_client: Arc<dyn HttpClient>,
         node_runtime: NodeRuntime,
@@ -230,7 +223,6 @@ impl DapStore {
         Self {
             mode,
             next_session_id: 0,
-            downstream_client: None,
             breakpoint_store,
             worktree_store,
             sessions: Default::default(),
@@ -360,10 +352,9 @@ impl DapStore {
                     })
                 })
             }
-            DapStoreMode::Collab => {
-                Task::ready(Err(anyhow!("Debugging is not yet supported via collab")))
-            }
-        }
+
+            Ok(binary)
+        })
     }
 
     pub fn debug_scenario_for_build_task(
@@ -391,32 +382,18 @@ impl DapStore {
         build_command: SpawnInTerminal,
         cx: &mut Context<Self>,
     ) -> Task<Result<DebugRequest>> {
-        match &self.mode {
-            DapStoreMode::Local(_) => {
-                // Pre-resolve args with existing environment.
-                let locators = DapRegistry::global(cx).locators();
-                let locator = locators.get(locator_name);
+        // Pre-resolve args with existing environment.
+        let locators = DapRegistry::global(cx).locators();
+        let locator = locators.get(locator_name);
 
-                if let Some(locator) = locator.cloned() {
-                    cx.background_spawn(async move {
-                        let result = locator
-                            .run(build_command.clone())
-                            .await
-                            .log_with_level(log::Level::Error);
-                        if let Some(result) = result {
-                            return Ok(result);
-                        }
-
-                        anyhow::bail!(
-                            "None of the locators for task `{}` completed successfully",
-                            build_command.label
-                        )
-                    })
-                } else {
-                    Task::ready(Err(anyhow!(
-                        "Couldn't find any locator for task `{}`. Specify the `attach` or `launch` arguments in your debug scenario definition",
-                        build_command.label
-                    )))
+        if let Some(locator) = locator.cloned() {
+            cx.background_spawn(async move {
+                let result = locator
+                    .run(build_command.clone())
+                    .await
+                    .log_with_level(log::Level::Error);
+                if let Some(result) = result {
+                    return Ok(result);
                 }
             }
             DapStoreMode::Remote(remote) => {
@@ -436,10 +413,9 @@ impl DapStore {
         }
     }
 
-    fn as_local(&self) -> Option<&LocalDapStore> {
+    fn local(&self) -> &LocalDapStore {
         match &self.mode {
-            DapStoreMode::Local(local_dap_store) => Some(local_dap_store),
-            _ => None,
+            DapStoreMode::Local(local_dap_store) => local_dap_store,
         }
     }
 
@@ -511,7 +487,6 @@ impl DapStore {
     ) -> Task<Result<()>> {
         let dap_store = cx.weak_entity();
         let console = session.update(cx, |session, cx| session.console_output(cx));
-        let session_id = session.read(cx).session_id();
 
         cx.spawn({
             let session = session.clone();
@@ -567,37 +542,13 @@ impl DapStore {
         &self.worktree_store
     }
 
-    #[allow(dead_code)]
-    async fn handle_ignore_breakpoint_state(
-        this: Entity<Self>,
-        envelope: TypedEnvelope<proto::IgnoreBreakpointState>,
-        mut cx: AsyncApp,
-    ) -> Result<()> {
-        let session_id = SessionId::from_proto(envelope.payload.session_id);
-
-        this.update(&mut cx, |this, cx| {
-            if let Some(session) = this.session_by_id(&session_id) {
-                session.update(cx, |session, cx| {
-                    session.set_ignore_breakpoints(envelope.payload.ignore, cx)
-                })
-            } else {
-                Task::ready(HashMap::default())
-            }
-        })?
-        .await;
-
-        Ok(())
-    }
-
     fn delegate(
         &self,
         worktree: &Entity<Worktree>,
         console: UnboundedSender<String>,
         cx: &mut App,
     ) -> Arc<dyn DapDelegate> {
-        let Some(local_store) = self.as_local() else {
-            unimplemented!("Starting session on remote side");
-        };
+        let local_store = self.local();
 
         Arc::new(DapAdapterDelegate::new(
             local_store.fs.clone(),
@@ -695,7 +646,6 @@ impl DapStore {
                             session.state.request_dap(EvaluateCommand {
                                 expression: inline_value_location.variable_name.clone(),
                                 frame_id: Some(stack_frame_id),
-                                source: None,
                                 context: Some(EvaluateArgumentsContext::Variables),
                             })
                         }) else {

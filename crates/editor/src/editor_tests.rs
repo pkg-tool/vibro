@@ -56,6 +56,7 @@ use settings::{
 use std::{cell::RefCell, future::Future, rc::Rc, sync::atomic::AtomicBool, time::Instant};
 use std::{
     iter,
+    path::Path,
     sync::atomic::{self, AtomicUsize},
 };
 use test::build_editor_with_project;
@@ -12190,7 +12191,7 @@ async fn test_multibuffer_format_during_save(cx: &mut TestAppContext) {
         .on_request::<lsp::request::Formatting, _, _>(move |params, _| async move {
             Ok(Some(vec![lsp::TextEdit::new(
                 lsp::Range::new(lsp::Position::new(0, 3), lsp::Position::new(1, 0)),
-                format!("[{} formatted]", params.text_document.uri),
+                format!("[{} formatted]", params.text_document.uri.as_str()),
             )]))
         })
         .detach();
@@ -16792,7 +16793,7 @@ async fn test_toggle_block_comment(cx: &mut TestAppContext) {
     cx.update_editor(|editor, window, cx| {
         editor.toggle_comments(&ToggleComments::default(), window, cx)
     });
-    // TODO this is how it actually worked in Zed Stable, which is not very ergonomic.
+    // TODO this is how it actually worked in Vector Stable, which is not very ergonomic.
     // Uncommenting and commenting from this position brings in even more wrong artifacts.
     cx.assert_editor_state(
         &r#"
@@ -18990,21 +18991,6 @@ async fn test_completions_default_resolve_data_handling(cx: &mut TestAppContext)
         }))
         .collect::<Vec<_>>();
 
-    let default_commit_characters = vec!["?".to_string()];
-    let default_data = json!({ "default": "data"});
-    let default_insert_text_format = lsp::InsertTextFormat::SNIPPET;
-    let default_insert_text_mode = lsp::InsertTextMode::AS_IS;
-    let default_edit_range = lsp::Range {
-        start: lsp::Position {
-            line: 0,
-            character: 5,
-        },
-        end: lsp::Position {
-            line: 0,
-            character: 5,
-        },
-    };
-
     let mut cx = EditorLspTestContext::new_rust(
         lsp::ServerCapabilities {
             completion_provider: Some(lsp::CompletionOptions {
@@ -19021,25 +19007,12 @@ async fn test_completions_default_resolve_data_handling(cx: &mut TestAppContext)
     cx.set_state("fn main() { let a = 2ˇ; }");
     cx.simulate_keystroke(".");
 
-    let completion_data = default_data.clone();
-    let completion_characters = default_commit_characters.clone();
     let completion_items = items.clone();
     cx.set_request_handler::<lsp::request::Completion, _, _>(move |_, _, _| {
-        let default_data = completion_data.clone();
-        let default_commit_characters = completion_characters.clone();
         let items = completion_items.clone();
         async move {
             Ok(Some(lsp::CompletionResponse::List(lsp::CompletionList {
                 items,
-                item_defaults: Some(lsp::CompletionListItemDefaults {
-                    data: Some(default_data.clone()),
-                    commit_characters: Some(default_commit_characters.clone()),
-                    edit_range: Some(lsp::CompletionListItemDefaultsEditRange::Range(
-                        default_edit_range,
-                    )),
-                    insert_text_format: Some(default_insert_text_format),
-                    insert_text_mode: Some(default_insert_text_mode),
-                }),
                 ..lsp::CompletionList::default()
             })))
         }
@@ -19093,14 +19066,8 @@ async fn test_completions_default_resolve_data_handling(cx: &mut TestAppContext)
             .concat()
             .iter()
             .cloned()
-            .map(|mut item| {
-                if item.data.is_none() {
-                    item.data = Some(default_data.clone());
-                }
-                item
-            })
             .collect::<Vec<lsp::CompletionItem>>(),
-        "Items sent for resolve should be unchanged modulo resolve `data` filled with default if missing"
+        "Items sent for resolve should be unchanged"
     );
     resolved_items.lock().clear();
 
@@ -19114,12 +19081,6 @@ async fn test_completions_default_resolve_data_handling(cx: &mut TestAppContext)
         items[items.len() - 17..items.len() - 4]
             .iter()
             .cloned()
-            .map(|mut item| {
-                if item.data.is_none() {
-                    item.data = Some(default_data.clone());
-                }
-                item
-            })
             .collect::<Vec<lsp::CompletionItem>>()
     );
     resolved_items.lock().clear();
@@ -19769,7 +19730,7 @@ struct Row10;"#};
         &mut cx,
     );
 
-    // Deletion hunks are ephemeral, so it's impossible to place the caret into them — Zed triggers reverts for lines, adjacent to carets and selections.
+    // Deletion hunks are ephemeral, so it's impossible to place the caret into them — Vector triggers reverts for lines, adjacent to carets and selections.
     assert_hunk_revert(
         indoc! {r#"struct Row;
                    ˇstruct Row2;

@@ -2,7 +2,6 @@ mod project_panel_settings;
 mod utils;
 
 use anyhow::{Context as _, Result};
-use client::{ErrorCode, ErrorExt};
 use collections::{BTreeSet, HashMap, hash_map};
 use command_palette_hooks::CommandPaletteFilter;
 use db::kvp::KEY_VALUE_STORE;
@@ -1136,10 +1135,10 @@ impl ProjectPanel {
                                 Box::new(Paste),
                             )
                             .separator()
-                            .action("Copy Path", Box::new(zed_actions::workspace::CopyPath))
+                            .action("Copy Path", Box::new(vector_actions::workspace::CopyPath))
                             .action(
                                 "Copy Relative Path",
-                                Box::new(zed_actions::workspace::CopyRelativePath),
+                                Box::new(vector_actions::workspace::CopyRelativePath),
                             )
                             .when(!is_dir && self.has_git_changes(entry_id), |menu| {
                                 menu.separator().action(
@@ -2999,7 +2998,7 @@ impl ProjectPanel {
 
     fn copy_path(
         &mut self,
-        _: &zed_actions::workspace::CopyPath,
+        _: &vector_actions::workspace::CopyPath,
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -3027,7 +3026,7 @@ impl ProjectPanel {
 
     fn copy_relative_path(
         &mut self,
-        _: &zed_actions::workspace::CopyRelativePath,
+        _: &vector_actions::workspace::CopyRelativePath,
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -3795,9 +3794,8 @@ impl ProjectPanel {
 
         let open_file_after_drop = paths.len() == 1 && paths[0].is_file();
 
-        let Some((target_directory, worktree, fs)) = maybe!({
+        let Some((target_directory, worktree)) = maybe!({
             let project = self.project.read(cx);
-            let fs = project.fs().clone();
             let worktree = project.worktree_for_entry(entry_id, cx)?;
             let entry = worktree.read(cx).entry_for_id(entry_id)?;
             let path = entry.path.clone();
@@ -3806,7 +3804,7 @@ impl ProjectPanel {
             } else {
                 path.parent()?.into()
             };
-            Some((target_directory, worktree, fs))
+            Some((target_directory, worktree))
         }) else {
             return;
         };

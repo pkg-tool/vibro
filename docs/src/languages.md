@@ -1,9 +1,9 @@
-# Language Support in Zed
+# Language Support in Vector
 
-Zed supports hundreds of programming languages and text formats.
+Vector supports hundreds of programming languages and text formats.
 Some work out-of-the box and others rely on 3rd party extensions.
 
-> The ones included out-of-the-box, natively built into Zed, are marked with \*.
+> The ones included out-of-the-box, natively built into Vector, are marked with \*.
 
 ## Languages with Documentation
 
@@ -57,7 +57,7 @@ Some work out-of-the box and others rely on 3rd party extensions.
 - [Racket](./languages/racket.md)
 - [Roc](./languages/roc.md)
 - [Ruby](./languages/ruby.md)
-- [Rust](./languages/rust.md) \* (Zed's written in Rust)
+- [Rust](./languages/rust.md) \* (Vector's written in Rust)
 - [Scala](./languages/scala.md)
 - [Scheme](./languages/scheme.md)
 - [Shell Script](./languages/sh.md)
@@ -75,7 +75,7 @@ Some work out-of-the box and others rely on 3rd party extensions.
 - [Yarn](./languages/yarn.md)
 - [Zig](./languages/zig.md)
 
-## Additional Community Language Extensions
+## Community Language Extensions
 
 - [Ada](https://github.com/wisn/zed-ada-language)
 - [Aiken](https://github.com/aiken-lang/zed-aiken)

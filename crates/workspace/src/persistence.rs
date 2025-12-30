@@ -1188,6 +1188,8 @@ impl WorkspaceDb {
                         }
                     }
                 }
+                let SerializedWorkspaceLocation::Local(local_paths, local_paths_order) =
+                    workspace.location;
 
                 conn.exec_bound(
                     sql!(
@@ -1606,7 +1608,7 @@ impl WorkspaceDb {
     }
 
     // Returns the locations of the workspaces that were still opened when the last
-    // session was closed (i.e. when Zed was quit).
+    // session was closed (i.e. when Vector was quit).
     // If `last_session_window_order` is provided, the returned locations are ordered
     // according to that.
     pub fn last_session_workspace_locations(
@@ -2818,7 +2820,6 @@ mod tests {
         db.save_workspace(workspace_3.clone()).await;
         thread::sleep(Duration::from_millis(1000)); // Force timestamps to increment
         db.save_workspace(workspace_4.clone()).await;
-        db.save_workspace(workspace_5.clone()).await;
         db.save_workspace(workspace_6.clone()).await;
 
         let locations = db.session_workspaces("session-id-1".to_owned()).unwrap();

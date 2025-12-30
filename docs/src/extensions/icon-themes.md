@@ -1,10 +1,10 @@
 # Icon Themes
 
-Extensions may provide icon themes in order to change the icons Zed uses for folders and files.
+Extensions may provide icon themes in order to change the icons Vector uses for folders and files.
 
 ## Example extension
 
-The [Material Icon Theme](https://github.com/zed-extensions/material-icon-theme) serves as an example for the structure of an extension containing an icon theme.
+The [Material Icon Theme](https://github.com/vector-extensions/material-icon-theme) serves as an example for the structure of an extension containing an icon theme.
 
 ## Directory structure
 

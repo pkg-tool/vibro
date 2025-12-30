@@ -4,10 +4,11 @@ use crate::{
     *,
 };
 use dap::{
-    ErrorResponse, Message, RunInTerminalRequestArguments, SourceBreakpoint,
+    RunInTerminalRequestArguments, SourceBreakpoint,
     StartDebuggingRequestArguments, StartDebuggingRequestArgumentsRequest,
     adapters::DebugTaskDefinition,
     client::SessionId,
+    protocol::{ErrorResponse, MessageDetails},
     requests::{
         Continue, Disconnect, Launch, Next, RunInTerminal, SetBreakpoints, StackTrace,
         StartDebugging, StepBack, StepIn, StepOut, Threads,
@@ -94,7 +95,7 @@ async fn test_basic_show_debug_panel(executor: BackgroundExecutor, cx: &mut Test
         .unwrap();
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -102,7 +103,7 @@ async fn test_basic_show_debug_panel(executor: BackgroundExecutor, cx: &mut Test
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -212,7 +213,7 @@ async fn test_we_can_only_have_one_panel_per_debug_session(
         .unwrap();
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -220,7 +221,7 @@ async fn test_we_can_only_have_one_panel_per_debug_session(
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -246,7 +247,7 @@ async fn test_we_can_only_have_one_panel_per_debug_session(
         .unwrap();
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(2),
@@ -254,7 +255,7 @@ async fn test_we_can_only_have_one_panel_per_debug_session(
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -641,7 +642,7 @@ async fn test_handle_start_debugging_reverse_request(
     child_client.on_request::<Disconnect, _>(move |_, _| Ok(()));
 
     child_client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(2),
@@ -649,7 +650,7 @@ async fn test_handle_start_debugging_reverse_request(
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -940,76 +941,61 @@ async fn test_debug_panel_item_thread_status_reset_on_failure(
 
     client.on_request::<Next, _>(move |_, _| {
         Err(ErrorResponse {
-            error: Some(dap::Message {
-                id: 1,
+            error: Some(MessageDetails {
+                id: Some(1),
                 format: "error".into(),
                 variables: None,
-                send_telemetry: None,
                 show_user: None,
-                url: None,
-                url_label: None,
             }),
         })
     });
 
     client.on_request::<StepOut, _>(move |_, _| {
         Err(ErrorResponse {
-            error: Some(dap::Message {
-                id: 1,
+            error: Some(MessageDetails {
+                id: Some(1),
                 format: "error".into(),
                 variables: None,
-                send_telemetry: None,
                 show_user: None,
-                url: None,
-                url_label: None,
             }),
         })
     });
 
     client.on_request::<StepIn, _>(move |_, _| {
         Err(ErrorResponse {
-            error: Some(dap::Message {
-                id: 1,
+            error: Some(MessageDetails {
+                id: Some(1),
                 format: "error".into(),
                 variables: None,
-                send_telemetry: None,
                 show_user: None,
-                url: None,
-                url_label: None,
             }),
         })
     });
 
     client.on_request::<StepBack, _>(move |_, _| {
         Err(ErrorResponse {
-            error: Some(dap::Message {
-                id: 1,
+            error: Some(MessageDetails {
+                id: Some(1),
                 format: "error".into(),
                 variables: None,
-                send_telemetry: None,
                 show_user: None,
-                url: None,
-                url_label: None,
             }),
         })
     });
 
     client.on_request::<Continue, _>(move |_, _| {
         Err(ErrorResponse {
-            error: Some(dap::Message {
-                id: 1,
+            error: Some(MessageDetails {
+                id: Some(1),
                 format: "error".into(),
                 variables: None,
-                send_telemetry: None,
                 show_user: None,
-                url: None,
-                url_label: None,
             }),
         })
     });
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -1017,7 +1003,7 @@ async fn test_debug_panel_item_thread_status_reset_on_failure(
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -1139,7 +1125,7 @@ async fn test_send_breakpoints_when_editor_has_been_saved(
     });
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -1147,7 +1133,7 @@ async fn test_send_breakpoints_when_editor_has_been_saved(
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     let called_set_breakpoints = Arc::new(AtomicBool::new(false));
@@ -1156,15 +1142,15 @@ async fn test_send_breakpoints_when_editor_has_been_saved(
         move |_, args| {
             assert_eq!(path!("/project/main.rs"), args.source.path.unwrap());
             assert_eq!(
-                vec![SourceBreakpoint {
+                json!(vec![SourceBreakpoint {
                     line: 2,
                     column: None,
                     condition: None,
                     hit_condition: None,
                     log_message: None,
                     mode: None
-                }],
-                args.breakpoints.unwrap()
+                }]),
+                json!(args.breakpoints.unwrap())
             );
             assert!(!args.source_modified.unwrap());
 
@@ -1194,15 +1180,15 @@ async fn test_send_breakpoints_when_editor_has_been_saved(
         move |_, args| {
             assert_eq!(path!("/project/main.rs"), args.source.path.unwrap());
             assert_eq!(
-                vec![SourceBreakpoint {
+                json!(vec![SourceBreakpoint {
                     line: 3,
                     column: None,
                     condition: None,
                     hit_condition: None,
                     log_message: None,
                     mode: None
-                }],
-                args.breakpoints.unwrap()
+                }]),
+                json!(args.breakpoints.unwrap())
             );
             assert!(args.source_modified.unwrap());
 
@@ -1384,14 +1370,11 @@ async fn test_debug_session_is_shutdown_when_attach_and_launch_request_fails(
     start_debug_session(&workspace, cx, |client| {
         client.on_request::<dap::requests::Initialize, _>(|_, _| {
             Err(ErrorResponse {
-                error: Some(Message {
-                    format: "failed to launch".to_string(),
-                    id: 1,
+                error: Some(MessageDetails {
+                    id: Some(1),
+                    format: "failed to launch".into(),
                     variables: None,
-                    send_telemetry: None,
                     show_user: None,
-                    url: None,
-                    url_label: None,
                 }),
             })
         });
@@ -1580,7 +1563,7 @@ async fn test_active_debug_line_setting(executor: BackgroundExecutor, cx: &mut T
     });
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Breakpoint,
             description: None,
             thread_id: Some(1),
@@ -1588,7 +1571,7 @@ async fn test_active_debug_line_setting(executor: BackgroundExecutor, cx: &mut T
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -1655,7 +1638,7 @@ async fn test_active_debug_line_setting(executor: BackgroundExecutor, cx: &mut T
     });
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Breakpoint,
             description: None,
             thread_id: Some(1),
@@ -1663,7 +1646,7 @@ async fn test_active_debug_line_setting(executor: BackgroundExecutor, cx: &mut T
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -1700,10 +1683,10 @@ async fn test_active_debug_line_setting(executor: BackgroundExecutor, cx: &mut T
     );
 
     client
-        .fake_event(dap::messages::Events::Continued(dap::ContinuedEvent {
+        .fake_event("continued", dap::ContinuedEvent {
             thread_id: 0,
             all_threads_continued: Some(true),
-        }))
+        })
         .await;
 
     cx.run_until_parked();

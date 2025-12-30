@@ -86,7 +86,6 @@ pub fn cancel_flycheck(
     buffer_path: Option<ProjectPath>,
     cx: &mut App,
 ) -> Task<anyhow::Result<()>> {
-    let upstream_client = project.read(cx).lsp_store().read(cx).upstream_client();
     let lsp_store = project.read(cx).lsp_store();
     let buffer = buffer_path.map(|buffer_path| {
         project.update(cx, |project, cx| {
@@ -135,7 +134,6 @@ pub fn run_flycheck(
     buffer_path: Option<ProjectPath>,
     cx: &mut App,
 ) -> Task<anyhow::Result<()>> {
-    let upstream_client = project.read(cx).lsp_store().read(cx).upstream_client();
     let lsp_store = project.read(cx).lsp_store();
     let buffer = buffer_path.map(|buffer_path| {
         project.update(cx, |project, cx| {
@@ -193,7 +191,6 @@ pub fn clear_flycheck(
     buffer_path: Option<ProjectPath>,
     cx: &mut App,
 ) -> Task<anyhow::Result<()>> {
-    let upstream_client = project.read(cx).lsp_store().read(cx).upstream_client();
     let lsp_store = project.read(cx).lsp_store();
     let buffer = buffer_path.map(|buffer_path| {
         project.update(cx, |project, cx| {

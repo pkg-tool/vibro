@@ -1,6 +1,5 @@
 mod capability_granter;
 pub mod extension_settings;
-pub mod headless_host;
 pub mod wasm_host;
 
 #[cfg(test)]
@@ -13,6 +12,7 @@ use client::ExtensionProvides;
 use client::{Client, ExtensionMetadata, GetExtensionsResponse, proto, telemetry::Telemetry};
 use collections::{BTreeMap, BTreeSet, HashSet, btree_map};
 pub use extension::ExtensionManifest;
+use extension::api::{ExtensionApiManifest, ExtensionMetadata, ExtensionProvides};
 use extension::extension_builder::{CompileExtensionOptions, ExtensionBuilder};
 use extension::{
     ExtensionContextServerProxy, ExtensionDebugAdapterProviderProxy, ExtensionEvents,
@@ -23,19 +23,17 @@ use extension::{
 use fs::{Fs, RemoveOptions};
 use futures::future::join_all;
 use futures::{
-    AsyncReadExt as _, Future, FutureExt as _, StreamExt as _,
+    Future, FutureExt as _, StreamExt as _,
     channel::{
         mpsc::{UnboundedSender, unbounded},
         oneshot,
     },
-    io::BufReader,
     select_biased,
 };
 use gpui::{
-    App, AppContext as _, AsyncApp, Context, Entity, EventEmitter, Global, Task, WeakEntity,
-    actions,
+    App, AppContext as _, Context, Entity, EventEmitter, Global, Task, actions,
 };
-use http_client::{AsyncBody, HttpClient, HttpClientWithUrl};
+use http_client::{HttpClient, HttpClientWithUrl};
 use language::{
     LanguageConfig, LanguageMatcher, LanguageName, LanguageQueries, LoadedLanguage,
     QUERY_FILENAME_PREFIXES, Rope,
@@ -59,7 +57,7 @@ use url::Url;
 use util::{ResultExt, paths::RemotePathBuf};
 use wasm_host::{
     WasmExtension, WasmHost,
-    wit::{is_supported_wasm_api_version, wasm_api_version_range},
+    wit::is_supported_wasm_api_version,
 };
 
 pub use extension::{
@@ -70,7 +68,7 @@ pub use extension_settings::ExtensionSettings;
 pub const RELOAD_DEBOUNCE_DURATION: Duration = Duration::from_millis(200);
 const FS_WATCH_LATENCY: Duration = Duration::from_millis(100);
 
-/// The current extension [`SchemaVersion`] supported by Zed.
+/// The current extension [`SchemaVersion`] supported by Vector.
 const CURRENT_SCHEMA_VERSION: SchemaVersion = SchemaVersion(1);
 
 /// Extensions that should no longer be loaded or downloaded.
@@ -84,7 +82,7 @@ pub fn schema_version_range() -> RangeInclusive<SchemaVersion> {
     SchemaVersion::ZERO..=CURRENT_SCHEMA_VERSION
 }
 
-/// Returns whether the given extension version is compatible with this version of Zed.
+/// Returns whether the given extension version is compatible with this version of Vector.
 pub fn is_version_compatible(
     release_channel: ReleaseChannel,
     extension_version: &ExtensionMetadata,
@@ -113,7 +111,6 @@ pub struct ExtensionStore {
     pub extension_index: ExtensionIndex,
     pub fs: Arc<dyn Fs>,
     pub http_client: Arc<HttpClientWithUrl>,
-    pub telemetry: Option<Arc<Telemetry>>,
     pub reload_tx: UnboundedSender<Option<Arc<str>>>,
     pub reload_complete_senders: Vec<oneshot::Sender<()>>,
     pub installed_dir: PathBuf,
@@ -196,7 +193,7 @@ actions!(
 pub fn init(
     extension_host_proxy: Arc<ExtensionHostProxy>,
     fs: Arc<dyn Fs>,
-    client: Arc<Client>,
+    http_client: Arc<HttpClientWithUrl>,
     node_runtime: NodeRuntime,
     cx: &mut App,
 ) {
@@ -239,7 +236,6 @@ impl ExtensionStore {
         fs: Arc<dyn Fs>,
         http_client: Arc<HttpClientWithUrl>,
         builder_client: Arc<dyn HttpClient>,
-        telemetry: Option<Arc<Telemetry>>,
         node_runtime: NodeRuntime,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -249,7 +245,6 @@ impl ExtensionStore {
         let index_path = extensions_dir.join("index.json");
 
         let (reload_tx, mut reload_rx) = unbounded();
-        let (connection_registered_tx, mut connection_registered_rx) = unbounded();
         let mut this = Self {
             proxy: extension_host_proxy.clone(),
             extension_index: Default::default(),
@@ -270,7 +265,6 @@ impl ExtensionStore {
             wasm_extensions: Vec::new(),
             fs,
             http_client,
-            telemetry,
             reload_tx,
             tasks: Vec::new(),
 
@@ -317,13 +311,11 @@ impl ExtensionStore {
             reload_future = Some(this.reload(None, cx));
         }
 
-        cx.spawn(async move |this, cx| {
+        cx.spawn(async move |_, _| {
             if let Some(future) = reload_future {
                 future.await;
             }
-            this.update(cx, |this, cx| this.auto_install_extensions(cx))
-                .ok();
-            this.update(cx, |this, cx| this.check_for_updates(cx)).ok();
+            // Vector fork: remote extension marketplace/downloads are disabled.
         })
         .detach();
 
@@ -509,36 +501,13 @@ impl ExtensionStore {
         &self,
         search: Option<&str>,
         provides_filter: Option<&BTreeSet<ExtensionProvides>>,
-        cx: &mut Context<Self>,
     ) -> Task<Result<Vec<ExtensionMetadata>>> {
-        let version = CURRENT_SCHEMA_VERSION.to_string();
-        let mut query = vec![("max_schema_version", version.as_str())];
-        if let Some(search) = search {
-            query.push(("filter", search));
-        }
+        let search = search
+            .map(str::trim)
+            .filter(|search| !search.is_empty())
+            .map(|search| search.to_lowercase());
 
-        let provides_filter = provides_filter.map(|provides_filter| {
-            provides_filter
-                .iter()
-                .map(|provides| provides.to_string())
-                .collect::<Vec<_>>()
-                .join(",")
-        });
-        if let Some(provides_filter) = provides_filter.as_deref() {
-            query.push(("provides", provides_filter));
-        }
-
-        self.fetch_extensions_from_api("/extensions", &query, cx)
-    }
-
-    pub fn fetch_extensions_with_update_available(
-        &mut self,
-        cx: &mut Context<Self>,
-    ) -> Task<Result<Vec<ExtensionMetadata>>> {
-        let schema_versions = schema_version_range();
-        let wasm_api_versions = wasm_api_version_range(ReleaseChannel::global(cx));
-        let extension_settings = ExtensionSettings::get_global(cx);
-        let extension_ids = self
+        let mut extensions = self
             .extension_index
             .extensions
             .iter()
@@ -730,11 +699,14 @@ impl ExtensionStore {
                     cx.notify();
                 }
             });
+        }
 
-            let mut response = http_client
-                .get(url.as_ref(), Default::default(), true)
-                .await
-                .context("downloading extension")?;
+        if let Some(search) = search.as_deref() {
+            extensions.retain(|extension| {
+                extension.id.to_lowercase().contains(search)
+                    || extension.manifest.name.to_lowercase().contains(search)
+            });
+        }
 
             fs.remove_dir(
                 &extension_dir,
@@ -787,69 +759,57 @@ impl ExtensionStore {
         })
     }
 
-    pub fn install_latest_extension(&mut self, extension_id: Arc<str>, cx: &mut Context<Self>) {
-        log::info!("installing extension {extension_id} latest version");
+    fn extension_metadata_from_manifest(manifest: &ExtensionManifest) -> ExtensionMetadata {
+        let mut provides = BTreeSet::new();
+        if !manifest.themes.is_empty() {
+            provides.insert(ExtensionProvides::Themes);
+        }
+        if !manifest.icon_themes.is_empty() {
+            provides.insert(ExtensionProvides::IconThemes);
+        }
+        if !manifest.languages.is_empty() {
+            provides.insert(ExtensionProvides::Languages);
+        }
+        if !manifest.grammars.is_empty() {
+            provides.insert(ExtensionProvides::Grammars);
+        }
+        if !manifest.language_servers.is_empty() {
+            provides.insert(ExtensionProvides::LanguageServers);
+        }
+        if !manifest.context_servers.is_empty() {
+            provides.insert(ExtensionProvides::ContextServers);
+        }
+        if !manifest.slash_commands.is_empty() {
+            provides.insert(ExtensionProvides::SlashCommands);
+        }
+        if !manifest.indexed_docs_providers.is_empty() {
+            provides.insert(ExtensionProvides::IndexedDocsProviders);
+        }
+        if manifest.snippets.is_some() {
+            provides.insert(ExtensionProvides::Snippets);
+        }
 
-        let schema_versions = schema_version_range();
-        let wasm_api_versions = wasm_api_version_range(ReleaseChannel::global(cx));
+        let wasm_api_version = manifest
+            .lib
+            .version
+            .as_ref()
+            .map(ToString::to_string);
 
-        let Some(url) = self
-            .http_client
-            .build_zed_api_url(
-                &format!("/extensions/{extension_id}/download"),
-                &[
-                    ("min_schema_version", &schema_versions.start().to_string()),
-                    ("max_schema_version", &schema_versions.end().to_string()),
-                    (
-                        "min_wasm_api_version",
-                        &wasm_api_versions.start().to_string(),
-                    ),
-                    ("max_wasm_api_version", &wasm_api_versions.end().to_string()),
-                ],
-            )
-            .log_err()
-        else {
-            return;
-        };
-
-        self.install_or_upgrade_extension_at_endpoint(
-            extension_id,
-            url,
-            ExtensionOperation::Install,
-            cx,
-        )
-        .detach_and_log_err(cx);
-    }
-
-    pub fn upgrade_extension(
-        &mut self,
-        extension_id: Arc<str>,
-        version: Arc<str>,
-        cx: &mut Context<Self>,
-    ) -> Task<Result<()>> {
-        self.install_or_upgrade_extension(extension_id, version, ExtensionOperation::Upgrade, cx)
-    }
-
-    fn install_or_upgrade_extension(
-        &mut self,
-        extension_id: Arc<str>,
-        version: Arc<str>,
-        operation: ExtensionOperation,
-        cx: &mut Context<Self>,
-    ) -> Task<Result<()>> {
-        log::info!("installing extension {extension_id} {version}");
-        let Some(url) = self
-            .http_client
-            .build_zed_api_url(
-                &format!("/extensions/{extension_id}/{version}/download"),
-                &[],
-            )
-            .log_err()
-        else {
-            return Task::ready(Ok(()));
-        };
-
-        self.install_or_upgrade_extension_at_endpoint(extension_id, url, operation, cx)
+        ExtensionMetadata {
+            id: manifest.id.clone(),
+            manifest: ExtensionApiManifest {
+                name: manifest.name.clone(),
+                version: manifest.version.clone(),
+                description: manifest.description.clone(),
+                authors: manifest.authors.clone(),
+                repository: manifest.repository.clone().unwrap_or_default(),
+                schema_version: Some(manifest.schema_version.0),
+                wasm_api_version,
+                provides,
+            },
+            published_at: std::time::SystemTime::UNIX_EPOCH.into(),
+            download_count: 0,
+        }
     }
 
     pub fn uninstall_extension(
@@ -1653,6 +1613,7 @@ impl ExtensionStore {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn prepare_remote_extension(
         &mut self,
         extension_id: Arc<str>,

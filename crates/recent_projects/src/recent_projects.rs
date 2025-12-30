@@ -891,7 +891,7 @@ mod tests {
     use gpui::{TestAppContext, UpdateGlobal, WindowHandle};
 
     use serde_json::json;
-    use settings::SettingsStore;
+    use settings::{Settings as _, SettingsStore};
     use util::path;
     use workspace::{AppState, open_paths};
 

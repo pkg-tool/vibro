@@ -1,8 +1,8 @@
-# Zed Docs
+# Vector Docs
 
-Welcome to Zed's documentation.
+Welcome to Vector's documentation.
 
-This is built on push to `main` and published automatically to [https://zed.dev/docs](https://zed.dev/docs).
+This is built on push to `main` and published automatically to [https://vector.dev/docs](https://vector.dev/docs).
 
 To preview the docs locally you will need to install [mdBook](https://rust-lang.github.io/mdBook/) (`cargo install mdbook@0.4.40`) and then run:
 
@@ -26,7 +26,7 @@ If for some reason you need to bypass the docs preprocessor, you can comment out
 
 ## Images and videos
 
-To add images or videos to the docs, upload them to another location (e.g., zed.dev, GitHub's asset storage) and then link out to them from the docs.
+To add images or videos to the docs, upload them to another location (e.g., vector.dev, GitHub's asset storage) and then link out to them from the docs.
 
 Putting binary assets such as images in the Git repository will bloat the repository size over time.
 
@@ -47,7 +47,7 @@ When referencing keybindings or actions, use the following formats:
 
 ### Keybindings
 
-`{#kb scope::Action}` - e.g., `{#kb zed::OpenSettings}`.
+`{#kb scope::Action}` - e.g., `{#kb vector::OpenSettings}`.
 
 This will output a code element like: `<code>Cmd + , | Ctrl + ,</code>`. We then use a client-side plugin to show the actual keybinding based on the user's platform.
 
@@ -55,9 +55,9 @@ By using the action name, we can ensure that the keybinding is always up-to-date
 
 ### Actions
 
-`{#action scope::Action}` - e.g., `{#action zed::OpenSettings}`.
+`{#action scope::Action}` - e.g., `{#action vector::OpenSettings}`.
 
-This will render a human-readable version of the action name, e.g., "zed: open settings", and will allow us to implement things like additional context on hover, etc.
+This will render a human-readable version of the action name, e.g., "vector: open settings", and will allow us to implement things like additional context on hover, etc.
 
 ### Creating New Templates
 

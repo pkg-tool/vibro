@@ -3,7 +3,6 @@ use std::future::Future;
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context as _, Result};
-use client::proto::ViewId;
 use collections::HashMap;
 use feature_flags::{FeatureFlagAppExt as _, NotebookFeatureFlag};
 use futures::FutureExt;
@@ -64,7 +63,7 @@ pub fn init(cx: &mut App) {
                 workspace::register_project_item::<NotebookEditor>(cx);
             } else {
                 // todo: there is no way to unregister a project item, so if the feature flag
-                // gets turned off they need to restart Zed.
+                // gets turned off they need to restart Vector.
             }
         }
     })
@@ -77,8 +76,6 @@ pub struct NotebookEditor {
 
     focus_handle: FocusHandle,
     notebook_item: Entity<NotebookItem>,
-
-    remote_id: Option<ViewId>,
     cell_list: ListState,
 
     selected_cell_index: usize,
@@ -133,7 +130,6 @@ impl NotebookEditor {
             languages: languages.clone(),
             focus_handle,
             notebook_item,
-            remote_id: None,
             cell_list,
             selected_cell_index: 0,
             cell_order: cell_order.clone(),

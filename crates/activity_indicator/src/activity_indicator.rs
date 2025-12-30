@@ -680,7 +680,7 @@ impl ActivityIndicator {
                             .with_rotate_animation(3)
                             .into_any_element(),
                     ),
-                    message: "Checking for Zed updates…".to_string(),
+                    message: "Checking for Vector updates…".to_string(),
                     on_click: Some(Arc::new(|this, window, cx| {
                         this.dismiss_message(&DismissMessage, window, cx)
                     })),
@@ -692,7 +692,7 @@ impl ActivityIndicator {
                             .size(IconSize::Small)
                             .into_any_element(),
                     ),
-                    message: "Downloading Zed update…".to_string(),
+                    message: "Downloading Vector update…".to_string(),
                     on_click: Some(Arc::new(|this, window, cx| {
                         this.dismiss_message(&DismissMessage, window, cx)
                     })),
@@ -705,7 +705,7 @@ impl ActivityIndicator {
                             .with_rotate_animation(3)
                             .into_any_element(),
                     ),
-                    message: "Installing Zed update…".to_string(),
+                    message: "Installing Vector update…".to_string(),
                     on_click: Some(Arc::new(|this, window, cx| {
                         this.dismiss_message(&DismissMessage, window, cx)
                     })),

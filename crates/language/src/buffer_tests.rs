@@ -14,20 +14,18 @@ use settings::SettingsStore;
 use settings::{AllLanguageSettingsContent, LanguageSettingsContent};
 use std::collections::BTreeSet;
 use std::{
-    env,
     ops::Range,
     sync::LazyLock,
-    time::{Duration, Instant},
+    time::Duration,
 };
 use syntax_map::TreeSitterOptions;
-use text::network::Network;
-use text::{BufferId, LineEnding};
+use text::LineEnding;
 use text::{Point, ToPoint};
 use theme::ActiveTheme;
 use unindent::Unindent as _;
 use util::rel_path::rel_path;
 use util::test::marked_text_offsets;
-use util::{RandomCharIter, assert_set_eq, post_inc, test::marked_text_ranges};
+use util::{assert_set_eq, test::marked_text_ranges};
 
 pub static TRAILING_WHITESPACE_REGEX: LazyLock<regex::Regex> = LazyLock::new(|| {
     RegexBuilder::new(r"[ \t]+$")
@@ -216,19 +214,19 @@ fn test_select_language(cx: &mut App) {
     // matching suffix that is not the full file extension or filename
     assert_eq!(
         registry
-            .language_for_file(&file("zed/cars"), None, cx)
+            .language_for_file(&file("vector/cars"), None, cx)
             .map(|l| l.name()),
         None
     );
     assert_eq!(
         registry
-            .language_for_file(&file("zed/a.cars"), None, cx)
+            .language_for_file(&file("vector/a.cars"), None, cx)
             .map(|l| l.name()),
         None
     );
     assert_eq!(
         registry
-            .language_for_file(&file("zed/sumk"), None, cx)
+            .language_for_file(&file("vector/sumk"), None, cx)
             .map(|l| l.name()),
         None
     );
@@ -393,6 +391,7 @@ fn file(path: &str) -> Arc<dyn File> {
     })
 }
 
+#[cfg(feature = "remote")]
 #[gpui::test]
 fn test_edit_events(cx: &mut gpui::App) {
     let mut now = Instant::now();
@@ -2895,6 +2894,7 @@ fn test_language_at_for_markdown_code_block(cx: &mut App) {
     });
 }
 
+#[cfg(feature = "remote")]
 #[gpui::test]
 fn test_syntax_layer_at_for_injected_languages(cx: &mut App) {
     init_settings(cx, |_| {});
@@ -2979,6 +2979,7 @@ fn test_serialization(cx: &mut gpui::App) {
     assert_eq!(buffer2.read(cx).text(), "abcDF");
 }
 
+#[cfg(feature = "remote")]
 #[gpui::test]
 fn test_branch_and_merge(cx: &mut TestAppContext) {
     cx.update(|cx| init_settings(cx, |_| {}));
@@ -3277,6 +3278,7 @@ async fn test_preview_edits(cx: &mut TestAppContext) {
     }
 }
 
+#[cfg(feature = "remote")]
 #[gpui::test(iterations = 100)]
 fn test_random_collaboration(cx: &mut App, mut rng: StdRng) {
     let min_peers = env::var("MIN_PEERS")

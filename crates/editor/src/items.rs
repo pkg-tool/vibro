@@ -10,11 +10,10 @@ use crate::{
 use anyhow::{Context as _, Result, anyhow};
 use collections::{HashMap, HashSet};
 use file_icons::FileIcons;
-use futures::future::try_join_all;
 use git::status::GitSummary;
 use gpui::{
-    AnyElement, App, AsyncWindowContext, Context, Entity, EntityId, EventEmitter, IntoElement,
-    ParentElement, Pixels, SharedString, Styled, Task, WeakEntity, Window, point,
+    AnyElement, App, Context, Entity, EntityId, EventEmitter, IntoElement, ParentElement, Pixels,
+    SharedString, Styled, Task, WeakEntity, Window,
 };
 use language::{
     Bias, Buffer, BufferRow, CharKind, CharScopeContext, LocalFile, Point, SelectionGoal,
@@ -26,21 +25,19 @@ use project::{
     File, Project, ProjectItem as _, ProjectPath, lsp_store::FormatTrigger,
     project_settings::ProjectSettings, search::SearchQuery,
 };
-use rpc::proto::{self, update_view};
 use settings::Settings;
 use std::{
     any::TypeId,
     borrow::Cow,
     cmp::{self, Ordering},
-    iter,
     ops::Range,
     path::{Path, PathBuf},
     sync::Arc,
 };
-use text::{BufferId, BufferSnapshot, Selection};
+use text::BufferSnapshot;
 use theme::{Theme, ThemeSettings};
 use ui::{IconDecorationKind, prelude::*};
-use util::{ResultExt, TryFutureExt, paths::PathExt};
+use util::{TryFutureExt, paths::PathExt};
 use workspace::{
     CollaboratorId, ItemId, ItemNavHistory, ToolbarItemLocation, ViewId, Workspace, WorkspaceId,
     invalid_item_view::InvalidItemView,
@@ -51,11 +48,11 @@ use workspace::{
 };
 use workspace::{
     OpenOptions,
-    item::{Dedup, ItemSettings, SerializableItem, TabContentParams},
+    item::{ItemSettings, SerializableItem, TabContentParams},
 };
 use workspace::{
     OpenVisible, Pane, WorkspaceSettings,
-    item::{BreadcrumbText, FollowEvent, ProjectItemKind},
+    item::{BreadcrumbText, ProjectItemKind},
     searchable::SearchOptions,
 };
 
@@ -647,10 +644,6 @@ impl Item for Editor {
                     .into_owned()
                     .into()
             })
-    }
-
-    fn telemetry_event_text(&self) -> Option<&'static str> {
-        None
     }
 
     fn tab_content_text(&self, detail: usize, cx: &App) -> SharedString {

@@ -119,7 +119,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            value_location_reference: None,
         })
     });
 
@@ -134,8 +133,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "y".into(),
@@ -147,8 +144,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "value".into(),
@@ -160,8 +155,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
     ];
 
@@ -193,7 +186,7 @@ fn main() {
     });
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -201,7 +194,7 @@ fn main() {
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -290,7 +283,7 @@ fn main() {
         })
     });
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -298,7 +291,7 @@ fn main() {
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -347,7 +340,7 @@ fn main() {
         })
     });
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -355,7 +348,7 @@ fn main() {
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -404,7 +397,7 @@ fn main() {
         })
     });
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -412,7 +405,7 @@ fn main() {
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -461,7 +454,7 @@ fn main() {
         })
     });
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -469,7 +462,7 @@ fn main() {
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -522,8 +515,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "y".into(),
@@ -535,8 +526,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "value".into(),
@@ -548,8 +537,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
     ];
 
@@ -568,7 +555,7 @@ fn main() {
         })
     });
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -576,7 +563,7 @@ fn main() {
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -629,8 +616,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "y".into(),
@@ -642,8 +627,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "value".into(),
@@ -655,8 +638,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
     ];
 
@@ -675,7 +656,7 @@ fn main() {
         })
     });
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -683,7 +664,7 @@ fn main() {
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -736,8 +717,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "y".into(),
@@ -749,8 +728,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "value".into(),
@@ -762,8 +739,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "b".into(),
@@ -775,8 +750,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
     ];
     client.on_request::<Variables, _>({
@@ -794,7 +767,7 @@ fn main() {
         })
     });
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -802,7 +775,7 @@ fn main() {
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -855,8 +828,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "y".into(),
@@ -868,8 +839,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "value".into(),
@@ -881,8 +850,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "tester".into(),
@@ -894,8 +861,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
     ];
     client.on_request::<Variables, _>({
@@ -913,7 +878,7 @@ fn main() {
         })
     });
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -921,7 +886,7 @@ fn main() {
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -974,8 +939,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "y".into(),
@@ -987,8 +950,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "value".into(),
@@ -1000,8 +961,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "tester".into(),
@@ -1013,8 +972,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "caller".into(),
@@ -1026,8 +983,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
     ];
     client.on_request::<Variables, _>({
@@ -1045,7 +1000,7 @@ fn main() {
         })
     });
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -1053,7 +1008,7 @@ fn main() {
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -1102,7 +1057,7 @@ fn main() {
         })
     });
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -1110,7 +1065,7 @@ fn main() {
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -1162,8 +1117,6 @@ fn main() {
         named_variables: None,
         indexed_variables: None,
         memory_reference: None,
-        declaration_location_reference: None,
-        value_location_reference: None,
     }];
     client.on_request::<Variables, _>({
         let local_variables = Arc::new(local_variables.clone());
@@ -1180,7 +1133,7 @@ fn main() {
         })
     });
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -1188,7 +1141,7 @@ fn main() {
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -1241,8 +1194,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "y".into(),
@@ -1254,8 +1205,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "value".into(),
@@ -1267,8 +1216,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "tester".into(),
@@ -1280,8 +1227,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "caller".into(),
@@ -1293,8 +1238,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
     ];
     client.on_request::<Variables, _>({
@@ -1315,7 +1258,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            value_location_reference: None,
         })
     });
     client.on_request::<dap::requests::StackTrace, _>(move |_, _| {
@@ -1325,7 +1267,7 @@ fn main() {
         })
     });
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -1333,7 +1275,7 @@ fn main() {
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -1386,8 +1328,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "y".into(),
@@ -1399,8 +1339,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "value".into(),
@@ -1412,8 +1350,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "tester".into(),
@@ -1425,8 +1361,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "caller".into(),
@@ -1438,8 +1372,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "result".into(),
@@ -1451,8 +1383,6 @@ fn main() {
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
     ];
     client.on_request::<Variables, _>({
@@ -1470,7 +1400,7 @@ fn main() {
         })
     });
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -1478,7 +1408,7 @@ fn main() {
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -1675,8 +1605,6 @@ def process_data(untyped_param, typed_param: int, another_typed: str):
                     named_variables: None,
                     indexed_variables: None,
                     memory_reference: None,
-                    declaration_location_reference: None,
-                    value_location_reference: None,
                 },
                 Variable {
                     name: "typed_param".into(),
@@ -1688,8 +1616,6 @@ def process_data(untyped_param, typed_param: int, another_typed: str):
                     named_variables: None,
                     indexed_variables: None,
                     memory_reference: None,
-                    declaration_location_reference: None,
-                    value_location_reference: None,
                 },
                 Variable {
                     name: "another_typed".into(),
@@ -1701,8 +1627,6 @@ def process_data(untyped_param, typed_param: int, another_typed: str):
                     named_variables: None,
                     indexed_variables: None,
                     memory_reference: None,
-                    declaration_location_reference: None,
-                    value_location_reference: None,
                 },
                 Variable {
                     name: "x".into(),
@@ -1714,8 +1638,6 @@ def process_data(untyped_param, typed_param: int, another_typed: str):
                     named_variables: None,
                     indexed_variables: None,
                     memory_reference: None,
-                    declaration_location_reference: None,
-                    value_location_reference: None,
                 },
                 Variable {
                     name: "result".into(),
@@ -1727,8 +1649,6 @@ def process_data(untyped_param, typed_param: int, another_typed: str):
                     named_variables: None,
                     indexed_variables: None,
                     memory_reference: None,
-                    declaration_location_reference: None,
-                    value_location_reference: None,
                 },
                 Variable {
                     name: "text".into(),
@@ -1740,8 +1660,6 @@ def process_data(untyped_param, typed_param: int, another_typed: str):
                     named_variables: None,
                     indexed_variables: None,
                     memory_reference: None,
-                    declaration_location_reference: None,
-                    value_location_reference: None,
                 },
                 Variable {
                     name: "sum_value".into(),
@@ -1753,8 +1671,6 @@ def process_data(untyped_param, typed_param: int, another_typed: str):
                     named_variables: None,
                     indexed_variables: None,
                     memory_reference: None,
-                    declaration_location_reference: None,
-                    value_location_reference: None,
                 },
                 Variable {
                     name: "i".into(),
@@ -1766,8 +1682,6 @@ def process_data(untyped_param, typed_param: int, another_typed: str):
                     named_variables: None,
                     indexed_variables: None,
                     memory_reference: None,
-                    declaration_location_reference: None,
-                    value_location_reference: None,
                 },
                 Variable {
                     name: "final_result".into(),
@@ -1779,8 +1693,6 @@ def process_data(untyped_param, typed_param: int, another_typed: str):
                     named_variables: None,
                     indexed_variables: None,
                     memory_reference: None,
-                    declaration_location_reference: None,
-                    value_location_reference: None,
                 },
             ],
         }),
@@ -1788,7 +1700,7 @@ def process_data(untyped_param, typed_param: int, another_typed: str):
     });
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -1796,7 +1708,7 @@ def process_data(untyped_param, typed_param: int, another_typed: str):
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();

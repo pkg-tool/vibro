@@ -183,10 +183,6 @@ impl Item for ReplSessionsPage {
         "REPL Sessions".into()
     }
 
-    fn telemetry_event_text(&self) -> Option<&'static str> {
-        Some("REPL Session Started")
-    }
-
     fn show_toolbar(&self) -> bool {
         false
     }
@@ -210,7 +206,7 @@ impl Render for ReplSessionsPage {
             )
         });
 
-        // When there are no kernel specifications, show a link to the Zed docs explaining how to
+        // When there are no kernel specifications, show a link to the Vector docs explaining how to
         // install kernels. It can be assumed they don't have a running kernel if we have no
         // specifications.
         if kernel_specifications.is_empty() {
@@ -227,7 +223,7 @@ impl Render for ReplSessionsPage {
                             .child(Label::new("Install Kernels"))
                             .on_click(move |_, _, cx| {
                                 cx.open_url(
-                                    "https://zed.dev/docs/repl#language-specific-instructions",
+                                    "https://github.com/vector-editor/vector/blob/main/docs/src/repl.md#language-specific-instructions",
                                 )
                             }),
                     ),

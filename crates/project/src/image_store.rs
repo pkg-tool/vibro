@@ -421,7 +421,7 @@ impl ImageStore {
         cx.background_spawn(async move {
             Self::wait_for_loading_image(loading_watch)
                 .await
-                .map_err(|e| e.cloned())
+                .map_err(|e| anyhow::anyhow!("{e}"))
         })
     }
 

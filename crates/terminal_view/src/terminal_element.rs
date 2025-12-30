@@ -983,7 +983,7 @@ impl Element for TerminalElement {
                     let mut size = bounds.size;
                     size.width -= gutter;
 
-                    // https://github.com/zed-industries/zed/issues/2750
+                    // https://github.com/vector-editor/vector/issues/2750
                     // if the terminal is one column wide, rendering 🦀
                     // causes alacritty to misbehave.
                     if size.width < cell_width * 2.0 {
@@ -1469,7 +1469,7 @@ impl InputHandler for TerminalInputHandler {
         });
 
         self.workspace
-            .update(cx, |this, cx| {
+            .update(cx, |_, _| {
                 window.invalidate_character_coordinates();
                 let project = this.project().read(cx);
                 let telemetry = project.client().telemetry().clone();

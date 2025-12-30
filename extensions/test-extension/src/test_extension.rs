@@ -1,8 +1,8 @@
 use std::fs;
-use zed::lsp::CompletionKind;
-use zed::{CodeLabel, CodeLabelSpan, LanguageServerId};
-use zed_extension_api::process::Command;
-use zed_extension_api::{self as zed, Result};
+use vector::lsp::CompletionKind;
+use vector::{CodeLabel, CodeLabelSpan, LanguageServerId};
+use vector_extension_api::process::Command;
+use vector_extension_api::{self as vector, Result};
 
 struct TestExtension {
     cached_binary_path: Option<String>,
@@ -12,7 +12,6 @@ impl TestExtension {
     fn language_server_binary_path(
         &mut self,
         language_server_id: &LanguageServerId,
-        _worktree: &zed::Worktree,
     ) -> Result<String> {
         let (platform, arch) = zed::current_platform();
 
@@ -56,13 +55,13 @@ impl TestExtension {
             return Ok(path.clone());
         }
 
-        zed::set_language_server_installation_status(
+        vector::set_language_server_installation_status(
             language_server_id,
-            &zed::LanguageServerInstallationStatus::CheckingForUpdate,
+            &vector::LanguageServerInstallationStatus::CheckingForUpdate,
         );
-        let release = zed::latest_github_release(
+        let release = vector::latest_github_release(
             "gleam-lang/gleam",
-            zed::GithubReleaseOptions {
+            vector::GithubReleaseOptions {
                 require_assets: true,
                 pre_release: false,
             },
@@ -82,14 +81,14 @@ impl TestExtension {
             "gleam-{version}-{arch}-{os}.{ext}",
             version = release.version,
             arch = match arch {
-                zed::Architecture::Aarch64 => "aarch64",
-                zed::Architecture::X86 => "x86",
-                zed::Architecture::X8664 => "x86_64",
+                vector::Architecture::Aarch64 => "aarch64",
+                vector::Architecture::X86 => "x86",
+                vector::Architecture::X8664 => "x86_64",
             },
             os = match platform {
-                zed::Os::Mac => "apple-darwin",
-                zed::Os::Linux => "unknown-linux-musl",
-                zed::Os::Windows => "pc-windows-msvc",
+                vector::Os::Mac => "apple-darwin",
+                vector::Os::Linux => "unknown-linux-musl",
+                vector::Os::Windows => "pc-windows-msvc",
             },
         );
 
@@ -105,7 +104,7 @@ impl TestExtension {
         if !fs::metadata(&binary_path).is_ok_and(|stat| stat.is_file()) {
             zed::set_language_server_installation_status(
                 language_server_id,
-                &zed::LanguageServerInstallationStatus::Downloading,
+                &vector::LanguageServerInstallationStatus::Downloading,
             );
 
             zed::download_file(&asset.download_url, &version_dir, download_type)
@@ -133,7 +132,7 @@ impl TestExtension {
     }
 }
 
-impl zed::Extension for TestExtension {
+impl vector::Extension for TestExtension {
     fn new() -> Self {
         Self {
             cached_binary_path: None,
@@ -143,10 +142,10 @@ impl zed::Extension for TestExtension {
     fn language_server_command(
         &mut self,
         language_server_id: &LanguageServerId,
-        worktree: &zed::Worktree,
-    ) -> Result<zed::Command> {
-        Ok(zed::Command {
-            command: self.language_server_binary_path(language_server_id, worktree)?,
+        _: &vector::Worktree,
+    ) -> Result<vector::Command> {
+        Ok(vector::Command {
+            command: self.language_server_binary_path(language_server_id)?,
             args: vec!["lsp".to_string()],
             env: Default::default(),
         })
@@ -155,8 +154,8 @@ impl zed::Extension for TestExtension {
     fn label_for_completion(
         &self,
         _language_server_id: &LanguageServerId,
-        completion: zed::lsp::Completion,
-    ) -> Option<zed::CodeLabel> {
+        completion: vector::lsp::Completion,
+    ) -> Option<vector::CodeLabel> {
         let name = &completion.label;
         let ty = strip_newlines_from_detail(&completion.detail?);
         let let_binding = "let a";
@@ -189,12 +188,12 @@ impl zed::Extension for TestExtension {
     }
 }
 
-zed::register_extension!(TestExtension);
+vector::register_extension!(TestExtension);
 
 /// Removes newlines from the completion detail.
 ///
 /// The Gleam LSP can return types containing newlines, which causes formatting
-/// issues within the Zed completions menu.
+/// issues within the Vector completions menu.
 fn strip_newlines_from_detail(detail: &str) -> String {
     let without_newlines = detail
         .replace("->\n  ", "-> ")

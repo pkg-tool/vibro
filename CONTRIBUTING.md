@@ -1,4 +1,4 @@
-# Contributing to Zed
+# Contributing to Vector
 
 Thank you for helping us make Zed better!
 
@@ -75,26 +75,25 @@ Although there are few hard and fast rules, typically we don't merge:
 - Stylistic code changes that do not alter any app logic. Reducing allocations, removing `.unwrap()`s, fixing typos is great; making code "more readable" — maybe not so much.
 - Anything that seems AI-generated without understanding the output.
 
-## Bird's-eye view of Zed
+## Bird's-eye view of Vector
 
 We suggest you keep the [Zed glossary](docs/src/development/glossary.md) at your side when starting out. It lists and explains some of the structures and terms you will see throughout the codebase.
 
 Zed is made up of several smaller crates - let's go over those you're most likely to interact with:
 
-- [`gpui`](/crates/gpui) is a GPU-accelerated UI framework which provides all of the building blocks for Zed. **We recommend familiarizing yourself with the root level GPUI documentation.**
-- [`editor`](/crates/editor) contains the core `Editor` type that drives both the code editor and all various input fields within Zed. It also handles a display layer for LSP features such as Inlay Hints or code completions.
-- [`project`](/crates/project) manages files and navigation within the filetree. It is also Zed's side of communication with LSP.
+- [`gpui`](/crates/gpui) is a GPU-accelerated UI framework which provides all of the building blocks for Vector. **We recommend familiarizing yourself with the root level GPUI documentation.**
+- [`editor`](/crates/editor) contains the core `Editor` type that drives both the code editor and various input fields within Vector. It also handles a display layer for LSP features such as Inlay Hints or code completions.
+- [`project`](/crates/project) manages files and navigation within the filetree. It is also Vector's side of communication with LSP.
 - [`workspace`](/crates/workspace) handles local state serialization and groups projects together.
 - [`vim`](/crates/vim) is a thin implementation of Vim workflow over `editor`.
-- [`lsp`](/crates/lsp) handles communication with external LSP server.
+- [`lsp`](/crates/lsp) handles communication with external LSP servers.
 - [`language`](/crates/language) drives `editor`'s understanding of language - from providing a list of symbols to the syntax map.
-- [`collab`](/crates/collab) is the collaboration server itself, driving the collaboration features such as project sharing.
-- [`rpc`](/crates/rpc) defines messages to be exchanged with collaboration server.
+- [`rpc`](/crates/rpc) defines messages exchanged with remote components (e.g. remote development).
 - [`theme`](/crates/theme) defines the theme system and provides a default theme.
-- [`ui`](/crates/ui) is a collection of UI components and common patterns used throughout Zed.
-- [`cli`](/crates/cli) is the CLI crate which invokes the Zed binary.
-- [`zed`](/crates/zed) is where all things come together, and the `main` entry point for Zed.
+- [`ui`](/crates/ui) is a collection of UI components and common patterns used throughout Vector.
+- [`cli`](/crates/cli) is the CLI crate which invokes the Vector binary.
+- [`vector`](/crates/vector) is where all things come together, and the `main` entry point for Vector.
 
-## Packaging Zed
+## Packaging Vector
 
-Check our [notes for packaging Zed](https://zed.dev/docs/development/linux#notes-for-packaging-zed).
+Check our notes under `docs/src/development/linux.md`.

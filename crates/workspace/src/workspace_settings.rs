@@ -16,7 +16,6 @@ pub struct WorkspaceSettings {
     pub pane_split_direction_vertical: settings::PaneSplitDirectionVertical,
     pub centered_layout: settings::CenteredLayoutSettings,
     pub confirm_quit: bool,
-    pub show_call_status_icon: bool,
     pub autosave: AutosaveSetting,
     pub restore_on_startup: settings::RestoreOnStartupBehavior,
     pub restore_on_file_reopen: bool,

@@ -3,7 +3,7 @@
   makeFontsConf,
   pkgsCross,
 
-  zed-editor,
+  vector-editor,
 
   rust-analyzer,
   rustup,
@@ -16,8 +16,8 @@
   nodejs_22,
   zig,
 }:
-(mkShell.override { inherit (zed-editor) stdenv; }) {
-  inputsFrom = [ zed-editor ];
+(mkShell.override { inherit (vector-editor) stdenv; }) {
+  inputsFrom = [ vector-editor ];
   packages = [
     rust-analyzer
     rustup
@@ -26,10 +26,10 @@
     cargo-machete
     cargo-zigbuild
     nixfmt-rfc-style
-    # TODO: package protobuf-language-server for editing zed.proto
+    # TODO: package protobuf-language-server for editing vector.proto
     # TODO: add other tools used in our scripts
 
-    # `build.nix` adds this to the `zed-editor` wrapper (see `postFixup`)
+    # `build.nix` adds this to the `vector-editor` wrapper (see `postFixup`)
     # we'll just put it on `$PATH`:
     nodejs_22
     zig
@@ -38,13 +38,11 @@
   env =
     let
       baseEnvs =
-        (zed-editor.overrideAttrs (attrs: {
+        (vector-editor.overrideAttrs (attrs: {
           passthru = { inherit (attrs) env; };
         })).env; # exfil `env`; it's not in drvAttrs
     in
     (removeAttrs baseEnvs [
-      "LK_CUSTOM_WEBRTC" # download the staticlib during the build as usual
-      "ZED_UPDATE_EXPLANATION" # allow auto-updates
       "CARGO_PROFILE" # let you specify the profile
       "TARGET_DIR"
     ])

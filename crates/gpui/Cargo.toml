@@ -146,7 +146,7 @@ cocoa.workspace = true
 cocoa-foundation.workspace = true
 core-foundation.workspace = true
 core-foundation-sys.workspace = true
-core-graphics = "0.24"
+core-graphics = "0.23.2"
 core-video.workspace = true
 core-text = "21"
 # WARNING: If you change this, you must also publish a new version of zed-font-kit to crates.io

@@ -1,8 +1,8 @@
-# Building Zed for macOS
+# Building Vector for macOS
 
 ## Repository
 
-Clone down the [Zed repository](https://github.com/zed-industries/zed).
+Clone down the [Vector repository](https://github.com/vector-editor/vector).
 
 ## Dependencies
 
@@ -31,9 +31,9 @@ Clone down the [Zed repository](https://github.com/zed-industries/zed).
   brew install cmake
   ```
 
-## Building Zed from Source
+## Building Vector from Source
 
-Once you have the dependencies installed, you can build Zed using [Cargo](https://doc.rust-lang.org/cargo/).
+Once you have the dependencies installed, you can build Vector using [Cargo](https://doc.rust-lang.org/cargo/).
 
 For a debug build:
 
@@ -58,7 +58,7 @@ cargo test --workspace
 ### Error compiling metal shaders
 
 ```sh
-error: failed to run custom build command for gpui v0.1.0 (/Users/path/to/zed)`**
+error: failed to run custom build command for gpui v0.1.0 (/Users/path/to/vector)`**
 
 xcrun: error: unable to find utility "metal", not a developer tool or in PATH
 ```

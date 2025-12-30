@@ -1,11 +1,11 @@
-use zed_extension_api::{
-    self as zed, SlashCommand, SlashCommandArgumentCompletion, SlashCommandOutput,
+use vector_extension_api::{
+    self as vector, SlashCommand, SlashCommandArgumentCompletion, SlashCommandOutput,
     SlashCommandOutputSection, Worktree,
 };
 
 struct SlashCommandsExampleExtension;
 
-impl zed::Extension for SlashCommandsExampleExtension {
+impl vector::Extension for SlashCommandsExampleExtension {
     fn new() -> Self {
         SlashCommandsExampleExtension
     }
@@ -14,7 +14,7 @@ impl zed::Extension for SlashCommandsExampleExtension {
         &self,
         command: SlashCommand,
         _args: Vec<String>,
-    ) -> Result<Vec<zed_extension_api::SlashCommandArgumentCompletion>, String> {
+    ) -> Result<Vec<vector_extension_api::SlashCommandArgumentCompletion>, String> {
         match command.name.as_str() {
             "echo" => Ok(vec![]),
             "pick-one" => Ok(vec![
@@ -87,4 +87,4 @@ impl zed::Extension for SlashCommandsExampleExtension {
     }
 }
 
-zed::register_extension!(SlashCommandsExampleExtension);
+vector::register_extension!(SlashCommandsExampleExtension);

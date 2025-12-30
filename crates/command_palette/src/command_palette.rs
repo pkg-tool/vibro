@@ -7,7 +7,6 @@ use std::{
     time::Duration,
 };
 
-use client::parse_zed_link;
 use command_palette_hooks::{
     CommandInterceptItem, CommandInterceptResult, CommandPaletteFilter,
     GlobalCommandPaletteInterceptor,
@@ -25,8 +24,8 @@ use postage::{sink::Sink, stream::Stream};
 use settings::Settings;
 use ui::{HighlightedLabel, KeyBinding, ListItem, ListItemSpacing, prelude::*};
 use util::ResultExt;
-use workspace::{ModalView, Workspace, WorkspaceSettings};
-use zed_actions::{OpenZedUrl, command_palette::Toggle};
+use workspace::{AppState, ModalView, Workspace, WorkspaceSettings};
+use vector_actions::{OpenVectorUrl, command_palette::Toggle};
 
 pub fn init(cx: &mut App) {
     command_palette_hooks::init(cx);
@@ -366,6 +365,21 @@ impl CommandPaletteDelegate {
     }
 }
 
+fn is_vector_url_candidate(input: &str, cx: &App) -> bool {
+    if input.starts_with("vector://") {
+        return true;
+    }
+
+    let Some(app_state) = AppState::try_global(cx).and_then(|state| state.upgrade()) else {
+        return false;
+    };
+
+    input
+        .strip_prefix(&app_state.http_client.base_url())
+        .and_then(|rest| rest.strip_prefix('/'))
+        .is_some()
+}
+
 impl PickerDelegate for CommandPaletteDelegate {
     type ListItem = ListItem;
 
@@ -572,11 +586,6 @@ impl PickerDelegate for CommandPaletteDelegate {
 
         let action_ix = self.matches[self.selected_ix].candidate_id;
         let command = self.commands.swap_remove(action_ix);
-        telemetry::event!(
-            "Action Invoked",
-            source = "command palette",
-            action = command.name
-        );
         self.matches.clear();
         self.commands.clear();
         let command_name = command.name.clone();

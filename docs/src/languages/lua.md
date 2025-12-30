@@ -1,6 +1,6 @@
 # Lua
 
-Lua support is available through the [Lua extension](https://github.com/zed-extensions/lua).
+Lua support is available through the [Lua extension](https://github.com/vector-extensions/lua).
 
 - Tree-sitter: [tree-sitter-grammars/tree-sitter-lua](https://github.com/tree-sitter-grammars/tree-sitter-lua)
 - Language server: [LuaLS/lua-language-server](https://github.com/LuaLS/lua-language-server)
@@ -26,7 +26,7 @@ LuaLS can provide enhanced LSP autocompletion suggestions and type validation wi
 
 ### LÖVE (Love2D) {#love2d}
 
-To use [LÖVE (Love2D)](https://love2d.org/) in Zed, checkout [LuaCATS/love2d](https://github.com/LuaCATS/love2d) into a folder called `love2d-luacats` into the parent folder of your project:
+To use [LÖVE (Love2D)](https://love2d.org/) in Vector, checkout [LuaCATS/love2d](https://github.com/LuaCATS/love2d) into a folder called `love2d-luacats` into the parent folder of your project:
 
 ```sh
 cd .. && git clone https://github.com/LuaCATS/love2d love2d-luacats
@@ -47,7 +47,7 @@ Then in your `.luarc.json`:
 
 ### PlaydateSDK
 
-To use [Playdate Lua SDK](https://play.date/dev/) in Zed, checkout [playdate-luacats](https://github.com/notpeter/playdate-luacats) into the parent folder of your project:
+To use [Playdate Lua SDK](https://play.date/dev/) in Vector, checkout [playdate-luacats](https://github.com/notpeter/playdate-luacats) into the parent folder of your project:
 
 ```sh
 cd .. && git clone https://github.com/notpeter/playdate-luacats
@@ -88,7 +88,7 @@ Then in your `.luarc.json`:
 
 To enable [Inlay Hints](../configuring-languages.md#inlay-hints) for LuaLS in Zed
 
-1. Add the following to your Zed settings.json:
+1. Add the following to your Vector settings.json:
 
 ```json [settings]
   "languages": {

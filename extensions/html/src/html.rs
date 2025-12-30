@@ -1,11 +1,11 @@
 use std::{env, fs};
-use zed::settings::LspSettings;
-use zed_extension_api::{self as zed, LanguageServerId, Result, serde_json::json};
+use vector::settings::LspSettings;
+use vector_extension_api::{self as vector, LanguageServerId, Result, serde_json::json};
 
 const BINARY_NAME: &str = "vscode-html-language-server";
 const SERVER_PATH: &str =
-    "node_modules/@zed-industries/vscode-langservers-extracted/bin/vscode-html-language-server";
-const PACKAGE_NAME: &str = "@zed-industries/vscode-langservers-extracted";
+    "node_modules/vscode-langservers-extracted/bin/vscode-html-language-server";
+const PACKAGE_NAME: &str = "vscode-langservers-extracted";
 
 struct HtmlExtension {
     cached_binary_path: Option<String>,
@@ -22,20 +22,20 @@ impl HtmlExtension {
             return Ok(SERVER_PATH.to_string());
         }
 
-        zed::set_language_server_installation_status(
+        vector::set_language_server_installation_status(
             language_server_id,
-            &zed::LanguageServerInstallationStatus::CheckingForUpdate,
+            &vector::LanguageServerInstallationStatus::CheckingForUpdate,
         );
-        let version = zed::npm_package_latest_version(PACKAGE_NAME)?;
+        let version = vector::npm_package_latest_version(PACKAGE_NAME)?;
 
         if !server_exists
-            || zed::npm_package_installed_version(PACKAGE_NAME)?.as_ref() != Some(&version)
+            || vector::npm_package_installed_version(PACKAGE_NAME)?.as_ref() != Some(&version)
         {
-            zed::set_language_server_installation_status(
+            vector::set_language_server_installation_status(
                 language_server_id,
-                &zed::LanguageServerInstallationStatus::Downloading,
+                &vector::LanguageServerInstallationStatus::Downloading,
             );
-            let result = zed::npm_install_package(PACKAGE_NAME, &version);
+            let result = vector::npm_install_package(PACKAGE_NAME, &version);
             match result {
                 Ok(()) => {
                     if !self.server_exists() {
@@ -55,7 +55,7 @@ impl HtmlExtension {
     }
 }
 
-impl zed::Extension for HtmlExtension {
+impl vector::Extension for HtmlExtension {
     fn new() -> Self {
         Self {
             cached_binary_path: None,
@@ -65,8 +65,8 @@ impl zed::Extension for HtmlExtension {
     fn language_server_command(
         &mut self,
         language_server_id: &LanguageServerId,
-        worktree: &zed::Worktree,
-    ) -> Result<zed::Command> {
+        worktree: &vector::Worktree,
+    ) -> Result<vector::Command> {
         let server_path = if let Some(path) = worktree.which(BINARY_NAME) {
             return Ok(zed::Command {
                 command: path,
@@ -93,8 +93,8 @@ impl zed::Extension for HtmlExtension {
     fn language_server_workspace_configuration(
         &mut self,
         server_id: &LanguageServerId,
-        worktree: &zed::Worktree,
-    ) -> Result<Option<zed::serde_json::Value>> {
+        worktree: &vector::Worktree,
+    ) -> Result<Option<vector::serde_json::Value>> {
         let settings = LspSettings::for_worktree(server_id.as_ref(), worktree)
             .ok()
             .and_then(|lsp_settings| lsp_settings.settings)
@@ -104,9 +104,9 @@ impl zed::Extension for HtmlExtension {
 
     fn language_server_initialization_options(
         &mut self,
-        _server_id: &LanguageServerId,
-        _worktree: &zed_extension_api::Worktree,
-    ) -> Result<Option<zed_extension_api::serde_json::Value>> {
+        _: &LanguageServerId,
+        _: &vector_extension_api::Worktree,
+    ) -> Result<Option<vector_extension_api::serde_json::Value>> {
         let initialization_options = json!({"provideFormatter": true });
         Ok(Some(initialization_options))
     }

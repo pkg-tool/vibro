@@ -1,4 +1,4 @@
-use zed_extension_api::{self as zed, Result, settings::LspSettings};
+use vector_extension_api::{self as vector, Result, settings::LspSettings};
 
 use crate::language_servers::{BufLsp, ProtoLs, ProtobufLanguageServer};
 
@@ -10,7 +10,7 @@ struct ProtobufExtension {
     buf_lsp: Option<BufLsp>,
 }
 
-impl zed::Extension for ProtobufExtension {
+impl vector::Extension for ProtobufExtension {
     fn new() -> Self {
         Self {
             protobuf_language_server: None,
@@ -63,4 +63,4 @@ impl zed::Extension for ProtobufExtension {
     }
 }
 
-zed::register_extension!(ProtobufExtension);
+vector::register_extension!(ProtobufExtension);

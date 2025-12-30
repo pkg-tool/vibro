@@ -1,4 +1,4 @@
-# Zed on Windows
+# Vector on Windows
 
 ## Installing Zed
 

@@ -15,7 +15,6 @@ doctest = false
 [features]
 test-support = [
     "buffer_diff/test-support",
-    "client/test-support",
     "language/test-support",
     "settings/test-support",
     "snippet_provider/test-support",
@@ -35,7 +34,6 @@ async-trait.workspace = true
 base64.workspace = true
 buffer_diff.workspace = true
 circular-buffer.workspace = true
-client.workspace = true
 clock.workspace = true
 collections.workspace = true
 context_server.workspace = true
@@ -65,8 +63,6 @@ postage.workspace = true
 prettier.workspace = true
 rand.workspace = true
 regex.workspace = true
-remote.workspace = true
-rpc.workspace = true
 schemars.workspace = true
 semver.workspace = true
 serde.workspace = true
@@ -111,7 +107,6 @@ lsp = { workspace = true, features = ["test-support"] }
 prettier = { workspace = true, features = ["test-support"] }
 pretty_assertions.workspace = true
 release_channel.workspace = true
-rpc = { workspace = true, features = ["test-support"] }
 settings = { workspace = true, features = ["test-support"] }
 snippet_provider = { workspace = true, features = ["test-support"] }
 unindent.workspace = true

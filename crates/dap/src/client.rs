@@ -1,12 +1,12 @@
 use crate::{
     adapters::DebugAdapterBinary,
+    protocol::{Message, Response},
     transport::{IoKind, LogKind, TransportDelegate},
 };
+#[cfg(any(test, feature = "test-support"))]
+use crate::protocol::ErrorResponse;
 use anyhow::Result;
-use dap_types::{
-    messages::{Message, Response},
-    requests::Request,
-};
+use dap_types::requests::Request;
 use futures::channel::oneshot;
 use gpui::AsyncApp;
 use std::{
@@ -102,7 +102,7 @@ impl DebugAdapterClient {
 
         let sequence_id = self.next_sequence_id();
 
-        let request = crate::messages::Request {
+        let request = crate::protocol::Request {
             seq: sequence_id,
             command: R::COMMAND.to_string(),
             arguments: Some(serialized_arguments),
@@ -190,7 +190,7 @@ impl DebugAdapterClient {
     where
         F: 'static
             + Send
-            + FnMut(u64, R::Arguments) -> Result<R::Response, dap_types::ErrorResponse>,
+            + FnMut(u64, R::Arguments) -> Result<R::Response, ErrorResponse>,
     {
         use crate::transport::RequestHandling;
 
@@ -224,7 +224,7 @@ impl DebugAdapterClient {
 
     #[cfg(any(test, feature = "test-support"))]
     pub async fn fake_reverse_request<R: dap_types::requests::Request>(&self, args: R::Arguments) {
-        self.send_message(Message::Request(dap_types::messages::Request {
+        self.send_message(Message::Request(crate::protocol::Request {
             seq: self.sequence_count.load(Ordering::Relaxed),
             command: R::COMMAND.into(),
             arguments: serde_json::to_value(args).ok(),
@@ -246,8 +246,23 @@ impl DebugAdapterClient {
     }
 
     #[cfg(any(test, feature = "test-support"))]
-    pub async fn fake_event(&self, event: dap_types::messages::Events) {
-        self.send_message(Message::Event(Box::new(event)))
+    pub async fn fake_event<T: serde::Serialize>(&self, event: &str, body: T) {
+        self.send_message(Message::Event(crate::protocol::Event {
+            seq: self.sequence_count.load(Ordering::Relaxed),
+            event: event.to_string(),
+            body: Some(serde_json::to_value(body).unwrap()),
+        }))
+        .await
+        .unwrap();
+    }
+
+    #[cfg(any(test, feature = "test-support"))]
+    pub async fn fake_event_no_body(&self, event: &str) {
+        self.send_message(Message::Event(crate::protocol::Event {
+            seq: self.sequence_count.load(Ordering::Relaxed),
+            event: event.to_string(),
+            body: None,
+        }))
             .await
             .unwrap();
     }
@@ -260,8 +275,7 @@ mod tests {
     use dap_types::{
         Capabilities, InitializeRequestArguments, InitializeRequestArgumentsPathFormat,
         RunInTerminalRequestArguments, StartDebuggingRequestArguments,
-        messages::Events,
-        requests::{Initialize, Request, RunInTerminal},
+        requests::{Initialize, RunInTerminal},
     };
     use gpui::TestAppContext;
     use serde_json::json;
@@ -304,7 +318,7 @@ mod tests {
         .unwrap();
 
         client.on_request::<Initialize, _>(move |_, _| {
-            Ok(dap_types::Capabilities {
+            Ok(Capabilities {
                 supports_configuration_done_request: Some(true),
                 ..Default::default()
             })
@@ -314,8 +328,8 @@ mod tests {
 
         let response = client
             .request::<Initialize>(InitializeRequestArguments {
-                client_id: Some("zed".to_owned()),
-                client_name: Some("Zed".to_owned()),
+                client_id: Some("vector".to_owned()),
+                client_name: Some("Vector".to_owned()),
                 adapter_id: "fake-adapter".to_owned(),
                 locale: Some("en-US".to_owned()),
                 path_format: Some(InitializeRequestArgumentsPathFormat::Path),
@@ -330,7 +344,6 @@ mod tests {
                 supports_memory_event: Some(false),
                 supports_args_can_be_interpreted_by_shell: Some(false),
                 supports_start_debugging_request: Some(true),
-                supports_ansistyling: Some(false),
             })
             .await
             .unwrap();
@@ -370,12 +383,10 @@ mod tests {
                 move |event| {
                     called_event_handler.store(true, Ordering::SeqCst);
 
-                    assert_eq!(
-                        Message::Event(Box::new(Events::Initialized(
-                            Some(Capabilities::default())
-                        ))),
-                        event
-                    );
+                    let Message::Event(event) = event else {
+                        panic!("Expected event message");
+                    };
+                    assert_eq!(event.event, "initialized");
                 }
             }),
             &mut cx.to_async(),
@@ -385,9 +396,7 @@ mod tests {
 
         cx.run_until_parked();
 
-        client
-            .fake_event(Events::Initialized(Some(Capabilities::default())))
-            .await;
+        client.fake_event_no_body("initialized").await;
 
         cx.run_until_parked();
 
@@ -421,16 +430,17 @@ mod tests {
                 move |event| {
                     called_event_handler.store(true, Ordering::SeqCst);
 
+                    let Message::Request(request) = event else {
+                        panic!("Expected request message");
+                    };
+                    assert_eq!(request.seq, 1);
+                    assert_eq!(request.command, RunInTerminal::COMMAND);
                     assert_eq!(
-                        Message::Request(dap_types::messages::Request {
-                            seq: 1,
-                            command: RunInTerminal::COMMAND.into(),
-                            arguments: Some(json!({
-                                "cwd": "/project/path/src",
-                                "args": ["node", "test.js"],
-                            }))
-                        }),
-                        event
+                        request.arguments,
+                        Some(json!({
+                            "cwd": "/project/path/src",
+                            "args": ["node", "test.js"],
+                        }))
                     );
                 }
             }),

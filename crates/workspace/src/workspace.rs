@@ -26,11 +26,6 @@ pub use path_list::PathList;
 pub use toast_layer::{ToastAction, ToastLayer, ToastView};
 
 use anyhow::{Context as _, Result, anyhow};
-use call::{ActiveCall, call_settings::CallSettings};
-use client::{
-    ChannelId, Client, ErrorExt, Status, TypedEnvelope, UserStore,
-    proto::{self, ErrorCode, PanelId, PeerId},
-};
 use collections::{HashMap, HashSet, hash_map};
 use dock::{Dock, DockPosition, PanelButtons, PanelHandle, RESIZE_HANDLE_SIZE};
 use feature_flags::{AgentV2FeatureFlag, FeatureFlagAppExt};
@@ -52,8 +47,8 @@ use gpui::{
 };
 pub use history_manager::*;
 pub use item::{
-    FollowableItem, FollowableItemHandle, Item, ItemHandle, ItemSettings, PreviewTabsSettings,
-    ProjectItem, SerializableItem, SerializableItemHandle, WeakItemHandle,
+    Item, ItemHandle, ItemSettings, PreviewTabsSettings, ProjectItem, SerializableItem,
+    SerializableItemHandle, WeakItemHandle,
 };
 use itertools::Itertools;
 use language::{Buffer, LanguageRegistry, Rope, language_settings::all_language_settings};
@@ -73,7 +68,6 @@ pub use persistence::{
     DB as WORKSPACE_DB, WorkspaceDb, delete_unloaded_items,
     model::{ItemId, SerializedWorkspaceLocation},
 };
-use postage::stream::Stream;
 use project::{
     DirectoryLister, Project, ProjectEntryId, ProjectPath, ResolvedPath, Worktree, WorktreeId,
     WorktreeSettings,
@@ -132,7 +126,7 @@ pub use workspace_settings::{
     AutosaveSetting, BottomDockLayout, RestoreOnStartupBehavior, StatusBarSettings, TabBarSettings,
     WorkspaceSettings,
 };
-use zed_actions::{Spawn, feedback::FileBugReport};
+use vector_actions::Spawn;
 
 use crate::{
     item::ItemBufferKind,
@@ -150,15 +144,15 @@ use crate::{
 
 pub const SERIALIZATION_THROTTLE_TIME: Duration = Duration::from_millis(200);
 
-static ZED_WINDOW_SIZE: LazyLock<Option<Size<Pixels>>> = LazyLock::new(|| {
-    env::var("ZED_WINDOW_SIZE")
+static VECTOR_WINDOW_SIZE: LazyLock<Option<Size<Pixels>>> = LazyLock::new(|| {
+    env::var("VECTOR_WINDOW_SIZE")
         .ok()
         .as_deref()
         .and_then(parse_pixel_size_env_var)
 });
 
-static ZED_WINDOW_POSITION: LazyLock<Option<Point<Pixels>>> = LazyLock::new(|| {
-    env::var("ZED_WINDOW_POSITION")
+static VECTOR_WINDOW_POSITION: LazyLock<Option<Point<Pixels>>> = LazyLock::new(|| {
+    env::var("VECTOR_WINDOW_POSITION")
         .ok()
         .as_deref()
         .and_then(parse_pixel_position_env_var)
@@ -747,19 +741,6 @@ impl ProjectItemRegistry {
         open_project_item
     }
 
-    fn build_item<T: project::ProjectItem>(
-        &self,
-        item: Entity<T>,
-        project: Entity<Project>,
-        pane: Option<&Pane>,
-        window: &mut Window,
-        cx: &mut App,
-    ) -> Option<Box<dyn ItemHandle>> {
-        let build = self
-            .build_project_item_fns_by_type
-            .get(&TypeId::of::<T>())?;
-        Some(build(item.into_any(), project, pane, window, cx))
-    }
 }
 
 type WorkspaceItemBuilder =
@@ -772,63 +753,6 @@ impl Global for ProjectItemRegistry {}
 /// was added last.
 pub fn register_project_item<I: ProjectItem>(cx: &mut App) {
     cx.default_global::<ProjectItemRegistry>().register::<I>();
-}
-
-#[derive(Default)]
-pub struct FollowableViewRegistry(HashMap<TypeId, FollowableViewDescriptor>);
-
-struct FollowableViewDescriptor {
-    from_state_proto: fn(
-        Entity<Workspace>,
-        ViewId,
-        &mut Option<proto::view::Variant>,
-        &mut Window,
-        &mut App,
-    ) -> Option<Task<Result<Box<dyn FollowableItemHandle>>>>,
-    to_followable_view: fn(&AnyView) -> Box<dyn FollowableItemHandle>,
-}
-
-impl Global for FollowableViewRegistry {}
-
-impl FollowableViewRegistry {
-    pub fn register<I: FollowableItem>(cx: &mut App) {
-        cx.default_global::<Self>().0.insert(
-            TypeId::of::<I>(),
-            FollowableViewDescriptor {
-                from_state_proto: |workspace, id, state, window, cx| {
-                    I::from_state_proto(workspace, id, state, window, cx).map(|task| {
-                        cx.foreground_executor()
-                            .spawn(async move { Ok(Box::new(task.await?) as Box<_>) })
-                    })
-                },
-                to_followable_view: |view| Box::new(view.clone().downcast::<I>().unwrap()),
-            },
-        );
-    }
-
-    pub fn from_state_proto(
-        workspace: Entity<Workspace>,
-        view_id: ViewId,
-        mut state: Option<proto::view::Variant>,
-        window: &mut Window,
-        cx: &mut App,
-    ) -> Option<Task<Result<Box<dyn FollowableItemHandle>>>> {
-        cx.update_default_global(|this: &mut Self, cx| {
-            this.0.values().find_map(|descriptor| {
-                (descriptor.from_state_proto)(workspace.clone(), view_id, &mut state, window, cx)
-            })
-        })
-    }
-
-    pub fn to_followable_view(
-        view: impl Into<AnyView>,
-        cx: &App,
-    ) -> Option<Box<dyn FollowableItemHandle>> {
-        let this = cx.try_global::<Self>()?;
-        let view = view.into();
-        let descriptor = this.0.get(&view.entity_type())?;
-        Some((descriptor.to_followable_view)(&view))
-    }
 }
 
 #[derive(Copy, Clone)]
@@ -930,8 +854,7 @@ pub fn register_serializable_item<I: SerializableItem>(cx: &mut App) {
 
 pub struct AppState {
     pub languages: Arc<LanguageRegistry>,
-    pub client: Arc<Client>,
-    pub user_store: Entity<UserStore>,
+    pub http_client: Arc<HttpClientWithUrl>,
     pub workspace_store: Entity<WorkspaceStore>,
     pub fs: Arc<dyn fs::Fs>,
     pub build_window_options: fn(Option<Uuid>, &mut App) -> WindowOptions,
@@ -945,32 +868,6 @@ impl Global for GlobalAppState {}
 
 pub struct WorkspaceStore {
     workspaces: HashSet<WindowHandle<Workspace>>,
-    client: Arc<Client>,
-    _subscriptions: Vec<client::Subscription>,
-}
-
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
-pub enum CollaboratorId {
-    PeerId(PeerId),
-    Agent,
-}
-
-impl From<PeerId> for CollaboratorId {
-    fn from(peer_id: PeerId) -> Self {
-        CollaboratorId::PeerId(peer_id)
-    }
-}
-
-impl From<&PeerId> for CollaboratorId {
-    fn from(peer_id: &PeerId) -> Self {
-        CollaboratorId::PeerId(*peer_id)
-    }
-}
-
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
-struct Follower {
-    project_id: Option<u64>,
-    peer_id: PeerId,
 }
 
 impl AppState {
@@ -1005,17 +902,15 @@ impl AppState {
         let http_client = http_client::FakeHttpClient::with_404_response();
         let client = Client::new(clock, http_client, cx);
         let session = cx.new(|cx| AppSession::new(Session::test(), cx));
-        let user_store = cx.new(|cx| UserStore::new(client.clone(), cx));
-        let workspace_store = cx.new(|cx| WorkspaceStore::new(client.clone(), cx));
+        let workspace_store = cx.new(WorkspaceStore::new);
 
         theme::init(theme::LoadThemes::JustBase, cx);
         client::init(&client, cx);
 
         Arc::new(Self {
-            client,
+            http_client,
             fs,
             languages,
-            user_store,
             workspace_store,
             node_runtime: NodeRuntime::unavailable(),
             build_window_options: |_, _| Default::default(),
@@ -1165,7 +1060,6 @@ pub struct Workspace {
     panes_by_item: HashMap<EntityId, WeakEntity<Pane>>,
     active_pane: Entity<Pane>,
     last_active_center_pane: Option<WeakEntity<Pane>>,
-    last_active_view_id: Option<proto::ViewId>,
     status_bar: Entity<StatusBar>,
     modal_layer: Entity<ModalLayer>,
     toast_layer: Entity<ToastLayer>,
@@ -1173,13 +1067,9 @@ pub struct Workspace {
     notifications: Notifications,
     suppressed_notifications: HashSet<NotificationId>,
     project: Entity<Project>,
-    follower_states: HashMap<CollaboratorId, FollowerState>,
-    last_leaders_by_pane: HashMap<WeakEntity<Pane>, CollaboratorId>,
     window_edited: bool,
     last_window_title: Option<String>,
     dirty_items: HashMap<EntityId, Subscription>,
-    active_call: Option<(Entity<ActiveCall>, Vec<Subscription>)>,
-    leader_updates_tx: mpsc::UnboundedSender<(PeerId, proto::UpdateFollowers)>,
     database_id: Option<WorkspaceId>,
     app_state: Arc<AppState>,
     dispatching_keystrokes: Rc<RefCell<DispatchingKeystrokes>>,
@@ -1207,24 +1097,6 @@ pub struct Workspace {
 }
 
 impl EventEmitter<Event> for Workspace {}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ViewId {
-    pub creator: CollaboratorId,
-    pub id: u64,
-}
-
-pub struct FollowerState {
-    center_pane: Entity<Pane>,
-    dock_pane: Option<Entity<Pane>>,
-    active_view_id: Option<ViewId>,
-    items_by_leader_view_id: HashMap<ViewId, FollowerView>,
-}
-
-struct FollowerView {
-    view: Box<dyn FollowableItemHandle>,
-    location: Option<proto::PanelId>,
-}
 
 impl Workspace {
     pub fn new(
@@ -1311,19 +1183,6 @@ impl Workspace {
                     this.update_worktree_data(window, cx);
                 }
 
-                project::Event::DisconnectedFromHost => {
-                    this.update_window_edited(window, cx);
-                    let leaders_to_unfollow =
-                        this.follower_states.keys().copied().collect::<Vec<_>>();
-                    for leader_id in leaders_to_unfollow {
-                        this.unfollow(leader_id, window, cx);
-                    }
-                }
-
-                project::Event::DisconnectedFromSshRemote => {
-                    this.update_window_edited(window, cx);
-                }
-
                 project::Event::Closed => {
                     window.remove_window();
                 }
@@ -1365,10 +1224,6 @@ impl Workspace {
                             })
                         },
                     );
-                }
-
-                project::Event::AgentLocationChanged => {
-                    this.handle_agent_location_changed(window, cx)
                 }
 
                 _ => {}
@@ -1436,34 +1291,6 @@ impl Workspace {
         let window_handle = window.window_handle().downcast::<Workspace>().unwrap();
         app_state.workspace_store.update(cx, |store, _| {
             store.workspaces.insert(window_handle);
-        });
-
-        let mut current_user = app_state.user_store.read(cx).watch_current_user();
-        let mut connection_status = app_state.client.status();
-        let _observe_current_user = cx.spawn_in(window, async move |this, cx| {
-            current_user.next().await;
-            connection_status.next().await;
-            let mut stream =
-                Stream::map(current_user, drop).merge(Stream::map(connection_status, drop));
-
-            while stream.recv().await.is_some() {
-                this.update(cx, |_, cx| cx.notify())?;
-            }
-            anyhow::Ok(())
-        });
-
-        // All leader updates are enqueued and then processed in a single task, so
-        // that each asynchronous operation can be run in order.
-        let (leader_updates_tx, mut leader_updates_rx) =
-            mpsc::unbounded::<(PeerId, proto::UpdateFollowers)>();
-        let _apply_leader_updates = cx.spawn_in(window, async move |this, cx| {
-            while let Some((leader_id, update)) = leader_updates_rx.next().await {
-                Self::process_leader_update(&this, leader_id, update, cx)
-                    .await
-                    .log_err();
-            }
-
-            Ok(())
         });
 
         cx.emit(Event::WorkspaceCreated(weak_handle.clone()));
@@ -1586,7 +1413,6 @@ impl Workspace {
             panes_by_item: Default::default(),
             active_pane: center_pane.clone(),
             last_active_center_pane: Some(center_pane.downgrade()),
-            last_active_view_id: None,
             status_bar,
             modal_layer,
             toast_layer,
@@ -1597,13 +1423,10 @@ impl Workspace {
             bottom_dock,
             right_dock,
             project: project.clone(),
-            follower_states: Default::default(),
-            last_leaders_by_pane: Default::default(),
             dispatching_keystrokes: Default::default(),
             window_edited: false,
             last_window_title: None,
             dirty_items: Default::default(),
-            active_call,
             database_id: workspace_id,
             app_state,
             _observe_current_user,
@@ -1648,9 +1471,8 @@ impl Workspace {
         )>,
     > {
         let project_handle = Project::local(
-            app_state.client.clone(),
+            app_state.http_client.clone(),
             app_state.node_runtime.clone(),
-            app_state.user_store.clone(),
             app_state.languages.clone(),
             app_state.fs.clone(),
             env,
@@ -1936,10 +1758,6 @@ impl Workspace {
 
     pub fn app_state(&self) -> &Arc<AppState> {
         &self.app_state
-    }
-
-    pub fn user_store(&self) -> &Entity<UserStore> {
-        &self.app_state.user_store
     }
 
     pub fn project(&self) -> &Entity<Project> {
@@ -2233,8 +2051,8 @@ impl Workspace {
         )
     }
 
-    pub fn client(&self) -> &Arc<Client> {
-        &self.app_state.client
+    pub fn http_client(&self) -> &Arc<HttpClientWithUrl> {
+        &self.app_state.http_client
     }
 
     pub fn set_titlebar_item(&mut self, item: AnyView, _: &mut Window, cx: &mut Context<Self>) {
@@ -2669,7 +2487,7 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Task<Result<bool>> {
-        if self.project.read(cx).is_disconnected(cx) {
+        if self.project.read(cx).is_disconnected() {
             return Task::ready(Ok(true));
         }
         let dirty_items = self
@@ -3337,32 +3155,6 @@ impl Workspace {
         did_focus_panel
     }
 
-    pub fn activate_panel_for_proto_id(
-        &mut self,
-        panel_id: PanelId,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Option<Arc<dyn PanelHandle>> {
-        let mut panel = None;
-        for dock in self.all_docks() {
-            if let Some(panel_index) = dock.read(cx).panel_index_for_proto_id(panel_id) {
-                panel = dock.update(cx, |dock, cx| {
-                    dock.activate_panel(panel_index, window, cx);
-                    dock.set_open(true, window, cx);
-                    dock.active_panel().cloned()
-                });
-                break;
-            }
-        }
-
-        if panel.is_some() {
-            cx.notify();
-            self.serialize_workspace(window, cx);
-        }
-
-        panel
-    }
-
     /// Focus or unfocus the given panel type, depending on the given callback.
     fn focus_or_unfocus_panel<T: Panel>(
         &mut self,
@@ -3846,21 +3638,6 @@ impl Workspace {
         item
     }
 
-    pub fn open_shared_screen(
-        &mut self,
-        peer_id: PeerId,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(shared_screen) =
-            self.shared_screen_for_peer(peer_id, &self.active_pane, window, cx)
-        {
-            self.active_pane.update(cx, |pane, cx| {
-                pane.add_item(Box::new(shared_screen), false, true, None, window, cx)
-            });
-        }
-    }
-
     pub fn activate_item(
         &mut self,
         item: &dyn ItemHandle,
@@ -4233,7 +4010,6 @@ impl Workspace {
         }
         self.zoomed_position = None;
         cx.emit(Event::ZoomChanged);
-        self.update_active_view_for_followers(window, cx);
         pane.update(cx, |pane, _| {
             pane.track_alternate_file_items();
         });
@@ -4253,7 +4029,7 @@ impl Workspace {
     }
 
     fn handle_panel_focused(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.update_active_view_for_followers(window, cx);
+        let _ = (window, cx);
     }
 
     fn handle_pane_event(
@@ -4295,7 +4071,7 @@ impl Workspace {
                 self.remove_pane(pane.clone(), focus_on_pane.clone(), window, cx);
             }
             pane::Event::ActivateItem {
-                local,
+                local: _,
                 focus_changed,
             } => {
                 window.invalidate_character_coordinates();
@@ -4369,17 +4145,6 @@ impl Workspace {
         if serialize_workspace {
             self.serialize_workspace(window, cx);
         }
-    }
-
-    pub fn unfollow_in_pane(
-        &mut self,
-        pane: &Entity<Pane>,
-        window: &mut Window,
-        cx: &mut Context<Workspace>,
-    ) -> Option<CollaboratorId> {
-        let leader_id = self.leader_for_pane(pane)?;
-        self.unfollow(leader_id, window, cx);
-        Some(leader_id)
     }
 
     pub fn split_pane(
@@ -4485,8 +4250,6 @@ impl Workspace {
     ) {
         if self.center.remove(&pane, cx).unwrap() {
             self.force_remove_pane(&pane, &focus_on, window, cx);
-            self.unfollow_in_pane(&pane, window, cx);
-            self.last_leaders_by_pane.remove(&pane.downgrade());
             for removed_item in pane.read(cx).items() {
                 self.panes_by_item.remove(&removed_item.item_id());
             }
@@ -4833,7 +4596,7 @@ impl Workspace {
     }
 
     fn update_window_edited(&mut self, window: &mut Window, cx: &mut App) {
-        let is_edited = !self.project.read(cx).is_disconnected(cx) && !self.dirty_items.is_empty();
+        let is_edited = !self.project.read(cx).is_disconnected() && !self.dirty_items.is_empty();
         if is_edited != self.window_edited {
             self.window_edited = is_edited;
             window.set_window_edited(self.window_edited)
@@ -5430,8 +5193,6 @@ impl Workspace {
 
     pub fn on_window_activation_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if window.is_window_active() {
-            self.update_active_view_for_followers(window, cx);
-
             if let Some(database_id) = self.database_id {
                 cx.background_spawn(persistence::DB.update_timestamp(database_id))
                     .detach();
@@ -5453,26 +5214,6 @@ impl Workspace {
                     }
                 });
             }
-        }
-    }
-
-    pub fn active_call(&self) -> Option<&Entity<ActiveCall>> {
-        self.active_call.as_ref().map(|(call, _)| call)
-    }
-
-    fn on_active_call_event(
-        &mut self,
-        _: &Entity<ActiveCall>,
-        event: &call::room::Event,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        match event {
-            call::room::Event::ParticipantLocationChanged { participant_id }
-            | call::room::Event::RemoteVideoTracksChanged { participant_id } => {
-                self.leader_updated(participant_id, window, cx);
-            }
-            _ => {}
         }
     }
 
@@ -5943,7 +5684,6 @@ impl Workspace {
             .on_action(cx.listener(Self::save_all))
             .on_action(cx.listener(Self::send_keystrokes))
             .on_action(cx.listener(Self::add_folder_to_project))
-            .on_action(cx.listener(Self::follow_next_collaborator))
             .on_action(cx.listener(Self::close_window))
             .on_action(cx.listener(Self::activate_pane_at_index))
             .on_action(cx.listener(Self::move_item_to_pane_at_index))
@@ -6284,8 +6024,7 @@ impl Workspace {
         let app_state = Arc::new(AppState {
             languages: project.read(cx).languages().clone(),
             workspace_store,
-            client,
-            user_store,
+            http_client,
             fs: project.read(cx).fs().clone(),
             build_window_options: |_, _| Default::default(),
             node_runtime: NodeRuntime::unavailable(),
@@ -6399,26 +6138,19 @@ impl Workspace {
         &self,
         position: DockPosition,
         dock: &Entity<Dock>,
-        window: &mut Window,
-        cx: &mut App,
+        _: &mut Window,
+        _: &mut App,
     ) -> Option<Div> {
         if self.zoomed_position == Some(position) {
             return None;
         }
-
-        let leader_border = dock.read(cx).active_panel().and_then(|panel| {
-            let pane = panel.pane(cx)?;
-            let follower_states = &self.follower_states;
-            leader_border_for_pane(follower_states, &pane, window, cx)
-        });
 
         Some(
             div()
                 .flex()
                 .flex_none()
                 .overflow_hidden()
-                .child(dock.clone())
-                .children(leader_border),
+                .child(dock.clone()),
         )
     }
 
@@ -6648,47 +6380,9 @@ impl Workspace {
     }
 }
 
-fn leader_border_for_pane(
-    follower_states: &HashMap<CollaboratorId, FollowerState>,
-    pane: &Entity<Pane>,
-    _: &Window,
-    cx: &App,
-) -> Option<Div> {
-    let (leader_id, _follower_state) = follower_states.iter().find_map(|(leader_id, state)| {
-        if state.pane() == pane {
-            Some((*leader_id, state))
-        } else {
-            None
-        }
-    })?;
-
-    let mut leader_color = match leader_id {
-        CollaboratorId::PeerId(leader_peer_id) => {
-            let room = ActiveCall::try_global(cx)?.read(cx).room()?.read(cx);
-            let leader = room.remote_participant_for_peer_id(leader_peer_id)?;
-
-            cx.theme()
-                .players()
-                .color_for_participant(leader.participant_index.0)
-                .cursor
-        }
-        CollaboratorId::Agent => cx.theme().players().agent().cursor,
-    };
-    leader_color.fade_out(0.3);
-    Some(
-        div()
-            .absolute()
-            .size_full()
-            .left_0()
-            .top_0()
-            .border_2()
-            .border_color(leader_color),
-    )
-}
-
 fn window_bounds_env_override() -> Option<Bounds<Pixels>> {
-    ZED_WINDOW_POSITION
-        .zip(*ZED_WINDOW_SIZE)
+    VECTOR_WINDOW_POSITION
+        .zip(*VECTOR_WINDOW_SIZE)
         .map(|(position, size)| Bounds {
             origin: position,
             size,
@@ -6817,11 +6511,6 @@ fn notify_if_database_failed(workspace: WindowHandle<Workspace>, cx: &mut AsyncA
                     |cx| {
                         cx.new(|cx| {
                             MessageNotification::new("Failed to load the database file.", cx)
-                                .primary_message("File an Issue")
-                                .primary_icon(IconName::Plus)
-                                .primary_on_click(|window, cx| {
-                                    window.dispatch_action(Box::new(FileBugReport), cx)
-                                })
                         })
                     },
                 );
@@ -7174,15 +6863,10 @@ impl Render for Workspace {
                                                                     )
                                                                     .child(self.center.render(
                                                                         self.zoomed.as_ref(),
-                                                                        &PaneRenderContext {
-                                                                            follower_states:
-                                                                                &self.follower_states,
-                                                                            active_call: self.active_call(),
-                                                                            active_pane: &self.active_pane,
-                                                                            app_state: &self.app_state,
-                                                                            project: &self.project,
-                                                                            workspace: &self.weak_self,
-                                                                        },
+                                                                        &ActivePaneDecorator::new(
+                                                                            &self.active_pane,
+                                                                            &self.weak_self,
+                                                                        ),
                                                                         window,
                                                                         cx,
                                                                     ))
@@ -7256,15 +6940,10 @@ impl Render for Workspace {
                                                                             .when_some(paddings.0, |this, p| this.child(p.border_r_1()))
                                                                             .child(self.center.render(
                                                                                 self.zoomed.as_ref(),
-                                                                                &PaneRenderContext {
-                                                                                    follower_states:
-                                                                                        &self.follower_states,
-                                                                                    active_call: self.active_call(),
-                                                                                    active_pane: &self.active_pane,
-                                                                                    app_state: &self.app_state,
-                                                                                    project: &self.project,
-                                                                                    workspace: &self.weak_self,
-                                                                                },
+                                                                                &ActivePaneDecorator::new(
+                                                                                    &self.active_pane,
+                                                                                    &self.weak_self,
+                                                                                ),
                                                                                 window,
                                                                                 cx,
                                                                             ))
@@ -7334,15 +7013,10 @@ impl Render for Workspace {
                                                                             .when_some(paddings.0, |this, p| this.child(p.border_r_1()))
                                                                             .child(self.center.render(
                                                                                 self.zoomed.as_ref(),
-                                                                                &PaneRenderContext {
-                                                                                    follower_states:
-                                                                                        &self.follower_states,
-                                                                                    active_call: self.active_call(),
-                                                                                    active_pane: &self.active_pane,
-                                                                                    app_state: &self.app_state,
-                                                                                    project: &self.project,
-                                                                                    workspace: &self.weak_self,
-                                                                                },
+                                                                                &ActivePaneDecorator::new(
+                                                                                    &self.active_pane,
+                                                                                    &self.weak_self,
+                                                                                ),
                                                                                 window,
                                                                                 cx,
                                                                             ))
@@ -7398,15 +7072,10 @@ impl Render for Workspace {
                                                             })
                                                             .child(self.center.render(
                                                                 self.zoomed.as_ref(),
-                                                                &PaneRenderContext {
-                                                                    follower_states:
-                                                                        &self.follower_states,
-                                                                    active_call: self.active_call(),
-                                                                    active_pane: &self.active_pane,
-                                                                    app_state: &self.app_state,
-                                                                    project: &self.project,
-                                                                    workspace: &self.weak_self,
-                                                                },
+                                                                &ActivePaneDecorator::new(
+                                                                    &self.active_pane,
+                                                                    &self.weak_self,
+                                                                ),
                                                                 window,
                                                                 cx,
                                                             ))
@@ -7478,14 +7147,10 @@ impl Render for Workspace {
 }
 
 impl WorkspaceStore {
-    pub fn new(client: Arc<Client>, cx: &mut Context<Self>) -> Self {
+    pub fn new(cx: &mut Context<Self>) -> Self {
+        let _ = cx;
         Self {
             workspaces: Default::default(),
-            _subscriptions: vec![
-                client.add_request_handler(cx.weak_entity(), Self::handle_follow),
-                client.add_message_handler(cx.weak_entity(), Self::handle_update_followers),
-            ],
-            client,
         }
     }
 

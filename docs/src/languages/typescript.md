@@ -1,6 +1,6 @@
 # TypeScript
 
-TypeScript and TSX support are available natively in Zed.
+TypeScript and TSX support are available natively in Vector.
 
 - Tree-sitter: [tree-sitter/tree-sitter-typescript](https://github.com/tree-sitter/tree-sitter-typescript)
 - Language Server: [yioneko/vtsls](https://github.com/yioneko/vtsls)
@@ -13,7 +13,7 @@ TBD: Document the difference between Language servers
 
 ## Language servers
 
-By default Zed uses [vtsls](https://github.com/yioneko/vtsls) for TypeScript, TSX, and JavaScript files.
+By default Vector uses [vtsls](https://github.com/yioneko/vtsls) for TypeScript, TSX, and JavaScript files.
 You can configure the use of [typescript-language-server](https://github.com/typescript-language-server/typescript-language-server) per language in your settings file:
 
 ```json [settings]
@@ -94,9 +94,9 @@ To get all the features (autocomplete, linting, etc.) from the [Tailwind CSS lan
 
 ## Inlay Hints
 
-Zed sets the following initialization options to make the language server send back inlay hints (that is, when Zed has inlay hints enabled in the settings).
+Vector sets the following initialization options to make the language server send back inlay hints (that is, when Vector has inlay hints enabled in the settings).
 
-You can override these settings in your Zed `settings.json` when using `typescript-language-server`:
+You can override these settings in your Vector `settings.json` when using `typescript-language-server`:
 
 ```json [settings]
 {
@@ -233,5 +233,5 @@ Given an externally-ran web server (e.g., with `npx serve` or `npx live-server`)
 
 ## See also
 
-- [Zed Yarn documentation](./yarn.md) for a walkthrough of configuring your project to use Yarn.
-- [Zed Deno documentation](./deno.md)
+- [Vector Yarn documentation](./yarn.md) for a walkthrough of configuring your project to use Yarn.
+- [Vector Deno documentation](./deno.md)

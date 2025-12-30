@@ -27,7 +27,6 @@ use language::Buffer;
 use project::debugger::session::{Session, SessionQuirks, SessionState, SessionStateEvent};
 use project::{DebugScenarioContext, Fs, ProjectPath, TaskSourceKind, WorktreeId};
 use project::{Project, debugger::session::ThreadStatus};
-use rpc::proto::{self};
 use settings::Settings;
 use std::sync::{Arc, LazyLock};
 use task::{DebugScenario, TaskContext};
@@ -1184,7 +1183,7 @@ impl DebugPanel {
                             .read(cx)
                             .project_path_for_absolute_path(path, cx)
                             .context(
-                                "Couldn't get project path for .zed/debug.json in active worktree",
+                                "Couldn't get project path for .vector/debug.json in active worktree",
                             )
                     })??;
 

@@ -44,7 +44,7 @@ async fn test_handle_output_event(executor: BackgroundExecutor, cx: &mut TestApp
     });
 
     client
-        .fake_event(dap::messages::Events::Output(dap::OutputEvent {
+        .fake_event("output", dap::OutputEvent {
             category: None,
             output: "First console output line before thread stopped!".to_string(),
             data: None,
@@ -53,12 +53,11 @@ async fn test_handle_output_event(executor: BackgroundExecutor, cx: &mut TestApp
             line: None,
             column: None,
             group: None,
-            location_reference: None,
-        }))
+        })
         .await;
 
     client
-        .fake_event(dap::messages::Events::Output(dap::OutputEvent {
+        .fake_event("output", dap::OutputEvent {
             category: Some(dap::OutputEventCategory::Stdout),
             output: "First output line before thread stopped!".to_string(),
             data: None,
@@ -67,12 +66,11 @@ async fn test_handle_output_event(executor: BackgroundExecutor, cx: &mut TestApp
             line: None,
             column: None,
             group: None,
-            location_reference: None,
-        }))
+        })
         .await;
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -80,7 +78,7 @@ async fn test_handle_output_event(executor: BackgroundExecutor, cx: &mut TestApp
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -109,7 +107,7 @@ async fn test_handle_output_event(executor: BackgroundExecutor, cx: &mut TestApp
         .unwrap();
 
     client
-        .fake_event(dap::messages::Events::Output(dap::OutputEvent {
+        .fake_event("output", dap::OutputEvent {
             category: Some(dap::OutputEventCategory::Stdout),
             output: "\tSecond output line after thread stopped!".to_string(),
             data: None,
@@ -118,12 +116,11 @@ async fn test_handle_output_event(executor: BackgroundExecutor, cx: &mut TestApp
             line: None,
             column: None,
             group: None,
-            location_reference: None,
-        }))
+        })
         .await;
 
     client
-        .fake_event(dap::messages::Events::Output(dap::OutputEvent {
+        .fake_event("output", dap::OutputEvent {
             category: Some(dap::OutputEventCategory::Console),
             output: "\tSecond console output line after thread stopped!".to_string(),
             data: None,
@@ -132,8 +129,7 @@ async fn test_handle_output_event(executor: BackgroundExecutor, cx: &mut TestApp
             line: None,
             column: None,
             group: None,
-            location_reference: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();

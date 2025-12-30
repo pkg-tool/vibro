@@ -2,18 +2,14 @@ pub mod adapters;
 pub mod client;
 pub mod debugger_settings;
 pub mod inline_value;
-pub mod proto_conversions;
+pub mod protocol;
 mod registry;
 pub mod transport;
 
 use std::net::Ipv4Addr;
 
 pub use dap_types::*;
-use debugger_settings::DebuggerSettings;
-use gpui::App;
 pub use registry::{DapLocator, DapRegistry};
-use serde::Serialize;
-use settings::Settings;
 pub use task::DebugRequest;
 
 pub type ScopeId = u64;
@@ -22,7 +18,7 @@ pub type StackFrameId = u64;
 
 #[cfg(any(test, feature = "test-support"))]
 pub use adapters::FakeAdapter;
-use task::{DebugScenario, TcpArgumentsTemplate};
+use task::TcpArgumentsTemplate;
 
 pub async fn configure_tcp_connection(
     tcp_connection: TcpArgumentsTemplate,

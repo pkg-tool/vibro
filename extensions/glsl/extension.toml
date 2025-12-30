@@ -3,8 +3,8 @@ name = "GLSL"
 description = "GLSL support."
 version = "0.2.0"
 schema_version = 1
-authors = ["Mikayla Maki <mikayla@zed.dev>"]
-repository = "https://github.com/zed-industries/zed"
+authors = ["Mikayla Maki"]
+repository = "https://github.com/vector-editor/vector"
 
 [language_servers.glsl_analyzer]
 name = "GLSL Analyzer LSP"

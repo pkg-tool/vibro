@@ -8,7 +8,7 @@ use crate::{
     lsp_store::LspStore,
     make_lsp_text_document_position, make_text_document_identifier,
 };
-use anyhow::{Context as _, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use collections::HashMap;
 use gpui::{App, AsyncApp, Entity};
@@ -62,7 +62,6 @@ pub struct ExpandMacro {
 impl LspCommand for ExpandMacro {
     type Response = ExpandedMacro;
     type LspRequest = LspExtExpandMacro;
-    type ProtoRequest = proto::LspExtExpandMacro;
 
     fn display_name(&self) -> &str {
         "Expand macro"
@@ -194,7 +193,6 @@ pub struct OpenDocs {
 impl LspCommand for OpenDocs {
     type Response = DocsUrls;
     type LspRequest = LspOpenDocs;
-    type ProtoRequest = proto::LspExtOpenDocs;
 
     fn display_name(&self) -> &str {
         "Open docs"
@@ -328,7 +326,6 @@ impl lsp::request::Request for LspGoToParentModule {
 impl LspCommand for SwitchSourceHeader {
     type Response = SwitchSourceHeaderResult;
     type LspRequest = LspSwitchSourceHeader;
-    type ProtoRequest = proto::LspExtSwitchSourceHeader;
 
     fn display_name(&self) -> &str {
         "Switch source header"
@@ -362,55 +359,12 @@ impl LspCommand for SwitchSourceHeader {
             .map(|message| SwitchSourceHeaderResult(message.0))
             .unwrap_or_default())
     }
-
-    fn to_proto(&self, project_id: u64, buffer: &Buffer) -> proto::LspExtSwitchSourceHeader {
-        proto::LspExtSwitchSourceHeader {
-            project_id,
-            buffer_id: buffer.remote_id().into(),
-        }
-    }
-
-    async fn from_proto(
-        _: Self::ProtoRequest,
-        _: Entity<LspStore>,
-        _: Entity<Buffer>,
-        _: AsyncApp,
-    ) -> anyhow::Result<Self> {
-        Ok(Self {})
-    }
-
-    fn response_to_proto(
-        response: SwitchSourceHeaderResult,
-        _: &mut LspStore,
-        _: PeerId,
-        _: &clock::Global,
-        _: &mut App,
-    ) -> proto::LspExtSwitchSourceHeaderResponse {
-        proto::LspExtSwitchSourceHeaderResponse {
-            target_file: response.0,
-        }
-    }
-
-    async fn response_from_proto(
-        self,
-        message: proto::LspExtSwitchSourceHeaderResponse,
-        _: Entity<LspStore>,
-        _: Entity<Buffer>,
-        _: AsyncApp,
-    ) -> anyhow::Result<SwitchSourceHeaderResult> {
-        Ok(SwitchSourceHeaderResult(message.target_file))
-    }
-
-    fn buffer_id_from_proto(message: &proto::LspExtSwitchSourceHeader) -> Result<BufferId> {
-        BufferId::new(message.buffer_id)
-    }
 }
 
 #[async_trait(?Send)]
 impl LspCommand for GoToParentModule {
     type Response = Vec<LocationLink>;
     type LspRequest = LspGoToParentModule;
-    type ProtoRequest = proto::LspExtGoToParentModule;
 
     fn display_name(&self) -> &str {
         "Go to parent module"
@@ -588,7 +542,6 @@ pub struct LspRunnables {
 impl LspCommand for GetLspRunnables {
     type Response = LspRunnables;
     type LspRequest = Runnables;
-    type ProtoRequest = proto::LspExtRunnables;
 
     fn display_name(&self) -> &str {
         "LSP Runnables"
@@ -700,78 +653,6 @@ impl LspCommand for GetLspRunnables {
         }
 
         Ok(LspRunnables { runnables })
-    }
-
-    fn to_proto(&self, project_id: u64, buffer: &Buffer) -> proto::LspExtRunnables {
-        proto::LspExtRunnables {
-            project_id,
-            buffer_id: buffer.remote_id().to_proto(),
-            position: self.position.as_ref().map(serialize_anchor),
-        }
-    }
-
-    async fn from_proto(
-        message: proto::LspExtRunnables,
-        _: Entity<LspStore>,
-        _: Entity<Buffer>,
-        _: AsyncApp,
-    ) -> Result<Self> {
-        let buffer_id = Self::buffer_id_from_proto(&message)?;
-        let position = message.position.and_then(deserialize_anchor);
-        Ok(Self {
-            buffer_id,
-            position,
-        })
-    }
-
-    fn response_to_proto(
-        response: LspRunnables,
-        lsp_store: &mut LspStore,
-        peer_id: PeerId,
-        _: &clock::Global,
-        cx: &mut App,
-    ) -> proto::LspExtRunnablesResponse {
-        proto::LspExtRunnablesResponse {
-            runnables: response
-                .runnables
-                .into_iter()
-                .map(|(location, task_template)| proto::LspRunnable {
-                    location: location
-                        .map(|location| location_link_to_proto(location, lsp_store, peer_id, cx)),
-                    task_template: serde_json::to_vec(&task_template).unwrap(),
-                })
-                .collect(),
-        }
-    }
-
-    async fn response_from_proto(
-        self,
-        message: proto::LspExtRunnablesResponse,
-        lsp_store: Entity<LspStore>,
-        _: Entity<Buffer>,
-        mut cx: AsyncApp,
-    ) -> Result<LspRunnables> {
-        let mut runnables = LspRunnables {
-            runnables: Vec::new(),
-        };
-
-        for lsp_runnable in message.runnables {
-            let location = match lsp_runnable.location {
-                Some(location) => {
-                    Some(location_link_from_proto(location, lsp_store.clone(), &mut cx).await?)
-                }
-                None => None,
-            };
-            let task_template = serde_json::from_slice(&lsp_runnable.task_template)
-                .context("deserializing task template from proto")?;
-            runnables.runnables.push((location, task_template));
-        }
-
-        Ok(runnables)
-    }
-
-    fn buffer_id_from_proto(message: &proto::LspExtRunnables) -> Result<BufferId> {
-        BufferId::new(message.buffer_id)
     }
 }
 

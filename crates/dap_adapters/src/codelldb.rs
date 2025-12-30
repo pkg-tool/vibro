@@ -7,7 +7,7 @@ use dap::adapters::{DebugTaskDefinition, latest_github_release};
 use futures::StreamExt;
 use gpui::AsyncApp;
 use serde_json::Value;
-use task::{DebugRequest, DebugScenario, ZedDebugConfig};
+use task::{DebugRequest, DebugScenario, VectorDebugConfig};
 use util::fs::remove_matching;
 
 use crate::*;

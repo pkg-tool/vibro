@@ -2801,10 +2801,10 @@ fn parse_upstream_track(upstream_track: &str) -> Result<UpstreamTracking> {
 
 fn checkpoint_author_envs() -> HashMap<String, String> {
     HashMap::from_iter([
-        ("GIT_AUTHOR_NAME".to_string(), "Zed".to_string()),
-        ("GIT_AUTHOR_EMAIL".to_string(), "hi@zed.dev".to_string()),
-        ("GIT_COMMITTER_NAME".to_string(), "Zed".to_string()),
-        ("GIT_COMMITTER_EMAIL".to_string(), "hi@zed.dev".to_string()),
+        ("GIT_AUTHOR_NAME".to_string(), "Vector".to_string()),
+        ("GIT_AUTHOR_EMAIL".to_string(), "hi@vector.dev".to_string()),
+        ("GIT_COMMITTER_NAME".to_string(), "Vector".to_string()),
+        ("GIT_COMMITTER_EMAIL".to_string(), "hi@vector.dev".to_string()),
     ])
 }
 
@@ -3070,9 +3070,9 @@ mod tests {
             parse_branch_input(input).unwrap(),
             vec![Branch {
                 is_head: true,
-                ref_name: "refs/heads/zed-patches".into(),
+                ref_name: "refs/heads/vector-patches".into(),
                 upstream: Some(Upstream {
-                    ref_name: "refs/remotes/origin/zed-patches".into(),
+                    ref_name: "refs/remotes/origin/vector-patches".into(),
                     tracking: UpstreamTracking::Tracked(UpstreamTrackingStatus {
                         ahead: 0,
                         behind: 0

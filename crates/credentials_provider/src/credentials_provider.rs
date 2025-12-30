@@ -12,7 +12,7 @@ use release_channel::ReleaseChannel;
 /// An environment variable whose presence indicates that the system keychain
 /// should be used in development.
 ///
-/// By default, running Zed in development uses the development credentials
+/// By default, running Vector in development uses the development credentials
 /// provider. Setting this environment variable allows you to interact with the
 /// system keychain (for instance, if you need to test something).
 ///
@@ -67,9 +67,9 @@ impl dyn CredentialsProvider {
                 // credentials provider to avoid getting spammed by relentless
                 // keychain access prompts.
                 //
-                // However, if the `ZED_DEVELOPMENT_USE_KEYCHAIN` environment
+                // However, if the `VECTOR_DEVELOPMENT_USE_KEYCHAIN` environment
                 // variable is set, we will use the actual keychain.
-                !*ZED_DEVELOPMENT_USE_KEYCHAIN
+                !*VECTOR_DEVELOPMENT_USE_KEYCHAIN
             }
             Some(ReleaseChannel::Nightly | ReleaseChannel::Preview | ReleaseChannel::Stable)
             | None => false,
@@ -124,7 +124,7 @@ impl CredentialsProvider for KeychainCredentialsProvider {
 /// credentials on user machines.
 ///
 /// Its existence is purely to work around the annoyance of having to constantly
-/// re-allow access to the system keychain when developing Zed.
+/// re-allow access to the system keychain when developing Vector.
 struct DevelopmentCredentialsProvider {
     path: PathBuf,
 }

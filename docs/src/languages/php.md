@@ -1,6 +1,6 @@
 # PHP
 
-PHP support is available through the [PHP extension](https://github.com/zed-extensions/php).
+PHP support is available through the [PHP extension](https://github.com/vector-extensions/php).
 
 - Tree-sitter: [tree-sitter/tree-sitter-php](https://github.com/tree-sitter/tree-sitter-php)
 - Language Server: [phpactor/phpactor](https://github.com/phpactor/phpactor)
@@ -121,7 +121,7 @@ To use Phpactor instead of Intelephense or any other tools, add the following to
 
 ## PHPDoc
 
-Zed supports syntax highlighting for PHPDoc comments.
+Vector supports syntax highlighting for PHPDoc comments.
 
 - Tree-sitter: [claytonrcarter/tree-sitter-phpdoc](https://github.com/claytonrcarter/tree-sitter-phpdoc)
 

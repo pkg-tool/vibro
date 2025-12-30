@@ -2,7 +2,7 @@
 
 This is an example extension showcasing how to write slash commands.
 
-See: [Extensions: Slash Commands](https://zed.dev/docs/extensions/slash-commands) in the Zed Docs.
+See: Extensions: Slash Commands in the Vector docs.
 
 ## Pre-requisites
 
@@ -15,8 +15,8 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ## Setup
 
 ```sh
-git clone https://github.com/zed-industries/zed.git
-cp -RL zed/extensions/slash-commands-example .
+git clone https://github.com/vector-editor/vector.git
+cp -RL vector/extensions/slash-commands-example .
 
 cd slash-commands-example/
 
@@ -33,11 +33,11 @@ path = "src/slash_commands_example.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-zed_extension_api = "0.1.0"
+vector_extension_api = "0.1.0"
 EOF
 
 curl -O https://raw.githubusercontent.com/rust-lang/rust/master/LICENSE-APACHE
-echo "# Zed Slash Commands Example Extension" > README.md
+echo "# Vector Slash Commands Example Extension" > README.md
 echo "Cargo.lock" > .gitignore
 echo "target/" >> .gitignore
 echo "*.wasm" >> .gitignore
@@ -47,14 +47,14 @@ git add .
 git commit -m "Initial commit"
 
 cd ..
-mv slash-commands-example MY-SUPER-COOL-ZED-EXTENSION
-zed $_
+mv slash-commands-example MY-SUPER-COOL-VECTOR-EXTENSION
+vector $_
 ```
 
 ## Installation
 
 1. Open the command palette (`cmd-shift-p` or `ctrl-shift-p`).
-2. Launch `zed: install dev extension`
+2. Launch `vector: install dev extension`
 3. Select the extension folder created above
 
 ## Test
@@ -71,7 +71,7 @@ Rename `slash-commands-example.rs` you'll also have to update `Cargo.toml`
 
 Rebuild to see these changes reflected:
 
-1. Open Zed Extensions (`cmd-shift-x` or `ctrl-shift-x`).
+1. Open Vector Extensions (`cmd-shift-x` or `ctrl-shift-x`).
 2. Click `Rebuild` next to your Dev Extension (formerly "Slash Command Example")
 
 ## Troubleshooting / Logs
@@ -80,5 +80,5 @@ Rebuild to see these changes reflected:
 
 ## Documentation
 
-- [zed.dev docs: Extensions: Developing Extensions](https://zed.dev/docs/extensions/developing-extensions)
-- [zed.dev docs: Extensions: Slash Commands](https://zed.dev/docs/extensions/slash-commands)
+- Vector docs: Extensions: Developing Extensions
+- Vector docs: Extensions: Slash Commands

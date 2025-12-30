@@ -2,7 +2,6 @@ use crate::components::KernelListItem;
 use crate::kernels::RemoteRunningKernel;
 use crate::setup_editor_session_actions;
 use crate::{
-    KernelStatus,
     kernels::{Kernel, KernelSpecification, NativeRunningKernel},
     outputs::{ExecutionStatus, ExecutionView},
 };
@@ -229,7 +228,6 @@ impl Session {
     }
 
     fn start_kernel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let kernel_language = self.kernel_specification.language();
         let entity_id = self.editor.entity_id();
         let working_directory = self
             .editor
@@ -497,13 +495,6 @@ impl Session {
             JupyterMessageContent::Status(status) => {
                 self.kernel.set_execution_state(&status.execution_state);
 
-                telemetry::event!(
-                    "Kernel Status Changed",
-                    kernel_language = self.kernel_specification.language(),
-                    kernel_status = KernelStatus::from(&self.kernel).to_string(),
-                    repl_session_id = cx.entity_id().to_string(),
-                );
-
                 cx.notify();
             }
             JupyterMessageContent::KernelInfoReply(reply) => {
@@ -548,16 +539,6 @@ impl Session {
         if let Kernel::Shutdown = kernel {
             cx.emit(SessionEvent::Shutdown(self.editor.clone()));
         }
-
-        let kernel_status = KernelStatus::from(&kernel).to_string();
-        let kernel_language = self.kernel_specification.language();
-
-        telemetry::event!(
-            "Kernel Status Changed",
-            kernel_language,
-            kernel_status,
-            repl_session_id = cx.entity_id().to_string(),
-        );
 
         self.kernel = kernel;
     }

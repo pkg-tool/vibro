@@ -79,7 +79,7 @@ Please file [an issue](https://github.com/zed-industries/zed) if you run into so
 
 ### Keybinding Syntax
 
-Zed has the ability to match against not just a single keypress, but a sequence of keys typed in order. Each key in the `"bindings"` map is a sequence of keypresses separated with a space.
+Vector has the ability to match against not just a single keypress, but a sequence of keys typed in order. Each key in the `"bindings"` map is a sequence of keypresses separated with a space.
 
 Each keypress is a sequence of modifiers followed by a key. The modifiers are:
 
@@ -88,7 +88,7 @@ Each keypress is a sequence of modifiers followed by a key. The modifiers are:
 - `alt-` for alt (option on macOS)
 - `shift-` The shift key
 - `fn-` The function key
-- `secondary-` Equivalent to `cmd` when Zed is running on macOS and `ctrl` when on Windows and Linux
+- `secondary-` Equivalent to `cmd` when Vector is running on macOS and `ctrl` when on Windows and Linux
 
 The keys can be any single Unicode codepoint that your keyboard generates (for example `a`, `0`, `£` or `ç`), or any named key (`tab`, `f1`, `shift`, or `cmd`). If you are using a non-Latin layout (e.g. Cyrillic), you can bind either to the Cyrillic character or the Latin character that key generates with `cmd` pressed.
 
@@ -96,7 +96,7 @@ A few examples:
 
 ```json [settings]
  "bindings": {
-   "cmd-k cmd-s": "zed::OpenKeymap", // matches ⌘-k then ⌘-s
+   "cmd-k cmd-s": "vector::OpenKeymap", // matches ⌘-k then ⌘-s
    "space e": "editor::Complete", // type space then e
    "ç": "editor::Complete", // matches ⌥-c
    "shift shift": "file_finder::Toggle", // matches pressing and releasing shift twice
@@ -165,7 +165,7 @@ When multiple keybindings have the same keystroke and are active at the same tim
 
 The other kind of conflict that arises is when you have two bindings, one of which is a prefix of the other. For example, if you have `"ctrl-w":"editor::DeleteToNextWordEnd"` and `"ctrl-w left":"editor::DeleteToEndOfLine"`.
 
-When this happens, and both bindings are active in the current context, Zed will wait for 1 second after you type `ctrl-w` to see if you're about to type `left`. If you don't type anything, or if you type a different key, then `DeleteToNextWordEnd` will be triggered. If you do, then `DeleteToEndOfLine` will be triggered.
+When this happens, and both bindings are active in the current context, Vector will wait for 1 second after you type `ctrl-w` to see if you're about to type `left`. If you don't type anything, or if you type a different key, then `DeleteToNextWordEnd` will be triggered. If you do, then `DeleteToEndOfLine` will be triggered.
 
 ### Non-QWERTY keyboards
 
@@ -280,9 +280,9 @@ If the argument to `SendKeystrokes` contains the binding used to trigger it, it 
 
 ### Forward keys to terminal
 
-If you're on Linux or Windows, you might find yourself wanting to forward key combinations to the built-in terminal instead of them being handled by Zed.
+If you're on Linux or Windows, you might find yourself wanting to forward key combinations to the built-in terminal instead of them being handled by Vector.
 
-For example, `ctrl-n` creates a new tab in Zed on Linux. If you want to send `ctrl-n` to the built-in terminal when it's focused, add the following to your keymap:
+For example, `ctrl-n` creates a new tab in Vector on Linux. If you want to send `ctrl-n` to the built-in terminal when it's focused, add the following to your keymap:
 
 ```json [settings]
 {

@@ -53,6 +53,142 @@ use super::open_type::apply_features_and_fallbacks;
 #[allow(non_upper_case_globals)]
 const kCGImageAlphaOnly: u32 = 7;
 
+fn find_best_match(
+    candidates: &[font_kit::properties::Properties],
+    query: &font_kit::properties::Properties,
+) -> Option<usize> {
+    use font_kit::properties::{Stretch, Style, Weight};
+
+    let mut matching_set: Vec<usize> = (0..candidates.len()).collect();
+    if matching_set.is_empty() {
+        return None;
+    }
+
+    let matching_stretch = if matching_set
+        .iter()
+        .any(|&index| candidates[index].stretch == query.stretch)
+    {
+        query.stretch
+    } else if query.stretch <= Stretch::NORMAL {
+        match matching_set
+            .iter()
+            .filter(|&&index| candidates[index].stretch < query.stretch)
+            .min_by(|&&a, &&b| {
+                (query.stretch.0 - candidates[a].stretch.0)
+                    .total_cmp(&(query.stretch.0 - candidates[b].stretch.0))
+            }) {
+            Some(&matching_index) => candidates[matching_index].stretch,
+            None => {
+                let matching_index = *matching_set
+                    .iter()
+                    .min_by(|&&a, &&b| {
+                        (candidates[a].stretch.0 - query.stretch.0)
+                            .total_cmp(&(candidates[b].stretch.0 - query.stretch.0))
+                    })
+                    .expect("matching_set is non-empty");
+                candidates[matching_index].stretch
+            }
+        }
+    } else {
+        match matching_set
+            .iter()
+            .filter(|&&index| candidates[index].stretch > query.stretch)
+            .min_by(|&&a, &&b| {
+                (candidates[a].stretch.0 - query.stretch.0)
+                    .total_cmp(&(candidates[b].stretch.0 - query.stretch.0))
+            }) {
+            Some(&matching_index) => candidates[matching_index].stretch,
+            None => {
+                let matching_index = *matching_set
+                    .iter()
+                    .min_by(|&&a, &&b| {
+                        (query.stretch.0 - candidates[a].stretch.0)
+                            .total_cmp(&(query.stretch.0 - candidates[b].stretch.0))
+                    })
+                    .expect("matching_set is non-empty");
+                candidates[matching_index].stretch
+            }
+        }
+    };
+    matching_set.retain(|&index| candidates[index].stretch == matching_stretch);
+
+    let style_preference = match query.style {
+        Style::Italic => [Style::Italic, Style::Oblique, Style::Normal],
+        Style::Oblique => [Style::Oblique, Style::Italic, Style::Normal],
+        Style::Normal => [Style::Normal, Style::Oblique, Style::Italic],
+    };
+    let matching_style = *style_preference.iter().find(|&query_style| {
+        matching_set
+            .iter()
+            .any(|&index| candidates[index].style == *query_style)
+    })?;
+    matching_set.retain(|&index| candidates[index].style == matching_style);
+
+    let matching_weight = if matching_set
+        .iter()
+        .any(|&index| candidates[index].weight == query.weight)
+    {
+        query.weight
+    } else if query.weight >= Weight(400.0)
+        && query.weight < Weight(450.0)
+        && matching_set
+            .iter()
+            .any(|&index| candidates[index].weight == Weight(500.0))
+    {
+        Weight(500.0)
+    } else if query.weight >= Weight(450.0)
+        && query.weight <= Weight(500.0)
+        && matching_set
+            .iter()
+            .any(|&index| candidates[index].weight == Weight(400.0))
+    {
+        Weight(400.0)
+    } else if query.weight <= Weight(500.0) {
+        match matching_set
+            .iter()
+            .filter(|&&index| candidates[index].weight <= query.weight)
+            .min_by(|&&a, &&b| {
+                (query.weight.0 - candidates[a].weight.0)
+                    .total_cmp(&(query.weight.0 - candidates[b].weight.0))
+            }) {
+            Some(&matching_index) => candidates[matching_index].weight,
+            None => {
+                let matching_index = *matching_set
+                    .iter()
+                    .min_by(|&&a, &&b| {
+                        (candidates[a].weight.0 - query.weight.0)
+                            .total_cmp(&(candidates[b].weight.0 - query.weight.0))
+                    })
+                    .expect("matching_set is non-empty");
+                candidates[matching_index].weight
+            }
+        }
+    } else {
+        match matching_set
+            .iter()
+            .filter(|&&index| candidates[index].weight >= query.weight)
+            .min_by(|&&a, &&b| {
+                (candidates[a].weight.0 - query.weight.0)
+                    .total_cmp(&(candidates[b].weight.0 - query.weight.0))
+            }) {
+            Some(&matching_index) => candidates[matching_index].weight,
+            None => {
+                let matching_index = *matching_set
+                    .iter()
+                    .min_by(|&&a, &&b| {
+                        (query.weight.0 - candidates[a].weight.0)
+                            .total_cmp(&(query.weight.0 - candidates[b].weight.0))
+                    })
+                    .expect("matching_set is non-empty");
+                candidates[matching_index].weight
+            }
+        }
+    };
+    matching_set.retain(|&index| candidates[index].weight == matching_weight);
+
+    matching_set.into_iter().next()
+}
+
 pub(crate) struct MacTextSystem(RwLock<MacTextSystemState>);
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -156,14 +292,13 @@ impl PlatformTextSystem for MacTextSystem {
                 .map(|font_id| lock.fonts[font_id.0].properties())
                 .collect::<SmallVec<[_; 4]>>();
 
-            let ix = font_kit::matching::find_best_match(
-                &candidate_properties,
-                &font_kit::properties::Properties {
-                    style: font.style.into(),
-                    weight: font.weight.into(),
-                    stretch: Default::default(),
-                },
-            )?;
+            let query_properties = font_kit::properties::Properties {
+                style: font.style.into(),
+                weight: font.weight.into(),
+                stretch: Default::default(),
+            };
+            let ix = find_best_match(&candidate_properties, &query_properties)
+                .ok_or_else(|| anyhow!("no matching font in family '{}'", font.family))?;
 
             let font_id = candidates[ix];
             lock.font_selections.insert(font.clone(), font_id);
@@ -211,15 +346,7 @@ impl MacTextSystemState {
         let fonts = fonts
             .into_iter()
             .map(|bytes| match bytes {
-                Cow::Borrowed(embedded_font) => {
-                    let data_provider = unsafe {
-                        core_graphics::data_provider::CGDataProvider::from_slice(embedded_font)
-                    };
-                    let font = core_graphics::font::CGFont::from_data_provider(data_provider)
-                        .map_err(|()| anyhow!("Could not load an embedded font."))?;
-                    let font = font_kit::loaders::core_text::Font::from_core_graphics_font(font);
-                    Ok(Handle::from_native(&font))
-                }
+                Cow::Borrowed(bytes) => Ok(Handle::from_memory(Arc::new(bytes.to_vec()), 0)),
                 Cow::Owned(bytes) => Ok(Handle::from_memory(Arc::new(bytes), 0)),
             })
             .collect::<Result<Vec<_>>>()?;

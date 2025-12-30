@@ -181,25 +181,25 @@ impl Component for StatusToast {
             StatusToast::new("Dismiss Button", cx, |this, _| this.dismiss_button(true));
 
         let icon_example = StatusToast::new(
-            "Nathan Sobo accepted your contact request",
+            "Extension installed",
             cx,
             |this, _| this.icon(ToastIcon::new(IconName::Check).color(Color::Muted)),
         );
 
-        let success_example = StatusToast::new("Pushed 4 changes to `zed/main`", cx, |this, _| {
+        let success_example = StatusToast::new("Pushed 4 changes to `main`", cx, |this, _| {
             this.icon(ToastIcon::new(IconName::Check).color(Color::Success))
         });
 
         let error_example = StatusToast::new(
-            "git push: Couldn't find remote origin `iamnbutler/zed`",
+            "git push: Couldn't find remote origin `origin`",
             cx,
-            |this, _cx| {
+            |this, _| {
                 this.icon(ToastIcon::new(IconName::XCircle).color(Color::Error))
                     .action("More Info", |_, _| {})
             },
         );
 
-        let warning_example = StatusToast::new("You have outdated settings", cx, |this, _cx| {
+        let warning_example = StatusToast::new("You have outdated settings", cx, |this, _| {
             this.icon(ToastIcon::new(IconName::Warning).color(Color::Warning))
                 .action("More Info", |_, _| {})
         });

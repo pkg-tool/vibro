@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
 set -eu
 
-# Downloads the latest tarball from https://zed.dev/releases and unpacks it
+# Downloads the latest tarball from https://vector.dev/releases and unpacks it
 # into ~/.local/. If you'd prefer to do this manually, instructions are at
-# https://zed.dev/docs/linux.
+# https://vector.dev/docs/linux.
 
 main() {
     platform="$(uname -s)"
@@ -53,10 +53,10 @@ main() {
 
     "$platform" "$@"
 
-    if [ "$(command -v zed)" = "$HOME/.local/bin/zed" ]; then
-        echo "Zed has been installed. Run with 'zed'"
+    if [ "$(command -v vector)" = "$HOME/.local/bin/vector" ]; then
+        echo "Vector has been installed. Run with 'vector'"
     else
-        echo "To run Zed from your terminal, you must add ~/.local/bin to your PATH"
+        echo "To run Vector from your terminal, you must add ~/.local/bin to your PATH"
         echo "Run:"
 
         case "$SHELL" in
@@ -73,13 +73,13 @@ main() {
                 ;;
         esac
 
-        echo "To run Zed now, '~/.local/bin/zed'"
+        echo "To run Vector now, '~/.local/bin/vector'"
     fi
 }
 
 linux() {
-    if [ -n "${ZED_BUNDLE_PATH:-}" ]; then
-        cp "$ZED_BUNDLE_PATH" "$temp/zed-linux-$arch.tar.gz"
+    if [ -n "${VECTOR_BUNDLE_PATH:-}" ]; then
+        cp "$VECTOR_BUNDLE_PATH" "$temp/vector-linux-$arch.tar.gz"
     else
         echo "Downloading Zed"
         curl "https://cloud.zed.dev/releases/$channel/latest/download?asset=zed&arch=$arch&os=linux&source=install.sh" > "$temp/zed-linux-$arch.tar.gz"
@@ -93,44 +93,44 @@ linux() {
     appid=""
     case "$channel" in
       stable)
-        appid="dev.zed.Zed"
+        appid="dev.vector.Vector"
         ;;
       nightly)
-        appid="dev.zed.Zed-Nightly"
+        appid="dev.vector.Vector-Nightly"
         ;;
       preview)
-        appid="dev.zed.Zed-Preview"
+        appid="dev.vector.Vector-Preview"
         ;;
       dev)
-        appid="dev.zed.Zed-Dev"
+        appid="dev.vector.Vector-Dev"
         ;;
       *)
         echo "Unknown release channel: ${channel}. Using stable app ID."
-        appid="dev.zed.Zed"
+        appid="dev.vector.Vector"
         ;;
     esac
 
     # Unpack
-    rm -rf "$HOME/.local/zed$suffix.app"
-    mkdir -p "$HOME/.local/zed$suffix.app"
-    tar -xzf "$temp/zed-linux-$arch.tar.gz" -C "$HOME/.local/"
+    rm -rf "$HOME/.local/vector$suffix.app"
+    mkdir -p "$HOME/.local/vector$suffix.app"
+    tar -xzf "$temp/vector-linux-$arch.tar.gz" -C "$HOME/.local/"
 
     # Setup ~/.local directories
     mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
 
     # Link the binary
-    if [ -f "$HOME/.local/zed$suffix.app/bin/zed" ]; then
-        ln -sf "$HOME/.local/zed$suffix.app/bin/zed" "$HOME/.local/bin/zed"
+    if [ -f "$HOME/.local/vector$suffix.app/bin/vector" ]; then
+        ln -sf "$HOME/.local/vector$suffix.app/bin/vector" "$HOME/.local/bin/vector"
     else
         # support for versions before 0.139.x.
-        ln -sf "$HOME/.local/zed$suffix.app/bin/cli" "$HOME/.local/bin/zed"
+        ln -sf "$HOME/.local/vector$suffix.app/bin/cli" "$HOME/.local/bin/vector"
     fi
 
     # Copy .desktop file
     desktop_file_path="$HOME/.local/share/applications/${appid}.desktop"
-    cp "$HOME/.local/zed$suffix.app/share/applications/zed$suffix.desktop" "${desktop_file_path}"
-    sed -i "s|Icon=zed|Icon=$HOME/.local/zed$suffix.app/share/icons/hicolor/512x512/apps/zed.png|g" "${desktop_file_path}"
-    sed -i "s|Exec=zed|Exec=$HOME/.local/zed$suffix.app/bin/zed|g" "${desktop_file_path}"
+    cp "$HOME/.local/vector$suffix.app/share/applications/vector$suffix.desktop" "${desktop_file_path}"
+    sed -i "s|Icon=vector|Icon=$HOME/.local/vector$suffix.app/share/icons/hicolor/512x512/apps/vector.png|g" "${desktop_file_path}"
+    sed -i "s|Exec=vector|Exec=$HOME/.local/vector$suffix.app/bin/vector|g" "${desktop_file_path}"
 }
 
 macos() {
@@ -148,7 +148,7 @@ macos() {
 
     mkdir -p "$HOME/.local/bin"
     # Link the binary
-    ln -sf "/Applications/$app/Contents/MacOS/cli" "$HOME/.local/bin/zed"
+    ln -sf "/Applications/$app/Contents/MacOS/cli" "$HOME/.local/bin/vector"
 }
 
 main "$@"

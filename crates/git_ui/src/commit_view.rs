@@ -733,10 +733,6 @@ impl language::File for GitBlob {
         self.worktree_id
     }
 
-    fn to_proto(&self, _cx: &App) -> language::proto::File {
-        unimplemented!()
-    }
-
     fn is_private(&self) -> bool {
         false
     }
@@ -870,10 +866,6 @@ impl Item for CommitView {
 
     fn to_item_events(event: &EditorEvent, f: impl FnMut(ItemEvent)) {
         Editor::to_item_events(event, f)
-    }
-
-    fn telemetry_event_text(&self) -> Option<&'static str> {
-        Some("Commit View Opened")
     }
 
     fn deactivated(&mut self, window: &mut Window, cx: &mut Context<Self>) {

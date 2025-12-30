@@ -112,23 +112,7 @@ pub struct TcpArguments {
 }
 
 impl TcpArguments {
-    pub fn from_proto(proto: proto::TcpHost) -> anyhow::Result<Self> {
-        let host = TcpArgumentsTemplate::from_proto(proto)?;
-        Ok(TcpArguments {
-            host: host.host.context("missing host")?,
-            port: host.port.context("missing port")?,
-            timeout: host.timeout,
-        })
-    }
-
-    pub fn to_proto(&self) -> proto::TcpHost {
-        TcpArgumentsTemplate {
-            host: Some(self.host),
-            port: Some(self.port),
-            timeout: self.timeout,
-        }
-        .to_proto()
-    }
+    // Proto conversions were used for remote/collab plumbing and are intentionally removed.
 }
 
 /// Represents a debuggable binary/process (what process is going to be debugged and with what arguments).
@@ -167,26 +151,7 @@ impl DebugTaskDefinition {
         }
     }
 
-    pub fn to_proto(&self) -> proto::DebugTaskDefinition {
-        proto::DebugTaskDefinition {
-            label: self.label.clone().into(),
-            config: self.config.to_string(),
-            tcp_connection: self.tcp_connection.clone().map(|v| v.to_proto()),
-            adapter: self.adapter.clone().0.into(),
-        }
-    }
-
-    pub fn from_proto(proto: proto::DebugTaskDefinition) -> Result<Self> {
-        Ok(Self {
-            label: proto.label.into(),
-            config: serde_json::from_str(&proto.config)?,
-            tcp_connection: proto
-                .tcp_connection
-                .map(TcpArgumentsTemplate::from_proto)
-                .transpose()?,
-            adapter: DebugAdapterName(proto.adapter.into()),
-        })
-    }
+    // Proto conversions were used for remote/collab plumbing and are intentionally removed.
 }
 
 /// Created from a [DebugTaskDefinition], this struct describes how to spawn the debugger to create a previously-configured debug session.
@@ -198,6 +163,18 @@ pub struct DebugAdapterBinary {
     pub cwd: Option<PathBuf>,
     pub connection: Option<TcpArguments>,
     pub request_args: StartDebuggingRequestArguments,
+}
+
+impl PartialEq for DebugAdapterBinary {
+    fn eq(&self, other: &Self) -> bool {
+        self.command == other.command
+            && self.arguments == other.arguments
+            && self.envs == other.envs
+            && self.cwd == other.cwd
+            && self.connection == other.connection
+            && self.request_args.configuration == other.request_args.configuration
+            && self.request_args.request == other.request_args.request
+    }
 }
 
 impl DebugAdapterBinary {
@@ -443,8 +420,8 @@ impl DebugAdapter for FakeAdapter {
         let config = serde_json::to_value(zed_scenario.request).unwrap();
 
         Ok(DebugScenario {
-            adapter: zed_scenario.adapter,
-            label: zed_scenario.label,
+            adapter: vector_scenario.adapter,
+            label: vector_scenario.label,
             build: None,
             config,
             tcp_connection: None,

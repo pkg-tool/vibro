@@ -46,25 +46,25 @@ pub fn register(workspace: &mut Workspace) {
 
 pub fn checkout_branch(
     workspace: &mut Workspace,
-    _: &zed_actions::git::CheckoutBranch,
+    _: &vector_actions::git::CheckoutBranch,
     window: &mut Window,
     cx: &mut Context<Workspace>,
 ) {
-    open(workspace, &zed_actions::git::Branch, window, cx);
+    open(workspace, &vector_actions::git::Branch, window, cx);
 }
 
 pub fn switch(
     workspace: &mut Workspace,
-    _: &zed_actions::git::Switch,
+    _: &vector_actions::git::Switch,
     window: &mut Window,
     cx: &mut Context<Workspace>,
 ) {
-    open(workspace, &zed_actions::git::Branch, window, cx);
+    open(workspace, &vector_actions::git::Branch, window, cx);
 }
 
 pub fn open(
     workspace: &mut Workspace,
-    _: &zed_actions::git::Branch,
+    _: &vector_actions::git::Branch,
     window: &mut Window,
     cx: &mut Context<Workspace>,
 ) {

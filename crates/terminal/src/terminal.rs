@@ -167,9 +167,9 @@ enum InternalEvent {
 
 ///A translation struct for Alacritty to communicate with us from their event loop
 #[derive(Clone)]
-pub struct ZedListener(pub UnboundedSender<AlacTermEvent>);
+pub struct AlacrittyListener(pub UnboundedSender<AlacTermEvent>);
 
-impl EventListener for ZedListener {
+impl EventListener for AlacrittyListener {
     fn send_event(&self, event: AlacTermEvent) {
         self.0.unbounded_send(event).ok();
     }
@@ -986,7 +986,7 @@ impl Terminal {
     fn process_terminal_event(
         &mut self,
         event: &InternalEvent,
-        term: &mut Term<ZedListener>,
+        term: &mut Term<AlacrittyListener>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -1584,7 +1584,7 @@ impl Terminal {
         self.last_content = Self::make_content(&terminal, &self.last_content);
     }
 
-    fn make_content(term: &Term<ZedListener>, last_content: &TerminalContent) -> TerminalContent {
+    fn make_content(term: &Term<AlacrittyListener>, last_content: &TerminalContent) -> TerminalContent {
         let content = term.renderable_content();
 
         // Pre-allocate with estimated size to reduce reallocations
@@ -2071,7 +2071,7 @@ impl Terminal {
     /// that's running inside the terminal.
     ///
     /// This does *not* return the working directory of the shell that runs on the
-    /// remote host, in case Zed is connected to a remote host.
+    /// remote host, in case Vector is connected to a remote host.
     fn client_side_working_directory(&self) -> Option<PathBuf> {
         match &self.terminal_type {
             TerminalType::Pty { info, .. } => {
@@ -2223,7 +2223,7 @@ impl Terminal {
         if !lines_to_show.is_empty() {
             // SAFETY: the invocation happens on non `TaskStatus::Running` tasks, once,
             // after either `AlacTermEvent::Exit` or `AlacTermEvent::ChildExit` events that are spawned
-            // when Zed task finishes and no more output is made.
+            // when Vector task finishes and no more output is made.
             // After the task summary is output once, no more text is appended to the terminal.
             unsafe { append_text_to_term(&mut self.term.lock(), &lines_to_show) };
         }
@@ -2323,7 +2323,7 @@ fn task_summary(task: &TaskState, error_code: Option<i32>) -> (bool, String, Str
 /// do not properly set the scrolling state and display odd text after appending; also those manipulations are more tedious and error-prone.
 /// The function achieves proper display and scrolling capabilities, at a cost of grid state not properly synchronized.
 /// This is enough for printing moderately-sized texts like task summaries, but might break or perform poorly for larger texts.
-unsafe fn append_text_to_term(term: &mut Term<ZedListener>, text_lines: &[&str]) {
+unsafe fn append_text_to_term(term: &mut Term<AlacrittyListener>, text_lines: &[&str]) {
     term.newline();
     term.grid_mut().cursor.point.column = Column(0);
     for line in text_lines {

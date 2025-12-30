@@ -1,6 +1,6 @@
 # Icon Themes
 
-Zed comes with a built-in icon theme, with more icon themes available as extensions.
+Vector comes with a built-in icon theme, with more icon themes available as extensions.
 
 ## Selecting an Icon Theme
 
@@ -32,4 +32,4 @@ You can set the mode to `"light"` or `"dark"` to ignore the current system mode.
 
 ## Icon Theme Development
 
-See: [Developing Zed Icon Themes](./extensions/icon-themes.md)
+See: [Developing Vector Icon Themes](./extensions/icon-themes.md)

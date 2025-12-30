@@ -53,14 +53,18 @@ impl DiagnosticRenderer {
                     markdown.push(' ');
                 }
                 if let Some(code) = diagnostic.code.as_ref() {
+                    let code = match code {
+                        lsp::NumberOrString::Number(code) => code.to_string(),
+                        lsp::NumberOrString::String(code) => code.clone(),
+                    };
                     if let Some(description) = diagnostic.code_description.as_ref() {
                         markdown.push('[');
-                        markdown.push_str(&Markdown::escape(&code.to_string()));
+                        markdown.push_str(&Markdown::escape(&code));
                         markdown.push_str("](");
-                        markdown.push_str(&Markdown::escape(description.as_ref()));
+                        markdown.push_str(&Markdown::escape(description.as_str()));
                         markdown.push(')');
                     } else {
-                        markdown.push_str(&Markdown::escape(&code.to_string()));
+                        markdown.push_str(&Markdown::escape(&code));
                     }
                 }
                 if diagnostic.source.is_some() || diagnostic.code.is_some() {

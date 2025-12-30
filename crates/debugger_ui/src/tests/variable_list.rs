@@ -141,8 +141,6 @@ async fn test_basic_fetch_initial_scope_and_variables(
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "variable2".into(),
@@ -154,8 +152,6 @@ async fn test_basic_fetch_initial_scope_and_variables(
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
     ];
 
@@ -171,7 +167,7 @@ async fn test_basic_fetch_initial_scope_and_variables(
     });
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -179,7 +175,7 @@ async fn test_basic_fetch_initial_scope_and_variables(
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -200,16 +196,16 @@ async fn test_basic_fetch_initial_scope_and_variables(
                 )
             });
 
-        assert_eq!(stack_frames, stack_frame_list);
+        assert_eq!(json!(stack_frames), json!(stack_frame_list));
         assert_eq!(Some(1), stack_frame_id);
 
         running_state
             .variable_list()
             .update(cx, |variable_list, _| {
-                assert_eq!(scopes, variable_list.scopes());
+                assert_eq!(json!(scopes), json!(variable_list.scopes()));
                 assert_eq!(
-                    vec![variables[0].clone(), variables[1].clone(),],
-                    variable_list.variables()
+                    json!(vec![variables[0].clone(), variables[1].clone(),]),
+                    json!(variable_list.variables())
                 );
 
                 variable_list.assert_visual_entries(vec![
@@ -370,8 +366,6 @@ async fn test_fetch_variables_for_multiple_scopes(
                 named_variables: None,
                 indexed_variables: None,
                 memory_reference: None,
-                declaration_location_reference: None,
-                value_location_reference: None,
             },
             Variable {
                 name: "variable2".into(),
@@ -383,8 +377,6 @@ async fn test_fetch_variables_for_multiple_scopes(
                 named_variables: None,
                 indexed_variables: None,
                 memory_reference: None,
-                declaration_location_reference: None,
-                value_location_reference: None,
             },
         ],
     );
@@ -400,8 +392,6 @@ async fn test_fetch_variables_for_multiple_scopes(
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         }],
     );
 
@@ -415,7 +405,7 @@ async fn test_fetch_variables_for_multiple_scopes(
     });
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -423,7 +413,7 @@ async fn test_fetch_variables_for_multiple_scopes(
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -445,27 +435,27 @@ async fn test_fetch_variables_for_multiple_scopes(
             });
 
         assert_eq!(Some(1), stack_frame_id);
-        assert_eq!(stack_frames, stack_frame_list);
+        assert_eq!(json!(stack_frames), json!(stack_frame_list));
 
         running_state
             .variable_list()
             .update(cx, |variable_list, _| {
                 assert_eq!(2, variable_list.scopes().len());
-                assert_eq!(scopes, variable_list.scopes());
+                assert_eq!(json!(scopes), json!(variable_list.scopes()));
                 let variables_by_scope = variable_list.variables_per_scope();
 
                 // scope 1
                 assert_eq!(
-                    vec![
+                    json!(vec![
                         variables.get(&2).unwrap()[0].clone(),
                         variables.get(&2).unwrap()[1].clone(),
-                    ],
-                    variables_by_scope[0].1
+                    ]),
+                    json!(variables_by_scope[0].1)
                 );
 
                 // scope 2
                 let empty_vec: Vec<dap::Variable> = vec![];
-                assert_eq!(empty_vec, variables_by_scope[1].1);
+                assert_eq!(json!(empty_vec), json!(variables_by_scope[1].1));
 
                 variable_list.assert_visual_entries(vec![
                     "v Scope 1",
@@ -619,8 +609,6 @@ async fn test_keyboard_navigation(executor: BackgroundExecutor, cx: &mut TestApp
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "variable2".into(),
@@ -632,8 +620,6 @@ async fn test_keyboard_navigation(executor: BackgroundExecutor, cx: &mut TestApp
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
     ];
 
@@ -648,8 +634,6 @@ async fn test_keyboard_navigation(executor: BackgroundExecutor, cx: &mut TestApp
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "nested2".into(),
@@ -661,8 +645,6 @@ async fn test_keyboard_navigation(executor: BackgroundExecutor, cx: &mut TestApp
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
     ];
 
@@ -676,8 +658,6 @@ async fn test_keyboard_navigation(executor: BackgroundExecutor, cx: &mut TestApp
         named_variables: None,
         indexed_variables: None,
         memory_reference: None,
-        declaration_location_reference: None,
-        value_location_reference: None,
     }];
 
     client.on_request::<Variables, _>({
@@ -699,7 +679,7 @@ async fn test_keyboard_navigation(executor: BackgroundExecutor, cx: &mut TestApp
     });
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -707,7 +687,7 @@ async fn test_keyboard_navigation(executor: BackgroundExecutor, cx: &mut TestApp
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -1414,8 +1394,6 @@ async fn test_variable_list_only_sends_requests_when_rendering(
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "variable2".into(),
@@ -1427,8 +1405,6 @@ async fn test_variable_list_only_sends_requests_when_rendering(
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
     ];
 
@@ -1449,7 +1425,7 @@ async fn test_variable_list_only_sends_requests_when_rendering(
         .update_in(cx, |item, _, _| item.running_state().clone());
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -1457,7 +1433,7 @@ async fn test_variable_list_only_sends_requests_when_rendering(
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -1472,11 +1448,11 @@ async fn test_variable_list_only_sends_requests_when_rendering(
             });
 
         assert_eq!(Some(1), stack_frame_id);
-        assert_eq!(stack_frames, stack_frame_list);
+        assert_eq!(json!(stack_frames), json!(stack_frame_list));
 
         let variable_list = running_state.variable_list().read(cx);
 
-        assert_eq!(frame_1_variables, variable_list.variables());
+        assert_eq!(json!(frame_1_variables), json!(variable_list.variables()));
         assert!(made_scopes_request.load(Ordering::SeqCst));
     });
 }
@@ -1669,8 +1645,6 @@ async fn test_it_fetches_scopes_variables_when_you_select_a_stack_frame(
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "variable2".into(),
@@ -1682,8 +1656,6 @@ async fn test_it_fetches_scopes_variables_when_you_select_a_stack_frame(
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
     ];
 
@@ -1698,8 +1670,6 @@ async fn test_it_fetches_scopes_variables_when_you_select_a_stack_frame(
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
         Variable {
             name: "variable4".into(),
@@ -1711,8 +1681,6 @@ async fn test_it_fetches_scopes_variables_when_you_select_a_stack_frame(
             named_variables: None,
             indexed_variables: None,
             memory_reference: None,
-            declaration_location_reference: None,
-            value_location_reference: None,
         },
     ];
 
@@ -1728,7 +1696,7 @@ async fn test_it_fetches_scopes_variables_when_you_select_a_stack_frame(
     });
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -1736,7 +1704,7 @@ async fn test_it_fetches_scopes_variables_when_you_select_a_stack_frame(
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -1777,8 +1745,8 @@ async fn test_it_fetches_scopes_variables_when_you_select_a_stack_frame(
             "Request scopes shouldn't be called before it's needed"
         );
 
-        assert_eq!(stack_frames, stack_frame_list);
-        assert_eq!(frame_1_variables, variables);
+        assert_eq!(json!(stack_frames), json!(stack_frame_list));
+        assert_eq!(json!(frame_1_variables), json!(variables));
     });
 
     client.on_request::<Variables, _>({
@@ -1823,9 +1791,9 @@ async fn test_it_fetches_scopes_variables_when_you_select_a_stack_frame(
             "Request scopes shouldn't be called before it's needed"
         );
 
-        assert_eq!(stack_frames, stack_frame_list);
+        assert_eq!(json!(stack_frames), json!(stack_frame_list));
 
-        assert_eq!(variables, frame_2_variables,);
+        assert_eq!(json!(variables), json!(frame_2_variables));
     });
 }
 

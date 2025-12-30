@@ -1,9 +1,9 @@
 [book]
-authors = ["The Zed Team"]
+authors = ["The Vector Team"]
 language = "en"
 multilingual = false
 src = "src"
-title = "Zed"
+title = "Vector"
 site-url = "/docs/"
 
 [build]
@@ -97,6 +97,6 @@ enable = false
 # and other docs-related functions.
 #
 # Comment the below section out if you need to bypass the preprocessor for some reason.
-[preprocessor.zed_docs_preprocessor]
+[preprocessor.vector_docs_preprocessor]
 command = "cargo run -p docs_preprocessor --"
 renderer = ["html"]

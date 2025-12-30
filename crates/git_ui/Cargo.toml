@@ -16,7 +16,6 @@ path = "src/git_ui.rs"
 test-support = ["multi_buffer/test-support"]
 
 [dependencies]
-agent_settings.workspace = true
 anyhow.workspace = true
 askpass.workspace = true
 buffer_diff.workspace = true
@@ -52,7 +51,6 @@ serde_json.workspace = true
 settings.workspace = true
 smol.workspace = true
 strum.workspace = true
-telemetry.workspace = true
 theme.workspace = true
 time.workspace = true
 time_format.workspace = true

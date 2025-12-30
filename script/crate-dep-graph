@@ -2,7 +2,7 @@
 
 set -e
 
-if [[ -x cargo-depgraph ]]; then
+if ! command -v cargo-depgraph >/dev/null; then
     cargo install cargo-depgraph
 fi
 
@@ -11,7 +11,7 @@ graph_file=target/crate-graph.html
 cargo depgraph \
     --workspace-only \
     --offline \
-    --root=zed,cli,collab \
+    --root=vector,cli \
     --dedup-transitive-deps \
     | dot -Tsvg > $graph_file
 

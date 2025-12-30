@@ -1,6 +1,6 @@
 # Themes
 
-Zed comes with a number of built-in themes, with more themes available as extensions.
+Vector comes with a number of built-in themes, with more themes available as extensions.
 
 ## Selecting a Theme
 
@@ -12,7 +12,7 @@ Navigating through the theme list by moving up and down will change the theme in
 
 More themes are available from the Extensions page, which you can access via the command palette with `zed: extensions` or the [Zed website](https://zed.dev/extensions?filter=themes).
 
-Many popular themes have been ported to Zed, and if you're struggling to choose one, visit [zed-themes.com](https://zed-themes.com), a third-party gallery with visible previews for many of them.
+Many popular themes have been ported to Vector, and you can also browse third-party theme galleries with visible previews.
 
 ## Configuring a Theme
 
@@ -79,4 +79,4 @@ It will be available in the theme selector the next time Zed loads.
 
 ## Theme Development
 
-See: [Developing Zed Themes](./extensions/themes.md)
+See: [Developing Vector Themes](./extensions/themes.md)

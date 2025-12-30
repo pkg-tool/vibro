@@ -32,7 +32,7 @@ cargo run --config 'profile.release.debug="full"'
 cargo build --config 'profile.release.debug="full"'
 ```
 
-> If you wish to avoid passing the `--config` flag on every invocation of `cargo`. You may also change the section in the [root `Cargo.toml`](https://github.com/zed-industries/zed/blob/main/Cargo.toml)
+> If you wish to avoid passing the `--config` flag on every invocation of `cargo`. You may also change the section in the [root `Cargo.toml`](https://github.com/vector-editor/vector/blob/main/Cargo.toml)
 >
 > from
 >
@@ -56,7 +56,7 @@ cargo build --config 'profile.release.debug="full"'
 
 ### Background
 
-When installing rust through rustup, (the recommended way to do so when developing Zed, see the documentation for getting started on your platform [here](../development.md))
+When installing rust through rustup, (the recommended way to do so when developing Vector, see the documentation for getting started on your platform [here](../development.md))
 a few additional scripts are installed and put on your path to assist with debugging binaries compiled with rust.
 
 These are `rust-gdb` and `rust-lldb` respectively.
@@ -74,24 +74,24 @@ According to the [previously linked article](https://michaelwoerister.github.io/
 
 If you are unfamiliar with `gdb` or `lldb`, you can learn more about them [here](https://www.gnu.org/software/gdb/) and [here](https://lldb.llvm.org/) respectively.
 
-### Usage with Zed
+### Usage with Vector
 
 After following the steps above for including full debug info when compiling Zed,
 You can either run `rust-gdb` or `rust-lldb` on the compiled Zed binary after building it with `cargo build`, by running one of the following commands:
 
 ```
-rust-gdb target/debug/zed
-rust-lldb target/debug/zed
+rust-gdb target/debug/vector
+rust-lldb target/debug/vector
 ```
 
-Alternatively, you can attach to a running instance of Zed (such as an instance of Zed started using `cargo run`) by running one of the following commands:
+Alternatively, you can attach to a running instance of Vector (such as an instance of Vector started using `cargo run`) by running one of the following commands:
 
 ```
 rust-gdb -p <pid>
 rust-lldb -p <pid>
 ```
 
-Where `<pid>` is the process ID of the Zed instance you want to attach to.
+Where `<pid>` is the process ID of the Vector instance you want to attach to.
 
 To get the process ID of a running Zed instance, you can use your systems process management tools such as `Task Manager` on windows or `Activity Monitor` on macOS.
 
@@ -99,7 +99,7 @@ Alternatively, you can run the `ps aux | grep zed` command on macOS and Linux or
 
 #### Debugging Panics and Crashes
 
-Debuggers can be an excellent tool for debugging the cause of panics and crashes in all programs, including Zed.
+Debuggers can be an excellent tool for debugging the cause of panics and crashes in all programs, including Vector.
 
 By default, when a process that `gdb` or `lldb` is attached to hits an exception such as a panic, the debugger will automatically stop at the point of the panic and allow you to inspect the state of the program.
 
@@ -110,4 +110,4 @@ This can be accomplished using the `backtrace` command in combination with the `
 Once the program is stopped, you will not be able to continue execution as you can before an exception is hit. However, you can jump around to different stack frames, and inspect the values of variables and expressions
 within each frame, which can be very useful in identifying the root cause of the crash.
 
-You can find additional information on debugging Zed crashes [here](./debugging-crashes.md).
+You can find additional information on debugging Vector crashes [here](./debugging-crashes.md).

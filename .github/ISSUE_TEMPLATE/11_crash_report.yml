@@ -31,7 +31,7 @@ body:
       description: |
         Open the command palette in Zed, then type `zed: open log` to see the last 1000 lines. Or type `zed: reveal log in file manager` in the command palette to reveal the log file itself.
       value: |
-        <details><summary>Zed.log</summary>
+        <details><summary>Vector.log</summary>
 
         <!-- Paste your log inside the code block. -->
         ```log
