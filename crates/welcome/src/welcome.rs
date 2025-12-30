@@ -1,10 +1,8 @@
-use client::{TelemetrySettings, telemetry::Telemetry};
 use db::kvp::KEY_VALUE_STORE;
 use gpui::{
     Action, App, Context, Entity, EventEmitter, FocusHandle, Focusable, InteractiveElement,
     ParentElement, Render, Styled, Subscription, Task, WeakEntity, Window, actions, svg,
 };
-use language::language_settings::{EditPredictionProvider, all_language_settings};
 use settings::{Settings, SettingsStore};
 use std::sync::Arc;
 use ui::{CheckboxWithLabel, ElevationIndex, Tooltip, prelude::*};
@@ -28,7 +26,7 @@ mod welcome_ui;
 actions!(welcome, [ResetHints]);
 
 pub const FIRST_OPEN: &str = "first_open";
-pub const DOCS_URL: &str = "https://zed.dev/docs/";
+pub const DOCS_URL: &str = "https://vector.dev/docs/";
 
 pub fn init(cx: &mut App) {
     BaseKeymap::register(cx);
@@ -70,22 +68,11 @@ pub fn show_welcome_view(app_state: Arc<AppState>, cx: &mut App) -> Task<anyhow:
 pub struct WelcomePage {
     workspace: WeakEntity<Workspace>,
     focus_handle: FocusHandle,
-    telemetry: Arc<Telemetry>,
     _settings_subscription: Subscription,
 }
 
 impl Render for WelcomePage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let edit_prediction_provider_is_zed =
-            all_language_settings(None, cx).edit_predictions.provider
-                == EditPredictionProvider::Zed;
-
-        let edit_prediction_label = if edit_prediction_provider_is_zed {
-            "Edit Prediction Enabled"
-        } else {
-            "Try Edit Prediction"
-        };
-
         h_flex()
             .size_full()
             .bg(cx.theme().colors().editor_background)
@@ -111,7 +98,7 @@ impl Render for WelcomePage {
                                 h_flex()
                                     .w_full()
                                     .justify_center()
-                                    .child(Headline::new("Welcome to Zed")),
+                                    .child(Headline::new("Welcome to Vector")),
                             )
                             .child(
                                 h_flex().w_full().justify_center().child(
@@ -145,10 +132,9 @@ impl Render for WelcomePage {
                                             .icon_color(Color::Muted)
                                             .icon_position(IconPosition::Start)
                                             .on_click(cx.listener(|this, _, window, cx| {
-                                                telemetry::event!("Welcome Theme Changed");
                                                 this.workspace
                                                     .update(cx, |_workspace, cx| {
-                                                        window.dispatch_action(zed_actions::theme_selector::Toggle::default().boxed_clone(), cx);
+                                                        window.dispatch_action(vector_actions::theme_selector::Toggle::default().boxed_clone(), cx);
                                                     })
                                                     .ok();
                                             })),
@@ -160,7 +146,6 @@ impl Render for WelcomePage {
                                             .icon_color(Color::Muted)
                                             .icon_position(IconPosition::Start)
                                             .on_click(cx.listener(|this, _, window, cx| {
-                                                telemetry::event!("Welcome Keymap Changed");
                                                 this.workspace
                                                     .update(cx, |workspace, cx| {
                                                         base_keymap_picker::toggle(
@@ -173,32 +158,14 @@ impl Render for WelcomePage {
                                             })),
                                     )
                                     .child(
-                                        Button::new(
-                                            "try-zed-edit-prediction",
-                                            edit_prediction_label,
-                                        )
-                                        .disabled(edit_prediction_provider_is_zed)
-                                        .icon(IconName::ZedPredict)
-                                        .icon_size(IconSize::XSmall)
-                                        .icon_color(Color::Muted)
-                                        .icon_position(IconPosition::Start)
-                                        .on_click(
-                                            cx.listener(|_, _, window, cx| {
-                                                telemetry::event!("Welcome Screen Try Edit Prediction clicked");
-                                                window.dispatch_action(zed_actions::OpenZedPredictOnboarding.boxed_clone(), cx);
-                                            }),
-                                        ),
-                                    )
-                                    .child(
                                         Button::new("edit settings", "Edit Settings")
                                             .icon(IconName::Settings)
                                             .icon_size(IconSize::XSmall)
                                             .icon_color(Color::Muted)
                                             .icon_position(IconPosition::Start)
                                             .on_click(cx.listener(|_, _, window, cx| {
-                                                telemetry::event!("Welcome Settings Edited");
                                                 window.dispatch_action(Box::new(
-                                                    zed_actions::OpenSettings,
+                                                    vector_actions::OpenSettings,
                                                 ), cx);
                                             })),
                                     )
@@ -222,7 +189,6 @@ impl Render for WelcomePage {
                                                 .icon_color(Color::Muted)
                                                 .icon_position(IconPosition::Start)
                                                 .on_click(cx.listener(|this, _, window, cx| {
-                                                    telemetry::event!("Welcome CLI Installed");
                                                     this.workspace.update(cx, |_, cx|{
                                                         install_cli::install_cli(window, cx);
                                                     }).log_err();
@@ -236,7 +202,6 @@ impl Render for WelcomePage {
                                             .icon_color(Color::Muted)
                                             .icon_position(IconPosition::Start)
                                             .on_click(cx.listener(|_, _, _, cx| {
-                                                telemetry::event!("Welcome Documentation Viewed");
                                                 cx.open_url(DOCS_URL);
                                             })),
                                     )
@@ -247,9 +212,8 @@ impl Render for WelcomePage {
                                             .icon_color(Color::Muted)
                                             .icon_position(IconPosition::Start)
                                             .on_click(cx.listener(|_, _, window, cx| {
-                                                telemetry::event!("Welcome Extensions Page Opened");
                                                 window.dispatch_action(Box::new(
-                                                    zed_actions::Extensions::default(),
+                                                    vector_actions::Extensions::default(),
                                                 ), cx);
                                             })),
                                     )
@@ -272,7 +236,6 @@ impl Render for WelcomePage {
                                                 ui::ToggleState::Unselected
                                             },
                                             cx.listener(move |this, selection, _window, cx| {
-                                                telemetry::event!("Welcome Vim Mode Toggled");
                                                 this.update_settings::<VimModeSetting>(
                                                     selection,
                                                     cx,
@@ -287,64 +250,11 @@ impl Render for WelcomePage {
                                         IconButton::new("vim-mode", IconName::Info)
                                             .icon_size(IconSize::XSmall)
                                             .icon_color(Color::Muted)
-                                            .tooltip(
-                                                Tooltip::text(
-                                                    "You can also toggle Vim Mode via the command palette or Editor Controls menu.")
-                                            ),
+                                            .tooltip(Tooltip::text(
+                                                "You can also toggle Vim Mode via the command palette or Editor Controls menu.",
+                                            )),
                                     ),
                             )
-                            .child(
-                                CheckboxWithLabel::new(
-                                    "enable-crash",
-                                    Label::new("Send Crash Reports"),
-                                    if TelemetrySettings::get_global(cx).diagnostics {
-                                        ui::ToggleState::Selected
-                                    } else {
-                                        ui::ToggleState::Unselected
-                                    },
-                                    cx.listener(move |this, selection, _window, cx| {
-                                        telemetry::event!("Welcome Diagnostic Telemetry Toggled");
-                                        this.update_settings::<TelemetrySettings>(selection, cx, {
-                                            move |settings, value| {
-                                                settings.diagnostics = Some(value);
-                                                telemetry::event!(
-                                                    "Settings Changed",
-                                                    setting = "diagnostic telemetry",
-                                                    value
-                                                );
-                                            }
-                                        });
-                                    }),
-                                )
-                                .fill()
-                                .elevation(ElevationIndex::ElevatedSurface),
-                            )
-                            .child(
-                                CheckboxWithLabel::new(
-                                    "enable-telemetry",
-                                    Label::new("Send Telemetry"),
-                                    if TelemetrySettings::get_global(cx).metrics {
-                                        ui::ToggleState::Selected
-                                    } else {
-                                        ui::ToggleState::Unselected
-                                    },
-                                    cx.listener(move |this, selection, _window, cx| {
-                                        telemetry::event!("Welcome Metric Telemetry Toggled");
-                                        this.update_settings::<TelemetrySettings>(selection, cx, {
-                                            move |settings, value| {
-                                                settings.metrics = Some(value);
-                                                telemetry::event!(
-                                                    "Settings Changed",
-                                                    setting = "metric telemetry",
-                                                    value
-                                                );
-                                            }
-                                        });
-                                    }),
-                                )
-                                .fill()
-                                .elevation(ElevationIndex::ElevatedSurface),
-                            ),
                     ),
             )
     }
@@ -353,15 +263,9 @@ impl Render for WelcomePage {
 impl WelcomePage {
     pub fn new(workspace: &Workspace, cx: &mut Context<Workspace>) -> Entity<Self> {
         let this = cx.new(|cx| {
-            cx.on_release(|_: &mut Self, _| {
-                telemetry::event!("Welcome Page Closed");
-            })
-            .detach();
-
             WelcomePage {
                 focus_handle: cx.focus_handle(),
                 workspace: workspace.weak_handle(),
-                telemetry: workspace.client().telemetry().clone(),
                 _settings_subscription: cx
                     .observe_global::<SettingsStore>(move |_, cx| cx.notify()),
             }
@@ -414,10 +318,6 @@ impl Item for WelcomePage {
         "Welcome".into()
     }
 
-    fn telemetry_event_text(&self) -> Option<&'static str> {
-        Some("Welcome Page Opened")
-    }
-
     fn show_toolbar(&self) -> bool {
         false
     }
@@ -431,7 +331,6 @@ impl Item for WelcomePage {
         Some(cx.new(|cx| WelcomePage {
             focus_handle: cx.focus_handle(),
             workspace: self.workspace.clone(),
-            telemetry: self.telemetry.clone(),
             _settings_subscription: cx.observe_global::<SettingsStore>(move |_, cx| cx.notify()),
         }))
     }

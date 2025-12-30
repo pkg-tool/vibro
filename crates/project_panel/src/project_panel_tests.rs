@@ -5138,7 +5138,6 @@ fn init_test(cx: &mut TestAppContext) {
         editor::init_settings(cx);
         crate::init(cx);
         workspace::init_settings(cx);
-        client::init_settings(cx);
         Project::init_settings(cx);
 
         cx.update_global::<SettingsStore, _>(|store, cx| {

@@ -1,19 +1,19 @@
 # Fonts
 
 <!--
-TBD: WIP. Zed Fonts documentation. This is currently not linked from SUMMARY.md are so unpublished.
+TBD: WIP. Vector Fonts documentation. This is currently not linked from SUMMARY.md are so unpublished.
 -->
 
-Zed ships two fonts: Zed Plex Mono and Zed Plex Sans. These are based on IBM Plex Mono and IBM Plex Sans, respectively.
+Vector ships two fonts: Vector Plex Mono and Vector Plex Sans. These are based on IBM Plex Mono and IBM Plex Sans, respectively.
 
 <!--
-TBD: Document how Zed Plex font files were created. Repo links, etc.
+TBD: Document how Vector Plex font files were created. Repo links, etc.
 -->
 
 ## Settings
 
 <!--
-TBD: Explain various font settings in Zed.
+TBD: Explain various font settings in Vector.
 -->
 
 - Buffer fonts
@@ -34,23 +34,23 @@ TBD: Explain various font settings in Zed.
 - Other settings:
   - `active-pane-magnification`
 
-## Old Zed Fonts
+## Old Vector Fonts
 
-Previously, Zed shipped with `Zed Mono` and `Zed Sans`, customized versions of the [Iosevka](https://typeof.net/Iosevka/) typeface. You can find more about them in the [zed-fonts](https://github.com/zed-industries/zed-fonts/) repository.
+Previously, Vector shipped with `Vector Mono` and `Vector Sans`, customized versions of the [Iosevka](https://typeof.net/Iosevka/) typeface. You can find more about them in the Vector fonts repository.
 
-Here's how you can use the old Zed fonts instead of `Zed Plex Mono` and `Zed Plex Sans`:
+Here's how you can use the old Vector fonts instead of `Vector Plex Mono` and `Vector Plex Sans`:
 
-1. Download [zed-app-fonts-1.2.0.zip](https://github.com/zed-industries/zed-fonts/releases/download/1.2.0/zed-app-fonts-1.2.0.zip) from the [zed-fonts releases](https://github.com/zed-industries/zed-fonts/releases) page.
+1. Download `vector-app-fonts-1.2.0.zip` from the Vector fonts releases page.
 2. Open macOS `Font Book.app`
 3. Unzip the file and drag the `ttf` files into the Font Book app.
-4. Update your settings `ui_font_family` and `buffer_font_family` to use `Zed Mono` or `Zed Sans` in your `settings.json` file.
+4. Update your settings `ui_font_family` and `buffer_font_family` to use `Vector Mono` or `Vector Sans` in your `settings.json` file.
 
 ```json
 {
-  "ui_font_family": "Zed Sans Extended",
-  "buffer_font_family": "Zed Mono Extend",
+  "ui_font_family": "Vector Sans Extended",
+  "buffer_font_family": "Vector Mono Extend",
   "terminal": {
-    "font-family": "Zed Mono Extended"
+    "font-family": "Vector Mono Extended"
   }
 }
 ```

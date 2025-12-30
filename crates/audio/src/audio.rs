@@ -12,24 +12,12 @@ pub fn init(source: impl AssetSource, cx: &mut App) {
 }
 
 pub enum Sound {
-    Joined,
-    Leave,
-    Mute,
-    Unmute,
-    StartScreenshare,
-    StopScreenshare,
     AgentDone,
 }
 
 impl Sound {
     fn file(&self) -> &'static str {
         match self {
-            Self::Joined => "joined_call",
-            Self::Leave => "leave_call",
-            Self::Mute => "mute",
-            Self::Unmute => "unmute",
-            Self::StartScreenshare => "start_screenshare",
-            Self::StopScreenshare => "stop_screenshare",
             Self::AgentDone => "agent_done",
         }
     }
@@ -71,17 +59,6 @@ impl Audio {
             let source = SoundRegistry::global(cx).get(sound.file()).log_err()?;
             output_handle.play_raw(source).log_err()?;
             Some(())
-        });
-    }
-
-    pub fn end_call(cx: &mut App) {
-        if !cx.has_global::<GlobalAudio>() {
-            return;
-        }
-
-        cx.update_global::<GlobalAudio, _>(|this, _| {
-            this._output_stream.take();
-            this.output_handle.take();
         });
     }
 }

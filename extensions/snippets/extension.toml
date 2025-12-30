@@ -4,7 +4,7 @@ description = "Support for language-agnostic snippets, provided by simple-comple
 version = "0.0.5"
 schema_version = 1
 authors = []
-repository = "https://github.com/zed-industries/zed"
+repository = "https://github.com/vector-editor/vector"
 
 [language_servers.snippet-completion-server]
 name = "Snippet Completion Server"

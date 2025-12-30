@@ -30,6 +30,7 @@ serde_json.workspace = true
 schemars.workspace = true
 smol.workspace = true
 util.workspace = true
+url.workspace = true
 release_channel.workspace = true
 workspace-hack.workspace = true
 

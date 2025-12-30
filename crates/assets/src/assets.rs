@@ -1,4 +1,4 @@
-// This crate was essentially pulled out verbatim from main `zed` crate to avoid having to run RustEmbed macro whenever zed has to be rebuilt. It saves a second or two on an incremental build.
+// This crate was essentially pulled out verbatim from the main application crate to avoid having to run the RustEmbed macro whenever it has to be rebuilt. It saves a second or two on an incremental build.
 
 use anyhow::Context as _;
 use gpui::{App, AssetSource, Result, SharedString};
@@ -58,7 +58,7 @@ impl Assets {
     pub fn load_test_fonts(&self, cx: &App) {
         cx.text_system()
             .add_fonts(vec![
-                self.load("fonts/plex-mono/ZedPlexMono-Regular.ttf")
+                self.load("fonts/plex-mono/VectorPlexMono-Regular.ttf")
                     .unwrap()
                     .unwrap(),
             ])

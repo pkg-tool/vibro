@@ -134,9 +134,9 @@ impl LspAdapter for ExtensionLspAdapter {
 
             let path = self.extension.path_from_extension(command.command.as_ref());
 
-            // TODO: This should now be done via the `zed::make_file_executable` function in
-            // Zed extension API, but we're leaving these existing usages in place temporarily
-            // to avoid any compatibility issues between Zed and the extension versions.
+            // TODO: This should now be done via the extension API's `make_file_executable`
+            // function, but we're leaving these existing usages in place temporarily
+            // to avoid any compatibility issues between the app and older extension versions.
             //
             // We can remove once the following extension versions no longer see any use:
             // - toml@0.0.2
@@ -207,7 +207,7 @@ impl LspAdapter for ExtensionLspAdapter {
     fn language_ids(&self) -> HashMap<String, String> {
         // TODO: The language IDs can be provided via the language server options
         // in `extension.toml now but we're leaving these existing usages in place temporarily
-        // to avoid any compatibility issues between Zed and the extension versions.
+        // to avoid any compatibility issues between the app and older extension versions.
         //
         // We can remove once the following extension versions no longer see any use:
         // - php@0.0.1

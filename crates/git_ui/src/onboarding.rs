@@ -9,10 +9,8 @@ use crate::git_panel::GitPanel;
 
 macro_rules! git_onboarding_event {
     ($name:expr) => {
-        telemetry::event!($name, source = "Git Onboarding");
     };
     ($name:expr, $($key:ident $(= $value:expr)?),+ $(,)?) => {
-        telemetry::event!($name, source = "Git Onboarding", $($key $(= $value)?),+);
     };
 }
 
@@ -42,7 +40,7 @@ impl GitOnboardingModal {
     }
 
     fn view_blog(&mut self, _: &ClickEvent, _: &mut Window, cx: &mut Context<Self>) {
-        cx.open_url("https://zed.dev/blog/git");
+        cx.open_url("https://vector.dev/docs/git");
         cx.notify();
 
         git_onboarding_event!("Blog Link Clicked");
@@ -124,14 +122,14 @@ impl Render for GitOnboardingModal {
             .full_width()
             .on_click(cx.listener(Self::open_panel));
 
-        let blog_post_button = Button::new("view-blog", "Check out the Blog Post")
+        let blog_post_button = Button::new("view-docs", "Read the Docs")
             .icon(IconName::ArrowUpRight)
             .icon_size(IconSize::Indicator)
             .icon_color(Color::Muted)
             .full_width()
             .on_click(cx.listener(Self::view_blog));
 
-        let copy = "First-class support for staging, committing, pulling, pushing, viewing diffs, and more. All without leaving Zed.";
+        let copy = "First-class support for staging, committing, pulling, pushing, viewing diffs, and more. All without leaving Vector.";
 
         base.child(Label::new(copy).color(Color::Muted)).child(
             v_flex()

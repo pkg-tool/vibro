@@ -118,13 +118,13 @@ impl<T> Default for InventoryFor<T> {
 pub enum TaskSourceKind {
     /// bash-like commands spawned by users, not associated with any path
     UserInput,
-    /// Tasks from the worktree's .zed/task.json
+    /// Tasks from the worktree's `.vector/tasks.json`
     Worktree {
         id: WorktreeId,
         directory_in_worktree: PathBuf,
         id_base: Cow<'static, str>,
     },
-    /// ~/.config/zed/task.json - like global files with task definitions, applicable to any path
+    /// `~/.config/vector/tasks.json` - global task definitions, applicable to any path
     AbsPath {
         id_base: Cow<'static, str>,
         abs_path: PathBuf,
@@ -965,8 +965,6 @@ mod tests {
     use serde_json::json;
     use settings::SettingsLocation;
 
-    use crate::task_store::TaskStore;
-
     use super::test_inventory::*;
     use super::*;
 
@@ -1186,16 +1184,16 @@ mod tests {
             (
                 TaskSourceKind::Worktree {
                     id: worktree_1,
-                    directory_in_worktree: PathBuf::from(".zed"),
-                    id_base: "local worktree tasks from directory \".zed\"".into(),
+                    directory_in_worktree: PathBuf::from(".vector"),
+                    id_base: "local worktree tasks from directory \".vector\"".into(),
                 },
                 common_name.to_string(),
             ),
             (
                 TaskSourceKind::Worktree {
                     id: worktree_1,
-                    directory_in_worktree: PathBuf::from(".zed"),
-                    id_base: "local worktree tasks from directory \".zed\"".into(),
+                    directory_in_worktree: PathBuf::from(".vector"),
+                    id_base: "local worktree tasks from directory \".vector\"".into(),
                 },
                 "worktree_1".to_string(),
             ),
@@ -1204,16 +1202,16 @@ mod tests {
             (
                 TaskSourceKind::Worktree {
                     id: worktree_2,
-                    directory_in_worktree: PathBuf::from(".zed"),
-                    id_base: "local worktree tasks from directory \".zed\"".into(),
+                    directory_in_worktree: PathBuf::from(".vector"),
+                    id_base: "local worktree tasks from directory \".vector\"".into(),
                 },
                 common_name.to_string(),
             ),
             (
                 TaskSourceKind::Worktree {
                     id: worktree_2,
-                    directory_in_worktree: PathBuf::from(".zed"),
-                    id_base: "local worktree tasks from directory \".zed\"".into(),
+                    directory_in_worktree: PathBuf::from(".vector"),
+                    id_base: "local worktree tasks from directory \".vector\"".into(),
                 },
                 "worktree_2".to_string(),
             ),
@@ -1234,7 +1232,7 @@ mod tests {
                 .update_file_based_tasks(
                     TaskSettingsLocation::Worktree(SettingsLocation {
                         worktree_id: worktree_1,
-                        path: Path::new(".zed"),
+                        path: Path::new(".vector"),
                     }),
                     Some(&mock_tasks_from_names(
                         worktree_1_tasks.iter().map(|(_, name)| name.as_str()),
@@ -1245,7 +1243,7 @@ mod tests {
                 .update_file_based_tasks(
                     TaskSettingsLocation::Worktree(SettingsLocation {
                         worktree_id: worktree_2,
-                        path: Path::new(".zed"),
+                        path: Path::new(".vector"),
                     }),
                     Some(&mock_tasks_from_names(
                         worktree_2_tasks.iter().map(|(_, name)| name.as_str()),
@@ -1303,7 +1301,6 @@ mod tests {
 
     fn init_test(_cx: &mut TestAppContext) {
         zlog::init_test();
-        TaskStore::init(None);
     }
 
     fn resolved_task_names(

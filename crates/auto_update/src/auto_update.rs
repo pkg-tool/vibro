@@ -1,12 +1,10 @@
 use anyhow::{Context as _, Result};
-use client::{Client, TelemetrySettings};
 use db::RELEASE_CHANNEL;
 use db::kvp::KEY_VALUE_STORE;
 use gpui::{
     App, AppContext as _, AsyncApp, Context, Entity, Global, SemanticVersion, Task, Window, actions,
 };
 use http_client::{AsyncBody, HttpClient, HttpClientWithUrl};
-use paths::remote_servers_dir;
 use release_channel::{AppCommitSha, ReleaseChannel};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -32,10 +30,7 @@ actions!(auto_update, [Check, DismissErrorMessage, ViewReleaseNotes,]);
 
 #[derive(Serialize)]
 struct UpdateRequestBody {
-    installation_id: Option<Arc<str>>,
     release_channel: Option<&'static str>,
-    telemetry: bool,
-    is_staff: Option<bool>,
     destination: &'static str,
 }
 
@@ -165,8 +160,8 @@ pub fn init(http_client: Arc<HttpClientWithUrl>, cx: &mut App) {
             .map(|channel| channel.poll_for_updates())
             .unwrap_or(false);
 
-        if option_env!("ZED_UPDATE_EXPLANATION").is_none()
-            && env::var("ZED_UPDATE_EXPLANATION").is_err()
+        if option_env!("VECTOR_UPDATE_EXPLANATION").is_none()
+            && env::var("VECTOR_UPDATE_EXPLANATION").is_err()
             && poll_for_updates
         {
             let mut update_subscription = AutoUpdateSetting::get_global(cx)
@@ -191,10 +186,10 @@ pub fn init(http_client: Arc<HttpClientWithUrl>, cx: &mut App) {
 }
 
 pub fn check(_: &Check, window: &mut Window, cx: &mut App) {
-    if let Some(message) = option_env!("ZED_UPDATE_EXPLANATION") {
+    if let Some(message) = option_env!("VECTOR_UPDATE_EXPLANATION") {
         drop(window.prompt(
             gpui::PromptLevel::Info,
-            "Zed was installed via a package manager.",
+            "Vector was installed via a package manager.",
             Some(message),
             &["Ok"],
             cx,
@@ -202,10 +197,10 @@ pub fn check(_: &Check, window: &mut Window, cx: &mut App) {
         return;
     }
 
-    if let Ok(message) = env::var("ZED_UPDATE_EXPLANATION") {
+    if let Ok(message) = env::var("VECTOR_UPDATE_EXPLANATION") {
         drop(window.prompt(
             gpui::PromptLevel::Info,
-            "Zed was installed via a package manager.",
+            "Vector was installed via a package manager.",
             Some(&message),
             &["Ok"],
             cx,
@@ -247,10 +242,10 @@ pub fn view_release_notes(_: &ViewReleaseNotes, cx: &mut App) -> Option<()> {
             cx.open_url(url);
         }
         ReleaseChannel::Nightly => {
-            cx.open_url("https://github.com/zed-industries/zed/commits/nightly/");
+            cx.open_url("https://github.com/vector-editor/vector/commits/nightly/");
         }
         ReleaseChannel::Dev => {
-            cx.open_url("https://github.com/zed-industries/zed/commits/main/");
+            cx.open_url("https://github.com/vector-editor/vector/commits/main/");
         }
     }
     None
@@ -264,7 +259,7 @@ impl InstallerDir {
     async fn new() -> Result<Self> {
         Ok(Self(
             tempfile::Builder::new()
-                .prefix("zed-auto-update")
+                .prefix("vector-auto-update")
                 .tempdir()?,
         ))
     }
@@ -282,7 +277,7 @@ impl InstallerDir {
     async fn new() -> Result<Self> {
         let installer_dir = std::env::current_exe()?
             .parent()
-            .context("No parent dir for Zed.exe")?
+            .context("No parent dir for Vector.exe")?
             .join("updates");
         if smol::fs::metadata(&installer_dir).await.is_ok() {
             smol::fs::remove_dir_all(&installer_dir).await?;
@@ -355,84 +350,6 @@ impl AutoUpdater {
         self.status = AutoUpdateStatus::Idle;
         cx.notify();
         true
-    }
-
-    // If you are packaging Zed and need to override the place it downloads SSH remotes from,
-    // you can override this function. You should also update get_remote_server_release_url to return
-    // Ok(None).
-    pub async fn download_remote_server_release(
-        os: &str,
-        arch: &str,
-        release_channel: ReleaseChannel,
-        version: Option<SemanticVersion>,
-        cx: &mut AsyncApp,
-    ) -> Result<PathBuf> {
-        let this = cx.update(|cx| {
-            cx.default_global::<GlobalAutoUpdate>()
-                .0
-                .clone()
-                .context("auto-update not initialized")
-        })??;
-
-        let release = Self::get_release(
-            &this,
-            "zed-remote-server",
-            os,
-            arch,
-            version,
-            Some(release_channel),
-            cx,
-        )
-        .await?;
-
-        let servers_dir = paths::remote_servers_dir();
-        let channel_dir = servers_dir.join(release_channel.dev_name());
-        let platform_dir = channel_dir.join(format!("{}-{}", os, arch));
-        let version_path = platform_dir.join(format!("{}.gz", release.version));
-        smol::fs::create_dir_all(&platform_dir).await.ok();
-
-        let client = this.read_with(cx, |this, _| this.http_client.clone())?;
-
-        if smol::fs::metadata(&version_path).await.is_err() {
-            log::info!(
-                "downloading zed-remote-server {os} {arch} version {}",
-                release.version
-            );
-            download_remote_server_binary(&version_path, release, client, cx).await?;
-        }
-
-        Ok(version_path)
-    }
-
-    pub async fn get_remote_server_release_url(
-        os: &str,
-        arch: &str,
-        release_channel: ReleaseChannel,
-        version: Option<SemanticVersion>,
-        cx: &mut AsyncApp,
-    ) -> Result<Option<(String, String)>> {
-        let this = cx.update(|cx| {
-            cx.default_global::<GlobalAutoUpdate>()
-                .0
-                .clone()
-                .context("auto-update not initialized")
-        })??;
-
-        let release = Self::get_release(
-            &this,
-            "zed-remote-server",
-            os,
-            arch,
-            version,
-            Some(release_channel),
-            cx,
-        )
-        .await?;
-
-        let update_request_body = build_remote_server_update_request_body(cx)?;
-        let body = serde_json::to_string(&update_request_body)?;
-
-        Ok(Some((release.url, body)))
     }
 
     async fn get_release(
@@ -512,7 +429,7 @@ impl AutoUpdater {
         })?;
 
         let fetched_release_data =
-            Self::get_latest_release(&this, "zed", OS, ARCH, release_channel, &mut cx).await?;
+            Self::get_latest_release(&this, "vector", OS, ARCH, release_channel, &mut cx).await?;
         let fetched_version = fetched_release_data.clone().version;
         let app_commit_sha = cx.update(|cx| AppCommitSha::try_global(cx).map(|sha| sha.full()));
         let newer_version = Self::check_if_fetched_version_is_newer(
@@ -611,9 +528,9 @@ impl AutoUpdater {
 
     async fn target_path(installer_dir: &InstallerDir) -> Result<PathBuf> {
         let filename = match OS {
-            "macos" => anyhow::Ok("Zed.dmg"),
-            "linux" => Ok("zed.tar.gz"),
-            "windows" => Ok("ZedUpdateInstaller.exe"),
+            "macos" => anyhow::Ok("Vector.dmg"),
+            "linux" => Ok("vector.tar.gz"),
+            "windows" => Ok("VectorUpdateInstaller.exe"),
             unsupported_os => anyhow::bail!("not supported: {unsupported_os}"),
         }?;
 
@@ -679,55 +596,6 @@ impl AutoUpdater {
     }
 }
 
-async fn download_remote_server_binary(
-    target_path: &PathBuf,
-    release: JsonRelease,
-    client: Arc<HttpClientWithUrl>,
-    cx: &AsyncApp,
-) -> Result<()> {
-    let temp = tempfile::Builder::new().tempfile_in(remote_servers_dir())?;
-    let mut temp_file = File::create(&temp).await?;
-    let update_request_body = build_remote_server_update_request_body(cx)?;
-    let request_body = AsyncBody::from(serde_json::to_string(&update_request_body)?);
-
-    let mut response = client.get(&release.url, request_body, true).await?;
-    anyhow::ensure!(
-        response.status().is_success(),
-        "failed to download remote server release: {:?}",
-        response.status()
-    );
-    smol::io::copy(response.body_mut(), &mut temp_file).await?;
-    smol::fs::rename(&temp, &target_path).await?;
-
-    Ok(())
-}
-
-fn build_remote_server_update_request_body(cx: &AsyncApp) -> Result<UpdateRequestBody> {
-    let (installation_id, release_channel, telemetry_enabled, is_staff) = cx.update(|cx| {
-        let telemetry = Client::global(cx).telemetry().clone();
-        let is_staff = telemetry.is_staff();
-        let installation_id = telemetry.installation_id();
-        let release_channel =
-            ReleaseChannel::try_global(cx).map(|release_channel| release_channel.display_name());
-        let telemetry_enabled = TelemetrySettings::get_global(cx).metrics;
-
-        (
-            installation_id,
-            release_channel,
-            telemetry_enabled,
-            is_staff,
-        )
-    })?;
-
-    Ok(UpdateRequestBody {
-        installation_id,
-        release_channel,
-        telemetry: telemetry_enabled,
-        is_staff,
-        destination: "remote",
-    })
-}
-
 async fn download_release(
     target_path: &Path,
     release: JsonRelease,
@@ -736,27 +604,11 @@ async fn download_release(
 ) -> Result<()> {
     let mut target_file = File::create(&target_path).await?;
 
-    let (installation_id, release_channel, telemetry_enabled, is_staff) = cx.update(|cx| {
-        let telemetry = Client::global(cx).telemetry().clone();
-        let is_staff = telemetry.is_staff();
-        let installation_id = telemetry.installation_id();
-        let release_channel =
-            ReleaseChannel::try_global(cx).map(|release_channel| release_channel.display_name());
-        let telemetry_enabled = TelemetrySettings::get_global(cx).metrics;
-
-        (
-            installation_id,
-            release_channel,
-            telemetry_enabled,
-            is_staff,
-        )
-    })?;
+    let release_channel =
+        cx.update(|cx| ReleaseChannel::try_global(cx).map(|release_channel| release_channel.display_name()))?;
 
     let request_body = AsyncBody::from(serde_json::to_string(&UpdateRequestBody {
-        installation_id,
         release_channel,
-        telemetry: telemetry_enabled,
-        is_staff,
         destination: "local",
     })?);
 
@@ -776,7 +628,7 @@ async fn install_release_linux(
     let home_dir = PathBuf::from(env::var("HOME").context("no HOME env var set")?);
     let running_app_path = cx.update(|cx| cx.app_path())??;
 
-    let extracted = temp_dir.path().join("zed");
+    let extracted = temp_dir.path().join("vector");
     fs::create_dir_all(&extracted)
         .await
         .context("failed to create directory into which to extract update")?;
@@ -802,12 +654,12 @@ async fn install_release_linux(
     } else {
         String::default()
     };
-    let app_folder_name = format!("zed{}.app", suffix);
+    let app_folder_name = format!("vector{}.app", suffix);
 
     let from = extracted.join(&app_folder_name);
     let mut to = home_dir.join(".local");
 
-    let expected_suffix = format!("{}/libexec/zed-editor", app_folder_name);
+    let expected_suffix = format!("{}/libexec/vector-editor", app_folder_name);
 
     if let Some(prefix) = running_app_path
         .to_str()
@@ -825,7 +677,7 @@ async fn install_release_linux(
 
     anyhow::ensure!(
         output.status.success(),
-        "failed to copy Zed update from {:?} to {:?}: {:?}",
+        "failed to copy Vector update from {:?} to {:?}: {:?}",
         from,
         to,
         String::from_utf8_lossy(&output.stderr)
@@ -844,7 +696,7 @@ async fn install_release_macos(
         .file_name()
         .with_context(|| format!("invalid running app path {running_app_path:?}"))?;
 
-    let mount_path = temp_dir.path().join("Zed");
+    let mount_path = temp_dir.path().join("Vector");
     let mut mounted_app_path: OsString = mount_path.join(running_app_filename).into();
 
     mounted_app_path.push("/");

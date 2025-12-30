@@ -37,7 +37,6 @@ log.workspace = true
 parking_lot.workspace = true
 paths.workspace = true
 postage.workspace = true
-rpc = { workspace = true, features = ["gpui"] }
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -57,7 +56,6 @@ gpui = { workspace = true, features = ["test-support"] }
 http_client.workspace = true
 pretty_assertions.workspace = true
 rand.workspace = true
-rpc = { workspace = true, features = ["test-support"] }
 settings = { workspace = true, features = ["test-support"] }
 util = { workspace = true, features = ["test-support"] }
 zlog.workspace = true

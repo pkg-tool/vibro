@@ -10,9 +10,7 @@ use std::{
 };
 use tasks_ui::{TaskOverrides, TasksModal};
 
-use dap::{
-    DapRegistry, DebugRequest, TelemetrySpawnLocation, adapters::DebugAdapterName, send_telemetry,
-};
+use dap::{DapRegistry, DebugRequest, adapters::DebugAdapterName};
 use editor::{Anchor, Editor, EditorElement, EditorStyle, scroll::Autoscroll};
 use fuzzy::{StringMatch, StringMatchCandidate};
 use gpui::{
@@ -22,7 +20,7 @@ use gpui::{
 use picker::{Picker, PickerDelegate, highlighted_match_with_paths::HighlightedMatch};
 use project::{ProjectPath, TaskContexts, TaskSourceKind, task_store::TaskStore};
 use settings::Settings;
-use task::{DebugScenario, LaunchRequest, RevealTarget, ZedDebugConfig};
+use task::{DebugScenario, LaunchRequest, RevealTarget, VectorDebugConfig};
 use theme::ThemeSettings;
 use ui::{
     ActiveTheme, Button, ButtonCommon, ButtonSize, CheckboxWithLabel, Clickable, Color, Context,
@@ -217,7 +215,7 @@ impl NewSessionModal {
             None
         };
 
-        let session_scenario = ZedDebugConfig {
+        let session_scenario = VectorDebugConfig {
             adapter: debugger.to_owned().into(),
             label,
             request: request,
@@ -226,7 +224,7 @@ impl NewSessionModal {
 
         cx.global::<DapRegistry>()
             .adapter(&session_scenario.adapter)
-            .and_then(|adapter| adapter.config_from_zed_format(session_scenario).ok())
+            .and_then(|adapter| adapter.config_from_vector_format(session_scenario).ok())
     }
 
     fn start_new_session(&self, window: &mut Window, cx: &mut Context<Self>) {
@@ -250,7 +248,6 @@ impl NewSessionModal {
         let Some(task_contexts) = self.task_contexts(cx) else {
             return;
         };
-        send_telemetry(&config, TelemetrySpawnLocation::Custom, cx);
         let task_context = task_contexts.active_context().cloned().unwrap_or_default();
         let worktree_id = task_contexts.worktree();
         cx.spawn_in(window, async move |this, cx| {
@@ -740,7 +737,7 @@ impl Render for NewSessionModal {
                                     .child(
                                         Button::new(
                                             "new-session-modal-back",
-                                            "Save to .zed/debug.json...",
+                                            "Save to .vector/debug.json...",
                                         )
                                         .on_click(cx.listener(|this, _, window, cx| {
                                             this.save_debug_scenario(window, cx);
@@ -955,7 +952,7 @@ impl ConfigureMode {
 
 #[derive(Clone)]
 pub(super) struct AttachMode {
-    pub(super) definition: ZedDebugConfig,
+    pub(super) definition: VectorDebugConfig,
     pub(super) attach_picker: Entity<AttachModal>,
 }
 
@@ -966,7 +963,7 @@ impl AttachMode {
         window: &mut Window,
         cx: &mut Context<NewSessionModal>,
     ) -> Entity<Self> {
-        let definition = ZedDebugConfig {
+        let definition = VectorDebugConfig {
             adapter: debugger.unwrap_or(DebugAdapterName("".into())).0,
             label: "Attach New Session Setup".into(),
             request: dap::DebugRequest::Attach(task::AttachRequest { process_id: None }),
@@ -1190,7 +1187,6 @@ impl PickerDelegate for DebugScenarioDelegate {
             })
             .unwrap_or_default();
 
-        send_telemetry(&debug_scenario, TelemetrySpawnLocation::ScenarioList, cx);
         self.debug_panel
             .update(cx, |panel, cx| {
                 panel.start_session(debug_scenario, task_context, None, worktree_id, window, cx);
@@ -1262,7 +1258,7 @@ pub(crate) fn resolve_path(path: &mut String) {
         *path = trimmed_path.replacen('~', &home, 1);
     } else if let Some(strip_path) = path.strip_prefix(&format!(".{}", std::path::MAIN_SEPARATOR)) {
         *path = format!(
-            "$ZED_WORKTREE_ROOT{}{}",
+            "$VECTOR_WORKTREE_ROOT{}{}",
             std::path::MAIN_SEPARATOR,
             &strip_path
         );

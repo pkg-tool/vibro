@@ -1,6 +1,6 @@
 # Svelte
 
-Svelte support is available through the [Svelte extension](https://github.com/zed-extensions/svelte).
+Svelte support is available through the [Svelte extension](https://github.com/vector-extensions/svelte).
 
 - Tree-sitter: [tree-sitter-grammars/tree-sitter-svelte](https://github.com/tree-sitter-grammars/tree-sitter-svelte)
 - Language Server: [sveltejs/language-tools](https://github.com/sveltejs/language-tools)
@@ -24,7 +24,7 @@ You can modify how certain styles, such as directives and modifiers, appear in a
 
 ## Inlay Hints
 
-When inlay hints is enabled in Zed, to make the language server send them back, Zed sets the following initialization options:
+When inlay hints is enabled in Vector, to make the language server send them back, Vector sets the following initialization options:
 
 ```json
 "inlayHints": {

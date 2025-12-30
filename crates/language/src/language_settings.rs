@@ -98,7 +98,7 @@ pub struct LanguageSettings {
     pub ensure_final_newline_on_save: bool,
     /// How to perform a buffer format.
     pub formatter: SelectedFormatter,
-    /// Zed's Prettier integration settings.
+    /// Vector's Prettier integration settings.
     pub prettier: PrettierSettings,
     /// Whether to automatically close JSX tags.
     pub jsx_tag_auto_close: JsxTagAutoCloseSettings,
@@ -214,18 +214,6 @@ pub enum EditPredictionProvider {
     #[default]
     Copilot,
     Supermaven,
-    Zed,
-}
-
-impl EditPredictionProvider {
-    pub fn is_zed(&self) -> bool {
-        match self {
-            EditPredictionProvider::Zed => true,
-            EditPredictionProvider::None
-            | EditPredictionProvider::Copilot
-            | EditPredictionProvider::Supermaven => false,
-        }
-    }
 }
 
 /// The settings for edit predictions, such as [GitHub Copilot](https://github.com/features/copilot)
@@ -242,9 +230,6 @@ pub struct EditPredictionSettings {
     pub mode: EditPredictionsMode,
     /// Settings specific to GitHub Copilot.
     pub copilot: CopilotSettings,
-    /// Whether edit predictions are enabled in the assistant panel.
-    /// This setting has no effect if globally disabled.
-    pub enabled_in_text_threads: bool,
 }
 
 impl EditPredictionSettings {
@@ -443,7 +428,7 @@ pub struct LanguageSettingsContent {
     /// Default: auto
     #[serde(default)]
     pub formatter: Option<SelectedFormatter>,
-    /// Zed's Prettier integration settings.
+    /// Vector's Prettier integration settings.
     /// Allows to enable/disable formatting with Prettier
     /// and configure default Prettier, used when no project-level Prettier installation is found.
     ///
@@ -502,12 +487,12 @@ pub struct LanguageSettingsContent {
     #[serde(default)]
     pub inlay_hints: Option<InlayHintSettings>,
     /// Whether to automatically type closing characters for you. For example,
-    /// when you type (, Zed will automatically add a closing ) at the correct position.
+    /// when you type (, Vector will automatically add a closing ) at the correct position.
     ///
     /// Default: true
     pub use_autoclose: Option<bool>,
     /// Whether to automatically surround text with characters for you. For example,
-    /// when you select text and type (, Zed will automatically surround text with ().
+    /// when you select text and type (, Vector will automatically surround text with ().
     ///
     /// Default: true
     pub use_auto_surround: Option<bool>,
@@ -588,10 +573,6 @@ pub struct EditPredictionSettingsContent {
     /// Settings specific to GitHub Copilot.
     #[serde(default)]
     pub copilot: CopilotSettingsContent,
-    /// Whether edit predictions are enabled in the assistant prompt editor.
-    /// This has no effect if globally disabled.
-    #[serde(default = "default_true")]
-    pub enabled_in_text_threads: bool,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -769,7 +750,7 @@ pub enum ShowWhitespaceSetting {
 /// Controls which formatter should be used when formatting code.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum SelectedFormatter {
-    /// Format files using Zed's Prettier integration (if applicable),
+    /// Format files using Vector's Prettier integration (if applicable),
     /// or falling back to formatting via language server.
     #[default]
     Auto,
@@ -895,7 +876,7 @@ impl AsRef<[Formatter]> for FormatterList {
 pub enum Formatter {
     /// Format code using the current language server.
     LanguageServer { name: Option<String> },
-    /// Format code using Zed's Prettier integration.
+    /// Format code using Vector's Prettier integration.
     Prettier,
     /// Format code using an external command.
     External {
@@ -1045,13 +1026,13 @@ pub struct LanguageTaskConfig {
     pub variables: HashMap<String, String>,
     #[serde(default = "default_true")]
     pub enabled: bool,
-    /// Use LSP tasks over Zed language extension ones.
+    /// Use LSP tasks over Vector language extension ones.
     /// If no LSP tasks are returned due to error/timeout or regular execution,
-    /// Zed language extension tasks will be used instead.
+    /// Vector language extension tasks will be used instead.
     ///
-    /// Other Zed tasks will still be shown:
-    /// * Zed task from either of the task config file
-    /// * Zed task from history (e.g. one-off task was spawned before)
+    /// Other Vector tasks will still be shown:
+    /// * Vector task from either of the task config file
+    /// * Vector task from history (e.g. one-off task was spawned before)
     #[serde(default = "default_true")]
     pub prefer_lsp: bool,
 }
@@ -1232,12 +1213,6 @@ impl settings::Settings for AllLanguageSettings {
             })
             .unwrap_or_default();
 
-        let mut enabled_in_text_threads = default_value
-            .edit_predictions
-            .as_ref()
-            .map(|settings| settings.enabled_in_text_threads)
-            .unwrap_or(true);
-
         let mut file_types: FxHashMap<Arc<str>, GlobSet> = FxHashMap::default();
 
         for (language, patterns) in &default_value.file_types {
@@ -1261,7 +1236,6 @@ impl settings::Settings for AllLanguageSettings {
 
             if let Some(edit_predictions) = user_settings.edit_predictions.as_ref() {
                 edit_predictions_mode = edit_predictions.mode;
-                enabled_in_text_threads = edit_predictions.enabled_in_text_threads;
 
                 if let Some(disabled_globs) = edit_predictions.disabled_globs.as_ref() {
                     completion_globs.extend(disabled_globs.iter());
@@ -1339,7 +1313,6 @@ impl settings::Settings for AllLanguageSettings {
                     .collect(),
                 mode: edit_predictions_mode,
                 copilot: copilot_settings,
-                enabled_in_text_threads,
             },
             defaults,
             languages,

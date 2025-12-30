@@ -11,8 +11,6 @@ use db::sqlez::{
 use gpui::{AsyncWindowContext, Entity, WeakEntity};
 use itertools::Itertools as _;
 use project::{Project, debugger::breakpoint_store::SourceBreakpoint};
-use remote::ssh_session::SshProjectId;
-use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -20,77 +18,6 @@ use std::{
 };
 use util::{ResultExt, paths::SanitizedPath};
 use uuid::Uuid;
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct SerializedSshProject {
-    pub id: SshProjectId,
-    pub host: String,
-    pub port: Option<u16>,
-    pub paths: Vec<String>,
-    pub user: Option<String>,
-}
-
-impl SerializedSshProject {
-    pub fn ssh_urls(&self) -> Vec<PathBuf> {
-        self.paths
-            .iter()
-            .map(|path| {
-                let mut result = String::new();
-                if let Some(user) = &self.user {
-                    result.push_str(user);
-                    result.push('@');
-                }
-                result.push_str(&self.host);
-                if let Some(port) = &self.port {
-                    result.push(':');
-                    result.push_str(&port.to_string());
-                }
-                result.push_str(path);
-                PathBuf::from(result)
-            })
-            .collect()
-    }
-}
-
-impl StaticColumnCount for SerializedSshProject {
-    fn column_count() -> usize {
-        5
-    }
-}
-
-impl Bind for &SerializedSshProject {
-    fn bind(&self, statement: &Statement, start_index: i32) -> Result<i32> {
-        let next_index = statement.bind(&self.id.0, start_index)?;
-        let next_index = statement.bind(&self.host, next_index)?;
-        let next_index = statement.bind(&self.port, next_index)?;
-        let raw_paths = serde_json::to_string(&self.paths)?;
-        let next_index = statement.bind(&raw_paths, next_index)?;
-        statement.bind(&self.user, next_index)
-    }
-}
-
-impl Column for SerializedSshProject {
-    fn column(statement: &mut Statement, start_index: i32) -> Result<(Self, i32)> {
-        let id = statement.column_int64(start_index)?;
-        let host = statement.column_text(start_index + 1)?.to_string();
-        let (port, _) = Option::<u16>::column(statement, start_index + 2)?;
-        let raw_paths = statement.column_text(start_index + 3)?.to_string();
-        let paths: Vec<String> = serde_json::from_str(&raw_paths)?;
-
-        let (user, _) = Option::<String>::column(statement, start_index + 4)?;
-
-        Ok((
-            Self {
-                id: SshProjectId(id as u64),
-                host,
-                port,
-                paths,
-                user,
-            },
-            start_index + 5,
-        ))
-    }
-}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct LocalPaths(Arc<Vec<PathBuf>>);
@@ -101,7 +28,7 @@ impl LocalPaths {
             .into_iter()
             .map(|p| SanitizedPath::from(p).into())
             .collect();
-        // Ensure all future `zed workspace1 workspace2` and `zed workspace2 workspace1` calls are using the same workspace.
+        // Ensure all future `vector workspace1 workspace2` and `vector workspace2 workspace1` calls are using the same workspace.
         // The actual workspace order is stored in the `LocalPathsOrder` struct.
         paths.sort();
         Self(Arc::new(paths))
@@ -172,7 +99,6 @@ impl Column for LocalPathsOrder {
 #[derive(Debug, PartialEq, Clone)]
 pub enum SerializedWorkspaceLocation {
     Local(LocalPaths, LocalPathsOrder),
-    Ssh(SerializedSshProject),
 }
 
 impl SerializedWorkspaceLocation {
@@ -184,7 +110,7 @@ impl SerializedWorkspaceLocation {
     ///
     /// ```
     /// use std::path::Path;
-    /// use zed_workspace::SerializedWorkspaceLocation;
+    /// use workspace::SerializedWorkspaceLocation;
     ///
     /// let location = SerializedWorkspaceLocation::from_local_paths(vec![
     ///     Path::new("path/to/workspace1"),
@@ -201,7 +127,7 @@ impl SerializedWorkspaceLocation {
     ///
     /// ```
     /// use std::path::Path;
-    /// use zed_workspace::SerializedWorkspaceLocation;
+    /// use workspace::SerializedWorkspaceLocation;
     ///
     /// let location = SerializedWorkspaceLocation::from_local_paths(vec![
     ///     Path::new("path/to/workspace2"),
@@ -249,7 +175,6 @@ impl SerializedWorkspaceLocation {
                     )
                 }
             }
-            SerializedWorkspaceLocation::Ssh(ssh_project) => Arc::new(ssh_project.ssh_urls()),
         }
     }
 }
@@ -639,22 +564,5 @@ mod tests {
         let serialized =
             SerializedWorkspaceLocation::Local(LocalPaths(paths.clone()), LocalPathsOrder(order));
         assert_eq!(serialized.sorted_paths(), paths);
-
-        let urls = ["/a", "/b", "/c"];
-        let serialized = SerializedWorkspaceLocation::Ssh(SerializedSshProject {
-            id: SshProjectId(0),
-            host: "host".to_string(),
-            port: Some(22),
-            paths: urls.iter().map(|s| s.to_string()).collect(),
-            user: Some("user".to_string()),
-        });
-        assert_eq!(
-            serialized.sorted_paths(),
-            Arc::new(
-                urls.iter()
-                    .map(|p| PathBuf::from(format!("user@host:22{}", p)))
-                    .collect()
-            )
-        );
     }
 }

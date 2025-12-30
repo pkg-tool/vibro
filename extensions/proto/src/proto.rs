@@ -1,4 +1,4 @@
-use zed_extension_api::{self as zed, Result, settings::LspSettings};
+use vector_extension_api::{self as vector, Result, settings::LspSettings};
 
 const PROTOBUF_LANGUAGE_SERVER_NAME: &str = "protobuf-language-server";
 
@@ -12,8 +12,7 @@ struct ProtobufExtension;
 impl ProtobufExtension {
     fn language_server_binary(
         &self,
-        _language_server_id: &zed::LanguageServerId,
-        worktree: &zed::Worktree,
+        worktree: &vector::Worktree,
     ) -> Result<ProtobufLanguageServerBinary> {
         let binary_settings = LspSettings::for_worktree("protobuf-language-server", worktree)
             .ok()
@@ -40,18 +39,18 @@ impl ProtobufExtension {
     }
 }
 
-impl zed::Extension for ProtobufExtension {
+impl vector::Extension for ProtobufExtension {
     fn new() -> Self {
         Self
     }
 
     fn language_server_command(
         &mut self,
-        language_server_id: &zed_extension_api::LanguageServerId,
-        worktree: &zed_extension_api::Worktree,
-    ) -> zed_extension_api::Result<zed_extension_api::Command> {
-        let binary = self.language_server_binary(language_server_id, worktree)?;
-        Ok(zed::Command {
+        _: &vector_extension_api::LanguageServerId,
+        worktree: &vector_extension_api::Worktree,
+    ) -> vector_extension_api::Result<vector_extension_api::Command> {
+        let binary = self.language_server_binary(worktree)?;
+        Ok(vector::Command {
             command: binary.path,
             args: binary
                 .args
@@ -61,4 +60,4 @@ impl zed::Extension for ProtobufExtension {
     }
 }
 
-zed::register_extension!(ProtobufExtension);
+vector::register_extension!(ProtobufExtension);

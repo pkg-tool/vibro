@@ -1,8 +1,5 @@
 use anyhow::{Context as _, Result, bail};
-use dap_types::{
-    ErrorResponse,
-    messages::{Message, Response},
-};
+use crate::protocol::{ErrorResponse, Message, Response};
 use futures::{AsyncRead, AsyncReadExt as _, AsyncWrite, FutureExt as _, channel::oneshot, select};
 use gpui::{AppContext as _, AsyncApp, Task};
 use settings::Settings as _;
@@ -685,7 +682,7 @@ pub struct StdioTransport {
 }
 
 impl StdioTransport {
-    #[allow(dead_code, reason = "This is used in non test builds of Zed")]
+    #[allow(dead_code, reason = "This is used in non test builds of Vector")]
     async fn start(binary: &DebugAdapterBinary, _: AsyncApp) -> Result<(TransportPipe, Self)> {
         let mut command = util::command::new_std_command(&binary.command);
         util::set_pre_exec_to_start_new_session(&mut command);
@@ -753,7 +750,7 @@ impl StdioTransport {
 
 #[cfg(any(test, feature = "test-support"))]
 type RequestHandler =
-    Box<dyn Send + FnMut(u64, serde_json::Value) -> dap_types::messages::Response>;
+    Box<dyn Send + FnMut(u64, serde_json::Value) -> Response>;
 
 #[cfg(any(test, feature = "test-support"))]
 type ResponseHandler = Box<dyn Send + Fn(Response)>;
@@ -816,8 +813,13 @@ impl FakeTransport {
         use dap_types::requests::{Request, RunInTerminal, StartDebugging};
         use serde_json::json;
 
-        let (stdin_writer, stdin_reader) = async_pipe::pipe();
-        let (stdout_writer, stdout_reader) = async_pipe::pipe();
+        let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0)).await?;
+        let addr = listener.local_addr()?;
+        let client = TcpStream::connect(addr).await?;
+        let (server, _) = listener.accept().await?;
+
+        let (stdin_reader, stdout_writer) = server.split();
+        let (stdout_reader, stdin_writer) = client.split();
 
         let request_handlers = this.request_handlers.clone();
         let response_handlers = this.response_handlers.clone();

@@ -3,10 +3,9 @@ use gpui::{AnyElement, App, Entity, EventEmitter, FocusHandle, Focusable, Hsla, 
 use strum::IntoEnumIterator;
 use theme::all_theme_colors;
 use ui::{
-    AudioStatus, Avatar, AvatarAudioStatusIndicator, AvatarAvailabilityIndicator, ButtonLike,
-    Checkbox, CheckboxWithLabel, CollaboratorAvailability, ContentGroup, DecoratedIcon,
-    ElevationIndex, Facepile, IconDecoration, Indicator, KeybindingHint, Switch, Table, TintColor,
-    Tooltip, element_cell, prelude::*, string_cell, utils::calculate_contrast_ratio,
+    Avatar, ButtonLike, Checkbox, CheckboxWithLabel, ContentGroup, DecoratedIcon, ElevationIndex,
+    IconDecoration, Indicator, KeybindingHint, Switch, Table, TintColor, Tooltip, element_cell,
+    prelude::*, string_cell, utils::calculate_contrast_ratio,
 };
 
 use crate::{Item, Workspace};
@@ -83,10 +82,6 @@ impl Item for ThemePreview {
     fn tab_content_text(&self, _detail: usize, cx: &App) -> SharedString {
         let name = cx.theme().name.clone();
         format!("{} Preview", name).into()
-    }
-
-    fn telemetry_event_text(&self) -> Option<&'static str> {
-        None
     }
 
     fn clone_on_split(

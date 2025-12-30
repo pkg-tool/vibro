@@ -1,15 +1,12 @@
-mod model;
 mod rate_limiter;
 mod registry;
 mod request;
 mod role;
-mod telemetry;
 
 #[cfg(any(test, feature = "test-support"))]
 pub mod fake_provider;
 
 use anyhow::{Context as _, Result};
-use client::Client;
 use futures::FutureExt;
 use futures::{StreamExt, future::BoxFuture, stream::BoxStream};
 use gpui::{AnyElement, AnyView, App, AsyncApp, SharedString, Task, Window};
@@ -24,23 +21,18 @@ use std::str::FromStr as _;
 use std::sync::Arc;
 use thiserror::Error;
 use util::serde::is_default;
-use zed_llm_client::{
+use vector_llm_client::{
     CompletionRequestStatus, MODEL_REQUESTS_USAGE_AMOUNT_HEADER_NAME,
     MODEL_REQUESTS_USAGE_LIMIT_HEADER_NAME, UsageLimit,
 };
 
-pub use crate::model::*;
 pub use crate::rate_limiter::*;
 pub use crate::registry::*;
 pub use crate::request::*;
 pub use crate::role::*;
-pub use crate::telemetry::*;
 
-pub const ZED_CLOUD_PROVIDER_ID: &str = "zed.dev";
-
-pub fn init(client: Arc<Client>, cx: &mut App) {
+pub fn init(cx: &mut App) {
     init_settings(cx);
-    RefreshLlmTokenListener::register(client.clone(), cx);
 }
 
 pub fn init_settings(cx: &mut App) {
@@ -227,7 +219,6 @@ pub trait LanguageModel: Send + Sync {
     fn name(&self) -> LanguageModelName;
     fn provider_id(&self) -> LanguageModelProviderId;
     fn provider_name(&self) -> LanguageModelProviderName;
-    fn telemetry_id(&self) -> String;
 
     fn api_key(&self, _cx: &App) -> Option<String> {
         None
@@ -348,6 +339,14 @@ pub enum LanguageModelKnownError {
     ContextWindowLimitExceeded { tokens: usize },
 }
 
+#[derive(Debug, Error)]
+#[error("usage limit exceeded")]
+pub struct UsageLimitExceededError;
+
+#[derive(Debug, Error)]
+#[error("request limit reached")]
+pub struct RequestLimitReachedError;
+
 pub trait LanguageModelTool: 'static + DeserializeOwned + JsonSchema {
     fn name() -> String;
     fn description() -> String;
@@ -366,7 +365,7 @@ pub trait LanguageModelProvider: 'static {
     fn id(&self) -> LanguageModelProviderId;
     fn name(&self) -> LanguageModelProviderName;
     fn icon(&self) -> IconName {
-        IconName::ZedAssistant
+        IconName::VectorAssistant
     }
     fn default_model(&self, cx: &App) -> Option<Arc<dyn LanguageModel>>;
     fn default_fast_model(&self, cx: &App) -> Option<Arc<dyn LanguageModel>>;

@@ -1,14 +1,6 @@
 # Java
 
-There are two extensions that provide Java language support for Zed:
-
-- Zed Java: [zed-extensions/java](https://github.com/zed-extensions/java) and
-- Java with Eclipse JDTLS: [zed-java-eclipse-jdtls](https://github.com/ABckh/zed-java-eclipse-jdtls).
-
-Both use:
-
-- Tree-sitter: [tree-sitter/tree-sitter-java](https://github.com/tree-sitter/tree-sitter-java)
-- Language Server: [eclipse-jdtls/eclipse.jdt.ls](https://github.com/eclipse-jdtls/eclipse.jdt.ls)
+Java language support is provided by extensions that integrate a language server (typically Eclipse JDTLS) and Tree-sitter.
 
 ## Install OpenJDK
 
@@ -23,9 +15,7 @@ Or manually download and install [OpenJDK 23](https://jdk.java.net/23/).
 
 ## Extension Install
 
-You can install either by opening {#action zed::Extensions}({#kb zed::Extensions}) and searching for `java`.
-
-We recommend you install one or the other and not both.
+Open {#action vector::Extensions}({#kb vector::Extensions}) and search for `java`.
 
 ## Settings / Initialization Options
 
@@ -33,9 +23,9 @@ Both extensions will automatically download the language server, see: [Manual JD
 
 For available `initialization_options` please see the [Initialize Request section of the Eclipse.jdt.ls Wiki](https://github.com/eclipse-jdtls/eclipse.jdt.ls/wiki/Running-the-JAVA-LS-server-from-the-command-line#initialize-request).
 
-You can add these customizations to your Zed Settings by launching {#action zed::OpenSettings}({#kb zed::OpenSettings}) or by using a `.zed/setting.json` inside your project.
+You can add these customizations to your Vector settings by launching {#action vector::OpenSettings}({#kb vector::OpenSettings}) or by using a `.vector/settings.json` inside your project.
 
-### Zed Java Settings
+### Example settings
 
 ```json
 {
@@ -62,7 +52,7 @@ You can add these customizations to your Zed Settings by launching {#action zed:
 
 ## Example Configs
 
-### Zed Java Initialization Options
+### Vector Java Initialization Options
 
 There are also many more options you can pass directly to the language server, for example:
 
@@ -152,7 +142,7 @@ There are also many more options you can pass directly to the language server, f
 }
 ```
 
-### Java with Eclipse JTDLS Configuration {#zed-java-eclipse-configuration}
+### Java with Eclipse JTDLS Configuration {#vector-java-eclipse-configuration}
 
 Configuration options match those provided in the [redhat-developer/vscode-java extension](https://github.com/redhat-developer/vscode-java#supported-vs-code-settings).
 
@@ -184,12 +174,12 @@ Or manually download install:
 
 ## See also
 
-- [Zed Java Readme](https://github.com/zed-extensions/java)
-- [Java with Eclipse JDTLS Readme](https://github.com/ABckh/zed-java-eclipse-jdtls)
+- [Vector Java Readme](https://github.com/vector-extensions/java)
+- [Java with Eclipse JDTLS Readme](https://github.com/ABckh/vector-java-eclipse-jdtls)
 
 ## Support
 
 If you have issues with either of these plugins, please open issues on their respective repositories:
 
-- [Zed Java Issues](https://github.com/zed-extensions/java/issues)
-- [Java with Eclipse JDTLS Issues](https://github.com/ABckh/zed-java-eclipse-jdtls/issues)
+- [Vector Java Issues](https://github.com/vector-extensions/java/issues)
+- [Java with Eclipse JDTLS Issues](https://github.com/ABckh/vector-java-eclipse-jdtls/issues)

@@ -50,7 +50,7 @@ pub fn init(cx: &mut App) {
         branch_picker::register(workspace);
 
         let project = workspace.project().read(cx);
-        if project.is_read_only(cx) {
+        if project.is_read_only() {
             return;
         }
         if !project.is_via_collab() {
@@ -105,12 +105,12 @@ pub fn init(cx: &mut App) {
         });
         CommandPaletteFilter::update_global(cx, |filter, _cx| {
             filter.hide_action_types(&[
-                zed_actions::OpenGitIntegrationOnboarding.type_id(),
+                vector_actions::OpenGitIntegrationOnboarding.type_id(),
                 // ResetOnboarding.type_id(),
             ]);
         });
         workspace.register_action(
-            move |workspace, _: &zed_actions::OpenGitIntegrationOnboarding, window, cx| {
+            move |workspace, _: &vector_actions::OpenGitIntegrationOnboarding, window, cx| {
                 GitOnboardingModal::toggle(workspace, window, cx)
             },
         );

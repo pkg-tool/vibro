@@ -13,7 +13,7 @@ use theme::{Appearance, Theme, ThemeMeta, ThemeRegistry, ThemeSettings};
 use ui::{ListItem, ListItemSpacing, prelude::*, v_flex};
 use util::ResultExt;
 use workspace::{ModalView, Workspace, ui::HighlightedLabel};
-use zed_actions::{ExtensionCategoryFilter, Extensions};
+use vector_actions::{ExtensionCategoryFilter, Extensions};
 
 use crate::icon_theme_selector::{IconThemeSelector, IconThemeSelectorDelegate};
 
@@ -32,7 +32,7 @@ pub fn init(cx: &mut App) {
 
 fn toggle_theme_selector(
     workspace: &mut Workspace,
-    toggle: &zed_actions::theme_selector::Toggle,
+    toggle: &vector_actions::theme_selector::Toggle,
     window: &mut Window,
     cx: &mut Context<Workspace>,
 ) {
@@ -50,7 +50,7 @@ fn toggle_theme_selector(
 
 fn toggle_icon_theme_selector(
     workspace: &mut Workspace,
-    toggle: &zed_actions::icon_theme_selector::Toggle,
+    toggle: &vector_actions::icon_theme_selector::Toggle,
     window: &mut Window,
     cx: &mut Context<Workspace>,
 ) {
@@ -221,8 +221,6 @@ impl PickerDelegate for ThemeSelectorDelegate {
 
         let theme_name = cx.theme().name.clone();
 
-        telemetry::event!("Settings Changed", setting = "theme", value = theme_name);
-
         let appearance = Appearance::from(window.appearance());
 
         update_settings_file::<ThemeSettings>(self.fs.clone(), cx, move |settings, _| {
@@ -365,7 +363,7 @@ impl PickerDelegate for ThemeSelectorDelegate {
                         .icon_size(IconSize::XSmall)
                         .icon_color(Color::Muted)
                         .on_click(cx.listener(|_, _, _, cx| {
-                            cx.open_url("https://zed.dev/docs/themes");
+                            cx.open_url("https://vector.dev/docs/themes");
                         })),
                 )
                 .child(

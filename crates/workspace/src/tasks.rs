@@ -4,7 +4,6 @@ use anyhow::Result;
 use gpui::{AppContext, Context, Entity, Task};
 use language::Buffer;
 use project::TaskSourceKind;
-use remote::ConnectionState;
 use task::{DebugScenario, ResolvedTask, SpawnInTerminal, TaskContext, TaskTemplate};
 use ui::Window;
 
@@ -20,19 +19,6 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        match self.project.read(cx).ssh_connection_state(cx) {
-            None | Some(ConnectionState::Connected) => {}
-            Some(
-                ConnectionState::Connecting
-                | ConnectionState::Disconnected
-                | ConnectionState::HeartbeatMissed
-                | ConnectionState::Reconnecting,
-            ) => {
-                log::warn!("Cannot schedule tasks when disconnected from a remote host");
-                return;
-            }
-        }
-
         if let Some(spawn_in_terminal) =
             task_to_resolve.resolve_task(&task_source_kind.to_id_base(), task_cx)
         {

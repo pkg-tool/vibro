@@ -44,10 +44,10 @@ async fn test_extension_store(cx: &mut TestAppContext) {
         "/the-extension-dir",
         json!({
             "installed": {
-                "zed-monokai": {
+                "vector-monokai": {
                     "extension.json": r#"{
-                        "id": "zed-monokai",
-                        "name": "Zed Monokai",
+                        "id": "vector-monokai",
+                        "name": "Vector Monokai",
                         "version": "2.0.0",
                         "themes": {
                             "Monokai Dark": "themes/monokai.json",
@@ -91,10 +91,10 @@ async fn test_extension_store(cx: &mut TestAppContext) {
                         }"#,
                     }
                 },
-                "zed-ruby": {
+                "vector-ruby": {
                     "extension.json": r#"{
-                        "id": "zed-ruby",
-                        "name": "Zed Ruby",
+                        "id": "vector-ruby",
+                        "name": "Vector Ruby",
                         "version": "1.0.0",
                         "grammars": {
                             "ruby": "grammars/ruby.wasm",
@@ -136,11 +136,11 @@ async fn test_extension_store(cx: &mut TestAppContext) {
     let mut expected_index = ExtensionIndex {
         extensions: [
             (
-                "zed-ruby".into(),
+                "vector-ruby".into(),
                 ExtensionIndexEntry {
                     manifest: Arc::new(ExtensionManifest {
-                        id: "zed-ruby".into(),
-                        name: "Zed Ruby".into(),
+                        id: "vector-ruby".into(),
+                        name: "Vector Ruby".into(),
                         version: "1.0.0".into(),
                         schema_version: SchemaVersion::ZERO,
                         description: None,
@@ -168,11 +168,11 @@ async fn test_extension_store(cx: &mut TestAppContext) {
                 },
             ),
             (
-                "zed-monokai".into(),
+                "vector-monokai".into(),
                 ExtensionIndexEntry {
                     manifest: Arc::new(ExtensionManifest {
-                        id: "zed-monokai".into(),
-                        name: "Zed Monokai".into(),
+                        id: "vector-monokai".into(),
+                        name: "Vector Monokai".into(),
                         version: "2.0.0".into(),
                         schema_version: SchemaVersion::ZERO,
                         description: None,
@@ -204,7 +204,7 @@ async fn test_extension_store(cx: &mut TestAppContext) {
             (
                 "ERB".into(),
                 ExtensionIndexLanguageEntry {
-                    extension: "zed-ruby".into(),
+                    extension: "vector-ruby".into(),
                     path: "languages/erb".into(),
                     grammar: Some("embedded_template".into()),
                     hidden: false,
@@ -217,7 +217,7 @@ async fn test_extension_store(cx: &mut TestAppContext) {
             (
                 "Ruby".into(),
                 ExtensionIndexLanguageEntry {
-                    extension: "zed-ruby".into(),
+                    extension: "vector-ruby".into(),
                     path: "languages/ruby".into(),
                     grammar: Some("ruby".into()),
                     hidden: false,
@@ -234,28 +234,28 @@ async fn test_extension_store(cx: &mut TestAppContext) {
             (
                 "Monokai Dark".into(),
                 ExtensionIndexThemeEntry {
-                    extension: "zed-monokai".into(),
+                    extension: "vector-monokai".into(),
                     path: "themes/monokai.json".into(),
                 },
             ),
             (
                 "Monokai Light".into(),
                 ExtensionIndexThemeEntry {
-                    extension: "zed-monokai".into(),
+                    extension: "vector-monokai".into(),
                     path: "themes/monokai.json".into(),
                 },
             ),
             (
                 "Monokai Pro Dark".into(),
                 ExtensionIndexThemeEntry {
-                    extension: "zed-monokai".into(),
+                    extension: "vector-monokai".into(),
                     path: "themes/monokai-pro.json".into(),
                 },
             ),
             (
                 "Monokai Pro Light".into(),
                 ExtensionIndexThemeEntry {
-                    extension: "zed-monokai".into(),
+                    extension: "vector-monokai".into(),
                     path: "themes/monokai-pro.json".into(),
                 },
             ),
@@ -280,7 +280,6 @@ async fn test_extension_store(cx: &mut TestAppContext) {
             fs.clone(),
             http_client.clone(),
             http_client.clone(),
-            None,
             node_runtime.clone(),
             cx,
         )
@@ -318,11 +317,11 @@ async fn test_extension_store(cx: &mut TestAppContext) {
     });
 
     fs.insert_tree(
-        "/the-extension-dir/installed/zed-gruvbox",
+        "/the-extension-dir/installed/vector-gruvbox",
         json!({
             "extension.json": r#"{
-                "id": "zed-gruvbox",
-                "name": "Zed Gruvbox",
+                "id": "vector-gruvbox",
+                "name": "Vector Gruvbox",
                 "version": "1.0.0",
                 "themes": {
                     "Gruvbox": "themes/gruvbox.json"
@@ -346,11 +345,11 @@ async fn test_extension_store(cx: &mut TestAppContext) {
     .await;
 
     expected_index.extensions.insert(
-        "zed-gruvbox".into(),
+        "vector-gruvbox".into(),
         ExtensionIndexEntry {
             manifest: Arc::new(ExtensionManifest {
-                id: "zed-gruvbox".into(),
-                name: "Zed Gruvbox".into(),
+                id: "vector-gruvbox".into(),
+                name: "Vector Gruvbox".into(),
                 version: "1.0.0".into(),
                 schema_version: SchemaVersion::ZERO,
                 description: None,
@@ -375,7 +374,7 @@ async fn test_extension_store(cx: &mut TestAppContext) {
     expected_index.themes.insert(
         "Gruvbox".into(),
         ExtensionIndexThemeEntry {
-            extension: "zed-gruvbox".into(),
+            extension: "vector-gruvbox".into(),
             path: "themes/gruvbox.json".into(),
         },
     );
@@ -415,7 +414,7 @@ async fn test_extension_store(cx: &mut TestAppContext) {
     let prev_fs_metadata_call_count = fs.metadata_call_count();
     let prev_fs_read_dir_call_count = fs.read_dir_call_count();
 
-    // Create new extension store, as if Zed were restarting.
+    // Create new extension store, as if Vector were restarting.
     drop(store);
     let store = cx.new(|cx| {
         ExtensionStore::new(
@@ -425,7 +424,6 @@ async fn test_extension_store(cx: &mut TestAppContext) {
             fs.clone(),
             http_client.clone(),
             http_client.clone(),
-            None,
             node_runtime.clone(),
             cx,
         )
@@ -479,11 +477,11 @@ async fn test_extension_store(cx: &mut TestAppContext) {
     });
 
     store.update(cx, |store, cx| {
-        store.uninstall_extension("zed-ruby".into(), cx)
+        store.uninstall_extension("vector-ruby".into(), cx)
     });
 
     cx.executor().advance_clock(RELOAD_DEBOUNCE_DURATION);
-    expected_index.extensions.remove("zed-ruby");
+    expected_index.extensions.remove("vector-ruby");
     expected_index.languages.remove("Ruby");
     expected_index.languages.remove("ERB");
 
@@ -630,7 +628,7 @@ async fn test_extension_store_with_test_extension(cx: &mut TestAppContext) {
     });
     let user_agent = cx.update(|cx| {
         format!(
-            "Zed/{} ({}; {})",
+            "Vector/{} ({}; {})",
             AppVersion::global(cx),
             std::env::consts::OS,
             std::env::consts::ARCH
@@ -647,7 +645,6 @@ async fn test_extension_store_with_test_extension(cx: &mut TestAppContext) {
             fs.clone(),
             extension_client.clone(),
             builder_client,
-            None,
             node_runtime,
             cx,
         )

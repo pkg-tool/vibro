@@ -123,7 +123,7 @@ async fn test_fetch_initial_stack_frames_and_go_to_stack_frame(
     });
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -131,7 +131,7 @@ async fn test_fetch_initial_stack_frames_and_go_to_stack_frame(
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -169,7 +169,7 @@ async fn test_fetch_initial_stack_frames_and_go_to_stack_frame(
 
         stack_frame_list.update(cx, |stack_frame_list, cx| {
             assert_eq!(Some(1), stack_frame_list.opened_stack_frame_id());
-            assert_eq!(stack_frames, stack_frame_list.dap_stack_frames(cx));
+            assert_eq!(json!(stack_frames), json!(stack_frame_list.dap_stack_frames(cx)));
         });
     });
 }
@@ -284,7 +284,7 @@ async fn test_select_stack_frame(executor: BackgroundExecutor, cx: &mut TestAppC
     });
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -292,7 +292,7 @@ async fn test_select_stack_frame(executor: BackgroundExecutor, cx: &mut TestAppC
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -374,7 +374,7 @@ async fn test_select_stack_frame(executor: BackgroundExecutor, cx: &mut TestAppC
 
     stack_frame_list.update(cx, |stack_frame_list, cx| {
         assert_eq!(Some(1), stack_frame_list.opened_stack_frame_id());
-        assert_eq!(stack_frames, stack_frame_list.dap_stack_frames(cx));
+        assert_eq!(json!(stack_frames), json!(stack_frame_list.dap_stack_frames(cx)));
     });
 
     // select second stack frame
@@ -389,7 +389,7 @@ async fn test_select_stack_frame(executor: BackgroundExecutor, cx: &mut TestAppC
 
     stack_frame_list.update(cx, |stack_frame_list, cx| {
         assert_eq!(Some(2), stack_frame_list.opened_stack_frame_id());
-        assert_eq!(stack_frames, stack_frame_list.dap_stack_frames(cx));
+        assert_eq!(json!(stack_frames), json!(stack_frame_list.dap_stack_frames(cx)));
     });
 
     let _ = workspace.update(cx, |workspace, window, cx| {
@@ -514,7 +514,7 @@ async fn test_collapsed_entries(executor: BackgroundExecutor, cx: &mut TestAppCo
             can_restart: None,
             instruction_pointer_reference: None,
             module_id: None,
-            presentation_hint: Some(dap::StackFramePresentationHint::Deemphasize),
+            presentation_hint: Some(dap::StackFramePresentationHint::Subtle),
         },
         StackFrame {
             id: 3,
@@ -536,7 +536,7 @@ async fn test_collapsed_entries(executor: BackgroundExecutor, cx: &mut TestAppCo
             can_restart: None,
             instruction_pointer_reference: None,
             module_id: None,
-            presentation_hint: Some(dap::StackFramePresentationHint::Deemphasize),
+            presentation_hint: Some(dap::StackFramePresentationHint::Subtle),
         },
         StackFrame {
             id: 4,
@@ -580,7 +580,7 @@ async fn test_collapsed_entries(executor: BackgroundExecutor, cx: &mut TestAppCo
             can_restart: None,
             instruction_pointer_reference: None,
             module_id: None,
-            presentation_hint: Some(dap::StackFramePresentationHint::Deemphasize),
+            presentation_hint: Some(dap::StackFramePresentationHint::Subtle),
         },
         StackFrame {
             id: 6,
@@ -602,7 +602,7 @@ async fn test_collapsed_entries(executor: BackgroundExecutor, cx: &mut TestAppCo
             can_restart: None,
             instruction_pointer_reference: None,
             module_id: None,
-            presentation_hint: Some(dap::StackFramePresentationHint::Deemphasize),
+            presentation_hint: Some(dap::StackFramePresentationHint::Subtle),
         },
         StackFrame {
             id: 7,
@@ -641,7 +641,7 @@ async fn test_collapsed_entries(executor: BackgroundExecutor, cx: &mut TestAppCo
     });
 
     client
-        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
+        .fake_event("stopped", dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -649,7 +649,7 @@ async fn test_collapsed_entries(executor: BackgroundExecutor, cx: &mut TestAppCo
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();
@@ -701,53 +701,53 @@ async fn test_collapsed_entries(executor: BackgroundExecutor, cx: &mut TestAppCo
         stack_frame_list.update(cx, |stack_frame_list, cx| {
             stack_frame_list.build_entries(true, window, cx);
 
+            let entry_ids = |entries: &[StackFrameEntry]| {
+                entries
+                    .iter()
+                    .map(|entry| match entry {
+                        StackFrameEntry::Normal(frame) => vec![frame.id],
+                        StackFrameEntry::Collapsed(frames) => frames.iter().map(|f| f.id).collect(),
+                    })
+                    .collect::<Vec<Vec<u64>>>()
+            };
             assert_eq!(
-                &vec![
-                    StackFrameEntry::Normal(stack_frames[0].clone()),
-                    StackFrameEntry::Collapsed(vec![
-                        stack_frames[1].clone(),
-                        stack_frames[2].clone()
-                    ]),
-                    StackFrameEntry::Normal(stack_frames[3].clone()),
-                    StackFrameEntry::Collapsed(vec![
-                        stack_frames[4].clone(),
-                        stack_frames[5].clone()
-                    ]),
-                    StackFrameEntry::Normal(stack_frames[6].clone()),
-                ],
-                stack_frame_list.entries()
+                entry_ids(stack_frame_list.entries()),
+                vec![
+                    vec![stack_frames[0].id],
+                    vec![stack_frames[1].id, stack_frames[2].id],
+                    vec![stack_frames[3].id],
+                    vec![stack_frames[4].id, stack_frames[5].id],
+                    vec![stack_frames[6].id],
+                ]
             );
 
             stack_frame_list.expand_collapsed_entry(1);
 
             assert_eq!(
-                &vec![
-                    StackFrameEntry::Normal(stack_frames[0].clone()),
-                    StackFrameEntry::Normal(stack_frames[1].clone()),
-                    StackFrameEntry::Normal(stack_frames[2].clone()),
-                    StackFrameEntry::Normal(stack_frames[3].clone()),
-                    StackFrameEntry::Collapsed(vec![
-                        stack_frames[4].clone(),
-                        stack_frames[5].clone()
-                    ]),
-                    StackFrameEntry::Normal(stack_frames[6].clone()),
-                ],
-                stack_frame_list.entries()
+                entry_ids(stack_frame_list.entries()),
+                vec![
+                    vec![stack_frames[0].id],
+                    vec![stack_frames[1].id],
+                    vec![stack_frames[2].id],
+                    vec![stack_frames[3].id],
+                    vec![stack_frames[4].id, stack_frames[5].id],
+                    vec![stack_frames[6].id],
+                ]
             );
 
             stack_frame_list.expand_collapsed_entry(4);
 
             assert_eq!(
-                &vec![
-                    StackFrameEntry::Normal(stack_frames[0].clone()),
-                    StackFrameEntry::Normal(stack_frames[1].clone()),
-                    StackFrameEntry::Normal(stack_frames[2].clone()),
-                    StackFrameEntry::Normal(stack_frames[3].clone()),
-                    StackFrameEntry::Normal(stack_frames[4].clone()),
-                    StackFrameEntry::Normal(stack_frames[5].clone()),
-                    StackFrameEntry::Normal(stack_frames[6].clone()),
-                ],
-                stack_frame_list.entries()
+                entry_ids(stack_frame_list.entries()),
+                vec![
+                    vec![stack_frames[0].id],
+                    vec![stack_frames[1].id],
+                    vec![stack_frames[2].id],
+                    vec![stack_frames[3].id],
+                    vec![stack_frames[4].id],
+                    vec![stack_frames[5].id],
+                    vec![stack_frames[6].id],
+                ]
             );
         });
     });

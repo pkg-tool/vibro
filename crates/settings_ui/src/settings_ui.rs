@@ -38,8 +38,8 @@ pub struct ImportCursorSettings {
     pub skip_prompt: bool,
 }
 
-impl_actions!(zed, [ImportVsCodeSettings, ImportCursorSettings]);
-actions!(zed, [OpenSettingsEditor]);
+impl_actions!(vector, [ImportVsCodeSettings, ImportCursorSettings]);
+actions!(vector, [OpenSettingsEditor]);
 
 pub fn init(cx: &mut App) {
     cx.observe_new(|workspace: &mut Workspace, window, cx| {

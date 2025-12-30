@@ -27,17 +27,17 @@ third-party = [
 
 [final-excludes]
 workspace-members = [
-    "zed_extension_api",
+    "vector_extension_api",
 
     # exclude all extensions
-    "zed_emmet",
-    "zed_glsl",
-    "zed_html",
+    "vector_emmet",
+    "vector_glsl",
+    "vector_html",
     "perplexity",
-    "zed_proto",
-    "zed_ruff",
+    "vector_proto",
+    "vector_ruff",
     "slash_commands_example",
-    "zed_snippets",
-    "zed_test_extension",
-    "zed_toml",
+    "vector_snippets",
+    "vector_test_extension",
+    "vector_toml",
 ]

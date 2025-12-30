@@ -34,7 +34,7 @@ impl ProjectEnvironment {
         }
     }
 
-    /// Returns the inherited CLI environment, if this project was opened from the Zed CLI.
+    /// Returns the inherited CLI environment, if this project was opened from the Vector CLI.
     pub(crate) fn get_cli_environment(&self) -> Option<HashMap<String, String>> {
         if let Some(mut env) = self.cli_environment.clone() {
             set_origin_marker(&mut env, EnvironmentOrigin::Cli);
@@ -140,10 +140,10 @@ impl ProjectEnvironment {
 }
 
 fn set_origin_marker(env: &mut HashMap<String, String>, origin: EnvironmentOrigin) {
-    env.insert(ZED_ENVIRONMENT_ORIGIN_MARKER.to_string(), origin.into());
+    env.insert(VECTOR_ENVIRONMENT_ORIGIN_MARKER.to_string(), origin.into());
 }
 
-const ZED_ENVIRONMENT_ORIGIN_MARKER: &str = "ZED_ENVIRONMENT";
+const VECTOR_ENVIRONMENT_ORIGIN_MARKER: &str = "VECTOR_ENVIRONMENT";
 
 enum EnvironmentOrigin {
     Cli,
@@ -219,7 +219,7 @@ async fn load_shell_environment(
     Option<HashMap<String, String>>,
     Option<EnvironmentErrorMessage>,
 ) {
-    let fake_env = [("ZED_FAKE_TEST_ENV".into(), "true".into())]
+    let fake_env = [("VECTOR_FAKE_TEST_ENV".into(), "true".into())]
         .into_iter()
         .collect();
     (Some(fake_env), None)
@@ -254,7 +254,7 @@ async fn load_shell_environment(
         (None, Some(message))
     }
 
-    const MARKER: &str = "ZED_SHELL_START";
+    const MARKER: &str = "VECTOR_SHELL_START";
     let Some(shell) = std::env::var("SHELL").log_err() else {
         return message("Failed to get login environment. SHELL environment variable is not set");
     };

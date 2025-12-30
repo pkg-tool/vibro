@@ -14,4 +14,4 @@ workspace = true
 
 [dependencies]
 serde = "1"
-zed_extension_api = { path = "../../crates/extension_api" }
+vector_extension_api = { path = "../../crates/extension_api" }

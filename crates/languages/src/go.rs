@@ -516,7 +516,7 @@ impl ContextProvider for GoContextProvider {
         let package_cwd = if GO_PACKAGE_TASK_VARIABLE.template_value() == "." {
             None
         } else {
-            Some("$ZED_DIRNAME".to_string())
+            Some("$VECTOR_DIRNAME".to_string())
         };
         let module_cwd = Some(GO_MODULE_ROOT_TASK_VARIABLE.template_value());
 

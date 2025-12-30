@@ -610,7 +610,7 @@ impl LspAdapter for TypeScriptLspAdapter {
         let tsdk_path = Self::tsdk_path(fs, adapter).await;
         Ok(Some(json!({
             "provideFormatter": true,
-            "hostInfo": "zed",
+            "hostInfo": "vector",
             "tsserver": {
                 "path": tsdk_path,
             },
@@ -754,11 +754,11 @@ impl LspAdapter for EsLintLspAdapter {
                     .to_string_lossy(),
             },
             "problems": {},
-            "codeActionOnSave": {
-                // We enable this, but without also configuring code_actions_on_format
-                // in the Zed configuration, it doesn't have an effect.
-                "enable": true,
-            },
+                "codeActionOnSave": {
+                    // We enable this, but without also configuring code_actions_on_format
+                    // in the Vector configuration, it doesn't have an effect.
+                    "enable": true,
+                },
             "codeAction": {
                 "disableRuleComment": {
                     "enable": true,
@@ -796,7 +796,7 @@ impl LspAdapter for EsLintLspAdapter {
         _delegate: &dyn LspAdapterDelegate,
     ) -> Result<Box<dyn 'static + Send + Any>> {
         let url = build_asset_url(
-            "zed-industries/vscode-eslint",
+            "vector-editor/vscode-eslint",
             Self::CURRENT_VERSION_TAG_NAME,
             Self::GITHUB_ASSET_KIND,
         )?;

@@ -280,7 +280,7 @@ mod test {
         cx.simulate_shared_keystrokes("ctrl-v j ~").await;
         cx.shared_state().await.assert_eq("ˇAa\nBb\ncc");
 
-        // works with multiple cursors (zed only)
+        // works with multiple cursors (Vector only)
         cx.set_state("aˇßcdˇe\n", Mode::Normal);
         cx.simulate_keystrokes("~");
         cx.assert_state("aSSˇcdˇE\n", Mode::Normal);

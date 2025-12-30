@@ -12,7 +12,7 @@ use cocoa::{
     quartzcore::AutoresizingMask,
 };
 use collections::HashMap;
-use core_foundation::base::TCFType;
+use core_foundation10::base::TCFType;
 use core_video::{
     metal_texture::CVMetalTextureGetTexture, metal_texture_cache::CVMetalTextureCache,
     pixel_buffer::kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,

@@ -15,7 +15,7 @@ use buffer_diff::{BufferDiff, DiffHunkSecondaryStatus, DiffHunkStatus, DiffHunkS
 use futures::StreamExt;
 use gpui::{
     BackgroundExecutor, DismissEvent, SemanticVersion, TestAppContext, UpdateGlobal,
-    VisualTestContext, WindowBounds, WindowOptions, div,
+    VisualTestContext, div,
 };
 use indoc::indoc;
 use language::{
@@ -43,6 +43,7 @@ use serde_json::{self, json};
 use std::{cell::RefCell, future::Future, rc::Rc, sync::atomic::AtomicBool, time::Instant};
 use std::{
     iter,
+    path::Path,
     sync::atomic::{self, AtomicUsize},
 };
 use test::{build_editor_with_project, editor_lsp_test_context::rust_lang};
@@ -54,8 +55,8 @@ use util::{
     uri,
 };
 use workspace::{
-    CloseActiveItem, CloseAllItems, CloseInactiveItems, NavigationEntry, OpenOptions, ViewId,
-    item::{FollowEvent, FollowableItem, Item, ItemHandle},
+    CloseActiveItem, CloseAllItems, CloseInactiveItems, NavigationEntry, OpenOptions,
+    item::{Item, ItemHandle},
 };
 
 #[gpui::test]
@@ -8662,7 +8663,7 @@ async fn test_document_format_during_save(cx: &mut TestAppContext) {
             move |params, _| async move {
                 assert_eq!(
                     params.text_document.uri,
-                    lsp::Url::from_file_path(path!("/file.rs")).unwrap()
+                    lsp::url_from_file_path(path!("/file.rs")).unwrap()
                 );
                 assert_eq!(params.options.tab_size, 4);
                 Ok(Some(vec![lsp::TextEdit::new(
@@ -8697,7 +8698,7 @@ async fn test_document_format_during_save(cx: &mut TestAppContext) {
             move |params, _| async move {
                 assert_eq!(
                     params.text_document.uri,
-                    lsp::Url::from_file_path(path!("/file.rs")).unwrap()
+                    lsp::url_from_file_path(path!("/file.rs")).unwrap()
                 );
                 futures::future::pending::<()>().await;
                 unreachable!()
@@ -8753,7 +8754,7 @@ async fn test_document_format_during_save(cx: &mut TestAppContext) {
             .set_request_handler::<lsp::request::Formatting, _, _>(move |params, _| async move {
                 assert_eq!(
                     params.text_document.uri,
-                    lsp::Url::from_file_path(path!("/file.rs")).unwrap()
+                    lsp::url_from_file_path(path!("/file.rs")).unwrap()
                 );
                 assert_eq!(params.options.tab_size, 8);
                 Ok(Some(vec![]))
@@ -8938,7 +8939,7 @@ async fn test_multibuffer_format_during_save(cx: &mut TestAppContext) {
         .on_request::<lsp::request::Formatting, _, _>(move |params, _| async move {
             Ok(Some(vec![lsp::TextEdit::new(
                 lsp::Range::new(lsp::Position::new(0, 3), lsp::Position::new(1, 0)),
-                format!("[{} formatted]", params.text_document.uri),
+                format!("[{} formatted]", params.text_document.uri.as_str()),
             )]))
         })
         .detach();
@@ -9022,7 +9023,7 @@ async fn test_range_format_during_save(cx: &mut TestAppContext) {
         .set_request_handler::<lsp::request::RangeFormatting, _, _>(move |params, _| async move {
             assert_eq!(
                 params.text_document.uri,
-                lsp::Url::from_file_path(path!("/file.rs")).unwrap()
+                lsp::url_from_file_path(path!("/file.rs")).unwrap()
             );
             assert_eq!(params.options.tab_size, 4);
             Ok(Some(vec![lsp::TextEdit::new(
@@ -9050,7 +9051,7 @@ async fn test_range_format_during_save(cx: &mut TestAppContext) {
         move |params, _| async move {
             assert_eq!(
                 params.text_document.uri,
-                lsp::Url::from_file_path(path!("/file.rs")).unwrap()
+                lsp::url_from_file_path(path!("/file.rs")).unwrap()
             );
             futures::future::pending::<()>().await;
             unreachable!()
@@ -9108,7 +9109,7 @@ async fn test_range_format_during_save(cx: &mut TestAppContext) {
         .set_request_handler::<lsp::request::RangeFormatting, _, _>(move |params, _| async move {
             assert_eq!(
                 params.text_document.uri,
-                lsp::Url::from_file_path(path!("/file.rs")).unwrap()
+                lsp::url_from_file_path(path!("/file.rs")).unwrap()
             );
             assert_eq!(params.options.tab_size, 8);
             Ok(Some(Vec::new()))
@@ -9195,7 +9196,7 @@ async fn test_document_format_manual_trigger(cx: &mut TestAppContext) {
         .set_request_handler::<lsp::request::Formatting, _, _>(move |params, _| async move {
             assert_eq!(
                 params.text_document.uri,
-                lsp::Url::from_file_path(path!("/file.rs")).unwrap()
+                lsp::url_from_file_path(path!("/file.rs")).unwrap()
             );
             assert_eq!(params.options.tab_size, 4);
             Ok(Some(vec![lsp::TextEdit::new(
@@ -9220,7 +9221,7 @@ async fn test_document_format_manual_trigger(cx: &mut TestAppContext) {
         move |params, _| async move {
             assert_eq!(
                 params.text_document.uri,
-                lsp::Url::from_file_path(path!("/file.rs")).unwrap()
+                lsp::url_from_file_path(path!("/file.rs")).unwrap()
             );
             futures::future::pending::<()>().await;
             unreachable!()
@@ -9320,7 +9321,7 @@ async fn test_multiple_formatters(cx: &mut TestAppContext) {
                 params.context.only,
                 Some(vec!["code-action-1".into(), "code-action-2".into()])
             );
-            let uri = lsp::Url::from_file_path(path!("/file.rs")).unwrap();
+            let uri = lsp::url_from_file_path(path!("/file.rs")).unwrap();
             Ok(Some(vec![
                 lsp::CodeActionOrCommand::CodeAction(lsp::CodeAction {
                     kind: Some("code-action-1".into()),
@@ -9378,13 +9379,13 @@ async fn test_multiple_formatters(cx: &mut TestAppContext) {
                     .request::<lsp::request::ApplyWorkspaceEdit>(lsp::ApplyWorkspaceEditParams {
                         label: None,
                         edit: lsp::WorkspaceEdit {
-                            changes: Some(
-                                [(
-                                    lsp::Url::from_file_path(path!("/file.rs")).unwrap(),
-                                    vec![lsp::TextEdit {
-                                        range: lsp::Range::new(
-                                            lsp::Position::new(0, 0),
-                                            lsp::Position::new(0, 0),
+                                changes: Some(
+                                    [(
+                                        lsp::url_from_file_path(path!("/file.rs")).unwrap(),
+                                        vec![lsp::TextEdit {
+                                            range: lsp::Range::new(
+                                                lsp::Position::new(0, 0),
+                                                lsp::Position::new(0, 0),
                                         ),
                                         new_text: "applied-code-action-1-command\n".into(),
                                     }],
@@ -9591,7 +9592,7 @@ async fn test_organize_imports_manual_trigger(cx: &mut TestAppContext) {
         .set_request_handler::<lsp::request::CodeActionRequest, _, _>(move |params, _| async move {
             assert_eq!(
                 params.text_document.uri,
-                lsp::Url::from_file_path(path!("/file.ts")).unwrap()
+                lsp::url_from_file_path(path!("/file.ts")).unwrap()
             );
             Ok(Some(vec![lsp::CodeActionOrCommand::CodeAction(
                 lsp::CodeAction {
@@ -9639,7 +9640,7 @@ async fn test_organize_imports_manual_trigger(cx: &mut TestAppContext) {
         move |params, _| async move {
             assert_eq!(
                 params.text_document.uri,
-                lsp::Url::from_file_path(path!("/file.ts")).unwrap()
+                lsp::url_from_file_path(path!("/file.ts")).unwrap()
             );
             futures::future::pending::<()>().await;
             unreachable!()
@@ -12535,7 +12536,7 @@ async fn test_toggle_block_comment(cx: &mut TestAppContext) {
     cx.update_editor(|editor, window, cx| {
         editor.toggle_comments(&ToggleComments::default(), window, cx)
     });
-    // TODO this is how it actually worked in Zed Stable, which is not very ergonomic.
+    // TODO this is how it actually worked in Vector Stable, which is not very ergonomic.
     // Uncommenting and commenting from this position brings in even more wrong artifacts.
     cx.assert_editor_state(
         &r#"
@@ -12985,372 +12986,6 @@ fn test_highlighted_ranges(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
-async fn test_following(cx: &mut TestAppContext) {
-    init_test(cx, |_| {});
-
-    let fs = FakeFs::new(cx.executor());
-    let project = Project::test(fs, ["/file.rs".as_ref()], cx).await;
-
-    let buffer = project.update(cx, |project, cx| {
-        let buffer = project.create_local_buffer(&sample_text(16, 8, 'a'), None, cx);
-        cx.new(|cx| MultiBuffer::singleton(buffer, cx))
-    });
-    let leader = cx.add_window(|window, cx| build_editor(buffer.clone(), window, cx));
-    let follower = cx.update(|cx| {
-        cx.open_window(
-            WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(Bounds::from_corners(
-                    gpui::Point::new(px(0.), px(0.)),
-                    gpui::Point::new(px(10.), px(80.)),
-                ))),
-                ..Default::default()
-            },
-            |window, cx| cx.new(|cx| build_editor(buffer.clone(), window, cx)),
-        )
-        .unwrap()
-    });
-
-    let is_still_following = Rc::new(RefCell::new(true));
-    let follower_edit_event_count = Rc::new(RefCell::new(0));
-    let pending_update = Rc::new(RefCell::new(None));
-    let leader_entity = leader.root(cx).unwrap();
-    let follower_entity = follower.root(cx).unwrap();
-    _ = follower.update(cx, {
-        let update = pending_update.clone();
-        let is_still_following = is_still_following.clone();
-        let follower_edit_event_count = follower_edit_event_count.clone();
-        |_, window, cx| {
-            cx.subscribe_in(
-                &leader_entity,
-                window,
-                move |_, leader, event, window, cx| {
-                    leader.read(cx).add_event_to_update_proto(
-                        event,
-                        &mut update.borrow_mut(),
-                        window,
-                        cx,
-                    );
-                },
-            )
-            .detach();
-
-            cx.subscribe_in(
-                &follower_entity,
-                window,
-                move |_, _, event: &EditorEvent, _window, _cx| {
-                    if matches!(Editor::to_follow_event(event), Some(FollowEvent::Unfollow)) {
-                        *is_still_following.borrow_mut() = false;
-                    }
-
-                    if let EditorEvent::BufferEdited = event {
-                        *follower_edit_event_count.borrow_mut() += 1;
-                    }
-                },
-            )
-            .detach();
-        }
-    });
-
-    // Update the selections only
-    _ = leader.update(cx, |leader, window, cx| {
-        leader.change_selections(None, window, cx, |s| s.select_ranges([1..1]));
-    });
-    follower
-        .update(cx, |follower, window, cx| {
-            follower.apply_update_proto(
-                &project,
-                pending_update.borrow_mut().take().unwrap(),
-                window,
-                cx,
-            )
-        })
-        .unwrap()
-        .await
-        .unwrap();
-    _ = follower.update(cx, |follower, _, cx| {
-        assert_eq!(follower.selections.ranges(cx), vec![1..1]);
-    });
-    assert!(*is_still_following.borrow());
-    assert_eq!(*follower_edit_event_count.borrow(), 0);
-
-    // Update the scroll position only
-    _ = leader.update(cx, |leader, window, cx| {
-        leader.set_scroll_position(gpui::Point::new(1.5, 3.5), window, cx);
-    });
-    follower
-        .update(cx, |follower, window, cx| {
-            follower.apply_update_proto(
-                &project,
-                pending_update.borrow_mut().take().unwrap(),
-                window,
-                cx,
-            )
-        })
-        .unwrap()
-        .await
-        .unwrap();
-    assert_eq!(
-        follower
-            .update(cx, |follower, _, cx| follower.scroll_position(cx))
-            .unwrap(),
-        gpui::Point::new(1.5, 3.5)
-    );
-    assert!(*is_still_following.borrow());
-    assert_eq!(*follower_edit_event_count.borrow(), 0);
-
-    // Update the selections and scroll position. The follower's scroll position is updated
-    // via autoscroll, not via the leader's exact scroll position.
-    _ = leader.update(cx, |leader, window, cx| {
-        leader.change_selections(None, window, cx, |s| s.select_ranges([0..0]));
-        leader.request_autoscroll(Autoscroll::newest(), cx);
-        leader.set_scroll_position(gpui::Point::new(1.5, 3.5), window, cx);
-    });
-    follower
-        .update(cx, |follower, window, cx| {
-            follower.apply_update_proto(
-                &project,
-                pending_update.borrow_mut().take().unwrap(),
-                window,
-                cx,
-            )
-        })
-        .unwrap()
-        .await
-        .unwrap();
-    _ = follower.update(cx, |follower, _, cx| {
-        assert_eq!(follower.scroll_position(cx), gpui::Point::new(1.5, 0.0));
-        assert_eq!(follower.selections.ranges(cx), vec![0..0]);
-    });
-    assert!(*is_still_following.borrow());
-
-    // Creating a pending selection that precedes another selection
-    _ = leader.update(cx, |leader, window, cx| {
-        leader.change_selections(None, window, cx, |s| s.select_ranges([1..1]));
-        leader.begin_selection(DisplayPoint::new(DisplayRow(0), 0), true, 1, window, cx);
-    });
-    follower
-        .update(cx, |follower, window, cx| {
-            follower.apply_update_proto(
-                &project,
-                pending_update.borrow_mut().take().unwrap(),
-                window,
-                cx,
-            )
-        })
-        .unwrap()
-        .await
-        .unwrap();
-    _ = follower.update(cx, |follower, _, cx| {
-        assert_eq!(follower.selections.ranges(cx), vec![0..0, 1..1]);
-    });
-    assert!(*is_still_following.borrow());
-
-    // Extend the pending selection so that it surrounds another selection
-    _ = leader.update(cx, |leader, window, cx| {
-        leader.extend_selection(DisplayPoint::new(DisplayRow(0), 2), 1, window, cx);
-    });
-    follower
-        .update(cx, |follower, window, cx| {
-            follower.apply_update_proto(
-                &project,
-                pending_update.borrow_mut().take().unwrap(),
-                window,
-                cx,
-            )
-        })
-        .unwrap()
-        .await
-        .unwrap();
-    _ = follower.update(cx, |follower, _, cx| {
-        assert_eq!(follower.selections.ranges(cx), vec![0..2]);
-    });
-
-    // Scrolling locally breaks the follow
-    _ = follower.update(cx, |follower, window, cx| {
-        let top_anchor = follower.buffer().read(cx).read(cx).anchor_after(0);
-        follower.set_scroll_anchor(
-            ScrollAnchor {
-                anchor: top_anchor,
-                offset: gpui::Point::new(0.0, 0.5),
-            },
-            window,
-            cx,
-        );
-    });
-    assert!(!(*is_still_following.borrow()));
-}
-
-#[gpui::test]
-async fn test_following_with_multiple_excerpts(cx: &mut TestAppContext) {
-    init_test(cx, |_| {});
-
-    let fs = FakeFs::new(cx.executor());
-    let project = Project::test(fs, ["/file.rs".as_ref()], cx).await;
-    let workspace = cx.add_window(|window, cx| Workspace::test_new(project.clone(), window, cx));
-    let pane = workspace
-        .update(cx, |workspace, _, _| workspace.active_pane().clone())
-        .unwrap();
-
-    let cx = &mut VisualTestContext::from_window(*workspace.deref(), cx);
-
-    let leader = pane.update_in(cx, |_, window, cx| {
-        let multibuffer = cx.new(|_| MultiBuffer::new(ReadWrite));
-        cx.new(|cx| build_editor(multibuffer.clone(), window, cx))
-    });
-
-    // Start following the editor when it has no excerpts.
-    let mut state_message =
-        leader.update_in(cx, |leader, window, cx| leader.to_state_proto(window, cx));
-    let workspace_entity = workspace.root(cx).unwrap();
-    let follower_1 = cx
-        .update_window(*workspace.deref(), |_, window, cx| {
-            Editor::from_state_proto(
-                workspace_entity,
-                ViewId {
-                    creator: CollaboratorId::PeerId(PeerId::default()),
-                    id: 0,
-                },
-                &mut state_message,
-                window,
-                cx,
-            )
-        })
-        .unwrap()
-        .unwrap()
-        .await
-        .unwrap();
-
-    let update_message = Rc::new(RefCell::new(None));
-    follower_1.update_in(cx, {
-        let update = update_message.clone();
-        |_, window, cx| {
-            cx.subscribe_in(&leader, window, move |_, leader, event, window, cx| {
-                leader.read(cx).add_event_to_update_proto(
-                    event,
-                    &mut update.borrow_mut(),
-                    window,
-                    cx,
-                );
-            })
-            .detach();
-        }
-    });
-
-    let (buffer_1, buffer_2) = project.update(cx, |project, cx| {
-        (
-            project.create_local_buffer("abc\ndef\nghi\njkl\n", None, cx),
-            project.create_local_buffer("mno\npqr\nstu\nvwx\n", None, cx),
-        )
-    });
-
-    // Insert some excerpts.
-    leader.update(cx, |leader, cx| {
-        leader.buffer.update(cx, |multibuffer, cx| {
-            multibuffer.set_excerpts_for_path(
-                PathKey::namespaced(1, Arc::from(Path::new("b.txt"))),
-                buffer_1.clone(),
-                vec![
-                    Point::row_range(0..3),
-                    Point::row_range(1..6),
-                    Point::row_range(12..15),
-                ],
-                0,
-                cx,
-            );
-            multibuffer.set_excerpts_for_path(
-                PathKey::namespaced(1, Arc::from(Path::new("a.txt"))),
-                buffer_2.clone(),
-                vec![Point::row_range(0..6), Point::row_range(8..12)],
-                0,
-                cx,
-            );
-        });
-    });
-
-    // Apply the update of adding the excerpts.
-    follower_1
-        .update_in(cx, |follower, window, cx| {
-            follower.apply_update_proto(
-                &project,
-                update_message.borrow().clone().unwrap(),
-                window,
-                cx,
-            )
-        })
-        .await
-        .unwrap();
-    assert_eq!(
-        follower_1.update(cx, |editor, cx| editor.text(cx)),
-        leader.update(cx, |editor, cx| editor.text(cx))
-    );
-    update_message.borrow_mut().take();
-
-    // Start following separately after it already has excerpts.
-    let mut state_message =
-        leader.update_in(cx, |leader, window, cx| leader.to_state_proto(window, cx));
-    let workspace_entity = workspace.root(cx).unwrap();
-    let follower_2 = cx
-        .update_window(*workspace.deref(), |_, window, cx| {
-            Editor::from_state_proto(
-                workspace_entity,
-                ViewId {
-                    creator: CollaboratorId::PeerId(PeerId::default()),
-                    id: 0,
-                },
-                &mut state_message,
-                window,
-                cx,
-            )
-        })
-        .unwrap()
-        .unwrap()
-        .await
-        .unwrap();
-    assert_eq!(
-        follower_2.update(cx, |editor, cx| editor.text(cx)),
-        leader.update(cx, |editor, cx| editor.text(cx))
-    );
-
-    // Remove some excerpts.
-    leader.update(cx, |leader, cx| {
-        leader.buffer.update(cx, |multibuffer, cx| {
-            let excerpt_ids = multibuffer.excerpt_ids();
-            multibuffer.remove_excerpts([excerpt_ids[1], excerpt_ids[2]], cx);
-            multibuffer.remove_excerpts([excerpt_ids[0]], cx);
-        });
-    });
-
-    // Apply the update of removing the excerpts.
-    follower_1
-        .update_in(cx, |follower, window, cx| {
-            follower.apply_update_proto(
-                &project,
-                update_message.borrow().clone().unwrap(),
-                window,
-                cx,
-            )
-        })
-        .await
-        .unwrap();
-    follower_2
-        .update_in(cx, |follower, window, cx| {
-            follower.apply_update_proto(
-                &project,
-                update_message.borrow().clone().unwrap(),
-                window,
-                cx,
-            )
-        })
-        .await
-        .unwrap();
-    update_message.borrow_mut().take();
-    assert_eq!(
-        follower_1.update(cx, |editor, cx| editor.text(cx)),
-        leader.update(cx, |editor, cx| editor.text(cx))
-    );
-}
-
-#[gpui::test]
 async fn go_to_prev_overlapping_diagnostic(executor: BackgroundExecutor, cx: &mut TestAppContext) {
     init_test(cx, |_| {});
 
@@ -13365,15 +13000,15 @@ async fn go_to_prev_overlapping_diagnostic(executor: BackgroundExecutor, cx: &mu
 
     cx.update(|_, cx| {
         lsp_store.update(cx, |lsp_store, cx| {
-            lsp_store
-                .update_diagnostics(
-                    LanguageServerId(0),
-                    lsp::PublishDiagnosticsParams {
-                        uri: lsp::Url::from_file_path(path!("/root/file")).unwrap(),
-                        version: None,
-                        diagnostics: vec![
-                            lsp::Diagnostic {
-                                range: lsp::Range::new(
+                    lsp_store
+                        .update_diagnostics(
+                            LanguageServerId(0),
+                            lsp::PublishDiagnosticsParams {
+                                uri: lsp::url_from_file_path(path!("/root/file")).unwrap(),
+                                version: None,
+                                diagnostics: vec![
+                                    lsp::Diagnostic {
+                                        range: lsp::Range::new(
                                     lsp::Position::new(0, 11),
                                     lsp::Position::new(0, 12),
                                 ),
@@ -13763,7 +13398,7 @@ async fn test_on_type_formatting_not_triggered(cx: &mut TestAppContext) {
         |params, _| async move {
             assert_eq!(
                 params.text_document_position.text_document.uri,
-                lsp::Url::from_file_path(path!("/a/main.rs")).unwrap(),
+                lsp::url_from_file_path(path!("/a/main.rs")).unwrap(),
             );
             assert_eq!(
                 params.text_document_position.position,
@@ -14237,7 +13872,7 @@ async fn test_context_menus_hide_hover_popover(cx: &mut gpui::TestAppContext) {
                     edit: Some(lsp::WorkspaceEdit {
                         changes: Some(
                             [(
-                                lsp::Url::from_file_path(path!("/file.rs")).unwrap(),
+                                lsp::url_from_file_path(path!("/file.rs")).unwrap(),
                                 vec![lsp::TextEdit {
                                     range: lsp::Range::new(
                                         lsp::Position::new(5, 4),
@@ -14512,21 +14147,6 @@ async fn test_completions_default_resolve_data_handling(cx: &mut TestAppContext)
         }))
         .collect::<Vec<_>>();
 
-    let default_commit_characters = vec!["?".to_string()];
-    let default_data = json!({ "default": "data"});
-    let default_insert_text_format = lsp::InsertTextFormat::SNIPPET;
-    let default_insert_text_mode = lsp::InsertTextMode::AS_IS;
-    let default_edit_range = lsp::Range {
-        start: lsp::Position {
-            line: 0,
-            character: 5,
-        },
-        end: lsp::Position {
-            line: 0,
-            character: 5,
-        },
-    };
-
     let mut cx = EditorLspTestContext::new_rust(
         lsp::ServerCapabilities {
             completion_provider: Some(lsp::CompletionOptions {
@@ -14543,25 +14163,12 @@ async fn test_completions_default_resolve_data_handling(cx: &mut TestAppContext)
     cx.set_state("fn main() { let a = 2ˇ; }");
     cx.simulate_keystroke(".");
 
-    let completion_data = default_data.clone();
-    let completion_characters = default_commit_characters.clone();
     let completion_items = items.clone();
     cx.set_request_handler::<lsp::request::Completion, _, _>(move |_, _, _| {
-        let default_data = completion_data.clone();
-        let default_commit_characters = completion_characters.clone();
         let items = completion_items.clone();
         async move {
             Ok(Some(lsp::CompletionResponse::List(lsp::CompletionList {
                 items,
-                item_defaults: Some(lsp::CompletionListItemDefaults {
-                    data: Some(default_data.clone()),
-                    commit_characters: Some(default_commit_characters.clone()),
-                    edit_range: Some(lsp::CompletionListItemDefaultsEditRange::Range(
-                        default_edit_range,
-                    )),
-                    insert_text_format: Some(default_insert_text_format),
-                    insert_text_mode: Some(default_insert_text_mode),
-                }),
                 ..lsp::CompletionList::default()
             })))
         }
@@ -14615,14 +14222,8 @@ async fn test_completions_default_resolve_data_handling(cx: &mut TestAppContext)
             .concat()
             .iter()
             .cloned()
-            .map(|mut item| {
-                if item.data.is_none() {
-                    item.data = Some(default_data.clone());
-                }
-                item
-            })
             .collect::<Vec<lsp::CompletionItem>>(),
-        "Items sent for resolve should be unchanged modulo resolve `data` filled with default if missing"
+        "Items sent for resolve should be unchanged"
     );
     resolved_items.lock().clear();
 
@@ -14636,12 +14237,6 @@ async fn test_completions_default_resolve_data_handling(cx: &mut TestAppContext)
         items[items.len() - 16..items.len() - 4]
             .iter()
             .cloned()
-            .map(|mut item| {
-                if item.data.is_none() {
-                    item.data = Some(default_data.clone());
-                }
-                item
-            })
             .collect::<Vec<lsp::CompletionItem>>()
     );
     resolved_items.lock().clear();
@@ -15193,7 +14788,7 @@ struct Row10;"#};
         &mut cx,
     );
 
-    // Deletion hunks are ephemeral, so it's impossible to place the caret into them — Zed triggers reverts for lines, adjacent to carets and selections.
+    // Deletion hunks are ephemeral, so it's impossible to place the caret into them — Vector triggers reverts for lines, adjacent to carets and selections.
     assert_hunk_revert(
         indoc! {r#"struct Row;
                    ˇstruct Row2;
@@ -19838,14 +19433,14 @@ async fn test_apply_code_lens_actions_with_commands(cx: &mut gpui::TestAppContex
                         .request::<lsp::request::ApplyWorkspaceEdit>(
                             lsp::ApplyWorkspaceEditParams {
                                 label: None,
-                                edit: lsp::WorkspaceEdit {
-                                    changes: Some(
-                                        [(
-                                            lsp::Url::from_file_path(path!("/dir/a.ts")).unwrap(),
-                                            vec![lsp::TextEdit {
-                                                range: lsp::Range::new(
-                                                    lsp::Position::new(0, 0),
-                                                    lsp::Position::new(0, 0),
+                                        edit: lsp::WorkspaceEdit {
+                                            changes: Some(
+                                                [(
+                                                    lsp::url_from_file_path(path!("/dir/a.ts")).unwrap(),
+                                                    vec![lsp::TextEdit {
+                                                        range: lsp::Range::new(
+                                                            lsp::Position::new(0, 0),
+                                                            lsp::Position::new(0, 0),
                                                 ),
                                                 new_text: "X".into(),
                                             }],
@@ -21181,7 +20776,6 @@ pub(crate) fn init_test(cx: &mut TestAppContext, f: fn(&mut AllLanguageSettingsC
         cx.set_global(store);
         theme::init(theme::LoadThemes::JustBase, cx);
         release_channel::init(SemanticVersion::default(), cx);
-        client::init_settings(cx);
         language::init(cx);
         Project::init_settings(cx);
         workspace::init_settings(cx);

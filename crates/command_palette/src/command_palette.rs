@@ -7,7 +7,6 @@ use std::{
     time::Duration,
 };
 
-use client::parse_zed_link;
 use command_palette_hooks::{
     CommandInterceptResult, CommandPaletteFilter, CommandPaletteInterceptor,
 };
@@ -23,11 +22,10 @@ use postage::{sink::Sink, stream::Stream};
 use settings::Settings;
 use ui::{HighlightedLabel, KeyBinding, ListItem, ListItemSpacing, h_flex, prelude::*, v_flex};
 use util::ResultExt;
-use workspace::{ModalView, Workspace, WorkspaceSettings};
-use zed_actions::{OpenZedUrl, command_palette::Toggle};
+use workspace::{AppState, ModalView, Workspace, WorkspaceSettings};
+use vector_actions::{OpenVectorUrl, command_palette::Toggle};
 
 pub fn init(cx: &mut App) {
-    client::init_settings(cx);
     command_palette_hooks::init(cx);
     cx.observe_new(CommandPalette::register).detach();
 }
@@ -200,9 +198,12 @@ impl CommandPaletteDelegate {
             .map(|interceptor| interceptor.intercept(&query, cx))
             .unwrap_or_default();
 
-        if parse_zed_link(&query, cx).is_some() {
+        if is_vector_url_candidate(&query, cx) {
             intercept_results = vec![CommandInterceptResult {
-                action: OpenZedUrl { url: query.clone() }.boxed_clone(),
+                action: OpenVectorUrl {
+                    url: query.clone(),
+                }
+                .boxed_clone(),
                 string: query.clone(),
                 positions: vec![],
             }]
@@ -256,6 +257,21 @@ impl CommandPaletteDelegate {
             HashMap::new()
         }
     }
+}
+
+fn is_vector_url_candidate(input: &str, cx: &App) -> bool {
+    if input.starts_with("vector://") {
+        return true;
+    }
+
+    let Some(app_state) = AppState::try_global(cx).and_then(|state| state.upgrade()) else {
+        return false;
+    };
+
+    input
+        .strip_prefix(&app_state.http_client.base_url())
+        .and_then(|rest| rest.strip_prefix('/'))
+        .is_some()
 }
 
 impl PickerDelegate for CommandPaletteDelegate {
@@ -393,11 +409,6 @@ impl PickerDelegate for CommandPaletteDelegate {
         }
         let action_ix = self.matches[self.selected_ix].candidate_id;
         let command = self.commands.swap_remove(action_ix);
-        telemetry::event!(
-            "Action Invoked",
-            source = "command palette",
-            action = command.name
-        );
         self.matches.clear();
         self.commands.clear();
         let command_name = command.name.clone();

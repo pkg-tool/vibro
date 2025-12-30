@@ -788,11 +788,11 @@ mod tests {
 
     #[gpui::test]
     async fn test_heading_with_paragraph() {
-        let parsed = parse("# Zed\nThe editor").await;
+        let parsed = parse("# Vector\nThe editor").await;
 
         assert_eq!(
             parsed.children,
-            vec![h1(text("Zed", 2..5), 0..6), p("The editor", 6..16),]
+            vec![h1(text("Vector", 2..8), 0..9), p("The editor", 9..19),]
         );
     }
 
@@ -890,11 +890,11 @@ mod tests {
 
     #[gpui::test]
     async fn test_raw_links_detection() {
-        let parsed = parse("Checkout this https://zed.dev link").await;
+        let parsed = parse("Checkout this https://vector.dev link").await;
 
         assert_eq!(
             parsed.children,
-            vec![p("Checkout this https://zed.dev link", 0..34)]
+            vec![p("Checkout this https://vector.dev link", 0..37)]
         );
     }
 
@@ -912,7 +912,7 @@ mod tests {
 
     #[gpui::test]
     async fn test_image_links_detection() {
-        let parsed = parse("![test](https://blog.logrocket.com/wp-content/uploads/2024/04/exploring-zed-open-source-code-editor-rust-2.png)").await;
+        let parsed = parse("![test](https://blog.logrocket.com/wp-content/uploads/2024/04/exploring-vector-open-source-code-editor-rust-2.png)").await;
 
         let paragraph = if let ParsedMarkdownElement::Paragraph(text) = &parsed.children[0] {
             text
@@ -922,9 +922,9 @@ mod tests {
         assert_eq!(
             paragraph[0],
             MarkdownParagraphChunk::Image(Image {
-                source_range: 0..111,
+                source_range: 0..114,
                 link: Link::Web {
-                    url: "https://blog.logrocket.com/wp-content/uploads/2024/04/exploring-zed-open-source-code-editor-rust-2.png".to_string(),
+                    url: "https://blog.logrocket.com/wp-content/uploads/2024/04/exploring-vector-open-source-code-editor-rust-2.png".to_string(),
                 },
                 alt_text: Some("test".into()),
             },)

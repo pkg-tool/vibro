@@ -1,6 +1,6 @@
 # Python
 
-Python support is available natively in Zed.
+Python support is available natively in Vector.
 
 - Tree-sitter: [tree-sitter-python](https://github.com/tree-sitter/tree-sitter-python)
 - Language Servers:
@@ -9,14 +9,14 @@ Python support is available natively in Zed.
 
 ## Language Servers
 
-Zed supports multiple Python language servers some of which may require configuration to work properly.
+Vector supports multiple Python language servers some of which may require configuration to work properly.
 
-See: [Working with Language Servers](https://zed.dev/docs/configuring-languages#working-with-language-servers) for more information.
+See: [Working with Language Servers](../configuring-languages.md#working-with-language-servers) for more information.
 
 ## Virtual Environments in the Terminal {#terminal-detect_venv}
 
-Zed will detect Python virtual environments and automatically activate them in terminal if available.
-See: [detect_venv documentation](../configuring-zed.md#terminal-detect_venv) for more.
+Vector will detect Python virtual environments and automatically activate them in terminal if available.
+See: [detect_venv documentation](../configuring-vector.md#terminal-detect_venv) for more.
 
 ## PyLSP
 
@@ -119,7 +119,7 @@ You can also configure this option directly in your `settings.json` file ([pyrig
 
 The Pyright language server does not provide code formatting or linting. If you want to detect lint errors and reformat your Python code upon saving, you'll need to set up.
 
-A common tool for formatting Python code is [Ruff](https://docs.astral.sh/ruff/). It is another tool written in Rust, an extremely fast Python linter and code formatter. It is available through the [Ruff extension](https://github.com/zed-industries/zed/tree/main/extensions/ruff/). To configure the Ruff extension to work within Zed, see the setup documentation [here](https://docs.astral.sh/ruff/editors/setup/#zed).
+A common tool for formatting Python code is [Ruff](https://docs.astral.sh/ruff/). It is another tool written in Rust, an extremely fast Python linter and code formatter. It is available through the [Ruff extension](https://github.com/vector-editor/vector/tree/main/extensions/ruff/). To configure Ruff, see the setup documentation [here](https://docs.astral.sh/ruff/editors/setup/).
 
 <!--
 TBD: Expand Python Ruff docs.

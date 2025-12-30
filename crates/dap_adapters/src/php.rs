@@ -286,7 +286,7 @@ impl DebugAdapter for PhpDebugAdapter {
         Ok(StartDebuggingRequestArgumentsRequest::Launch)
     }
 
-    fn config_from_zed_format(&self, zed_scenario: ZedDebugConfig) -> Result<DebugScenario> {
+    fn config_from_vector_format(&self, zed_scenario: VectorDebugConfig) -> Result<DebugScenario> {
         let obj = match &zed_scenario.request {
             dap::DebugRequest::Attach(_) => {
                 bail!("Php adapter doesn't support attaching")

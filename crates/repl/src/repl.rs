@@ -25,26 +25,26 @@ pub use crate::repl_sessions_ui::{
 use crate::repl_store::ReplStore;
 pub use crate::session::Session;
 
-pub const KERNEL_DOCS_URL: &str = "https://zed.dev/docs/repl#changing-kernels";
+pub const KERNEL_DOCS_URL: &str = "https://vector.dev/docs/repl#changing-kernels";
 
 pub fn init(fs: Arc<dyn Fs>, cx: &mut App) {
-    set_dispatcher(zed_dispatcher(cx));
+    set_dispatcher(vector_dispatcher(cx));
     JupyterSettings::register(cx);
     ::editor::init_settings(cx);
     repl_sessions_ui::init(cx);
     ReplStore::init(fs, cx);
 }
 
-fn zed_dispatcher(cx: &mut App) -> impl Dispatcher {
-    struct ZedDispatcher {
+fn vector_dispatcher(cx: &mut App) -> impl Dispatcher {
+    struct VectorDispatcher {
         dispatcher: Arc<dyn PlatformDispatcher>,
     }
 
     // PlatformDispatcher is _super_ close to the same interface we put in
     // async-dispatcher, except for the task label in dispatch. Later we should
     // just make that consistent so we have this dispatcher ready to go for
-    // other crates in Zed.
-    impl Dispatcher for ZedDispatcher {
+    // other crates in Vector.
+    impl Dispatcher for VectorDispatcher {
         fn dispatch(&self, runnable: Runnable) {
             self.dispatcher.dispatch(runnable, None)
         }
@@ -54,7 +54,7 @@ fn zed_dispatcher(cx: &mut App) -> impl Dispatcher {
         }
     }
 
-    ZedDispatcher {
+    VectorDispatcher {
         dispatcher: cx.background_executor().dispatcher.clone(),
     }
 }

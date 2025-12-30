@@ -25,7 +25,7 @@ impl GoDebugAdapter {
         delegate: &Arc<dyn DapDelegate>,
     ) -> Result<AdapterVersion> {
         let release = latest_github_release(
-            &"zed-industries/delve-shim-dap",
+            &"vector-editor/delve-shim-dap",
             true,
             false,
             delegate.http_client(),
@@ -115,7 +115,7 @@ impl DebugAdapter for GoDebugAdapter {
             "cwd": {
                 "type": "string",
                 "description": "Workspace relative or absolute path to the working directory of the program being debugged.",
-                "default": "${ZED_WORKTREE_ROOT}"
+                "default": "${VECTOR_WORKTREE_ROOT}"
             },
             "dlvFlags": {
                 "type": "array",
@@ -211,7 +211,7 @@ impl DebugAdapter for GoDebugAdapter {
             "program": {
                 "type": "string",
                 "description": "Path to the program folder or file to debug.",
-                "default": "${ZED_WORKTREE_ROOT}"
+                "default": "${VECTOR_WORKTREE_ROOT}"
             },
             "args": {
                 "type": ["array", "string"],
@@ -350,7 +350,7 @@ impl DebugAdapter for GoDebugAdapter {
         })
     }
 
-    fn config_from_zed_format(&self, zed_scenario: ZedDebugConfig) -> Result<DebugScenario> {
+    fn config_from_vector_format(&self, zed_scenario: VectorDebugConfig) -> Result<DebugScenario> {
         let mut args = match &zed_scenario.request {
             dap::DebugRequest::Attach(attach_config) => {
                 json!({

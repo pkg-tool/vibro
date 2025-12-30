@@ -18,8 +18,8 @@ static KEYMAP_LINUX: LazyLock<KeymapFile> = LazyLock::new(|| {
 });
 
 pub fn make_app() -> Command {
-    Command::new("zed-docs-preprocessor")
-        .about("Preprocesses Zed Docs content to provide rich action & keybinding support and more")
+    Command::new("vector-docs-preprocessor")
+        .about("Preprocesses Vector docs content to provide rich action & keybinding support and more")
         .subcommand(
             Command::new("supports")
                 .arg(Arg::new("renderer").required(true))

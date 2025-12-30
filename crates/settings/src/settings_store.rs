@@ -118,7 +118,7 @@ pub trait Settings: 'static + Send + Sync {
 
 #[derive(Clone, Copy, Debug)]
 pub struct SettingsSources<'a, T> {
-    /// The default Zed settings.
+    /// The default Vector settings.
     pub default: &'a T,
     /// Global settings (loaded before user settings).
     pub global: Option<&'a T>,

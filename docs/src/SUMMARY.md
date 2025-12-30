@@ -7,13 +7,12 @@
 - [Accounts](./accounts.md)
 - [Linux](./linux.md)
 - [Windows](./windows.md)
-- [Telemetry](./telemetry.md)
 - [Workspace Persistence](./workspace-persistence.md)
 - [Additional Learning Materials](./additional-learning-materials.md)
 
 # Configuration
 
-- [Configuring Zed](./configuring-zed.md)
+- [Configuring Vector](./configuring-vector.md)
 - [Configuring Languages](./configuring-languages.md)
 - [Key bindings](./key-bindings.md)
 - [Snippets](./snippets.md)
@@ -24,36 +23,20 @@
 <!-- - [Globs](./globs.md) -->
 <!-- - [Fonts](./fonts.md) -->
 
-# Using Zed
+# Using Vector
 
 - [Multibuffers](./multibuffers.md)
 - [Outline Panel](./outline-panel.md)
 - [Code Completions](./completions.md)
-- [Channels](./channels.md)
-- [Collaboration](./collaboration.md)
 - [Git](./git.md)
 - [Debugging (Beta)](./debugger.md)
 - [Tasks](./tasks.md)
-- [Remote Development](./remote-development.md)
 - [Environment Variables](./environment.md)
 - [REPL](./repl.md)
 
 # AI
 
-- [Overview](./ai/overview.md)
-- [Agent Panel](./ai/agent-panel.md)
-  - [Tools](./ai/tools.md)
-  - [Model Temperature](./ai/temperature.md)
-- [Inline Assistant](./ai/inline-assistant.md)
 - [Edit Prediction](./ai/edit-prediction.md)
-- [Text Threads](./ai/text-threads.md)
-- [Rules](./ai/rules.md)
-- [Model Context Protocol](./ai/mcp.md)
-- [Configuration](./ai/configuration.md)
-- [Subscription](./ai/subscription.md)
-  - [Plans and Usage](./ai/plans-and-usage.md)
-  - [Billing](./ai/billing.md)
-  - [Models](./ai/models.md)
 - [Privacy and Security](./ai/privacy-and-security.md)
   - [AI Improvement](./ai/ai-improvement.md)
 
@@ -140,13 +123,12 @@
 - [Yarn](./languages/yarn.md)
 - [Zig](./languages/zig.md)
 
-# Developing Zed
+# Developing Vector
 
-- [Developing Zed](./development.md)
+- [Developing Vector](./development.md)
   - [macOS](./development/macos.md)
   - [Linux](./development/linux.md)
   - [Windows](./development/windows.md)
-  - [Local Collaboration](./development/local-collaboration.md)
   - [Using Debuggers](./development/debuggers.md)
 - [Release Process](./development/releases.md)
 - [Debugging Crashes](./development/debugging-crashes.md)

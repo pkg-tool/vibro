@@ -78,7 +78,7 @@ impl KeyContextView {
                         "".to_string()
                     };
                     let mut name = binding.action().name();
-                    if name == "zed::NoAction" {
+                    if name == "vector::NoAction" {
                         name = "(null)"
                     }
 
@@ -140,7 +140,7 @@ impl KeyContextView {
         if let Some(last_action) = a {
             last_action.partial_eq(b)
         } else {
-            b.name() == "zed::NoAction"
+            b.name() == "vector::NoAction"
         }
     }
 }
@@ -152,10 +152,6 @@ impl Item for KeyContextView {
 
     fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
         "Keyboard Context".into()
-    }
-
-    fn telemetry_event_text(&self) -> Option<&'static str> {
-        None
     }
 
     fn clone_on_split(
@@ -201,7 +197,7 @@ impl Render for KeyContextView {
                 }),
             )
             .child(Label::new("Keyboard Context").size(LabelSize::Large))
-            .child(Label::new("This view lets you determine the current context stack for creating custom key bindings in Zed. When a keyboard shortcut is triggered, it also shows all the possible contexts it could have triggered in, and which one matched."))
+            .child(Label::new("This view lets you determine the current context stack for creating custom key bindings in Vector. When a keyboard shortcut is triggered, it also shows all the possible contexts it could have triggered in, and which one matched."))
             .child(
                 h_flex()
                     .mt_4()
@@ -209,26 +205,26 @@ impl Render for KeyContextView {
                     .child(
                         Button::new("open_documentation", "Open Documentation")
                             .style(ButtonStyle::Filled)
-                            .on_click(|_, _, cx| cx.open_url("https://zed.dev/docs/key-bindings")),
+                            .on_click(|_, _, cx| cx.open_url("https://github.com/vector-editor/vector/blob/main/docs/src/key-bindings.md")),
                     )
                     .child(
                         Button::new("view_default_keymap", "View default keymap")
                             .style(ButtonStyle::Filled)
                             .key_binding(ui::KeyBinding::for_action(
-                                &zed_actions::OpenDefaultKeymap,
+                                &vector_actions::OpenDefaultKeymap,
                                 window,
                                 cx
                             ))
                             .on_click(|_, window, cx| {
-                                window.dispatch_action(zed_actions::OpenDefaultKeymap.boxed_clone(), cx);
+                                window.dispatch_action(vector_actions::OpenDefaultKeymap.boxed_clone(), cx);
                             }),
                     )
                     .child(
                         Button::new("edit_your_keymap", "Edit your keymap")
                             .style(ButtonStyle::Filled)
-                            .key_binding(ui::KeyBinding::for_action(&zed_actions::OpenKeymap, window, cx))
+                            .key_binding(ui::KeyBinding::for_action(&vector_actions::OpenKeymap, window, cx))
                             .on_click(|_, window, cx| {
-                                window.dispatch_action(zed_actions::OpenKeymap.boxed_clone(), cx);
+                                window.dispatch_action(vector_actions::OpenKeymap.boxed_clone(), cx);
                             }),
                     ),
             )

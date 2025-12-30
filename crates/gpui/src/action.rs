@@ -97,7 +97,7 @@ impl dyn Action {
     }
 }
 
-/// Error type for `Keystroke::parse`. This is used instead of `anyhow::Error` so that Zed can use
+/// Error type for `Keystroke::parse`. This is used instead of `anyhow::Error` so that Vector can use
 /// markdown to display it.
 #[derive(Debug)]
 pub enum ActionBuildError {
@@ -567,7 +567,7 @@ mod no_action {
     use crate as gpui;
     use std::any::Any as _;
 
-    actions!(zed, [NoAction]);
+    actions!(vector, [NoAction]);
 
     /// Returns whether or not this action represents a removed key binding.
     pub fn is_no_action(action: &dyn gpui::Action) -> bool {

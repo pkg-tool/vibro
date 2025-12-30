@@ -5,5 +5,5 @@
 - Language Server: [olrtg/emmet-language-server](https://github.com/olrtg/emmet-language-server)
 
 <!--
-TBD: Document Emmet usage in zed with: HTML, PHP, ERB, Javascript, TSX, CSS
+TBD: Document Emmet usage in Vector with: HTML, PHP, ERB, Javascript, TSX, CSS
 -->

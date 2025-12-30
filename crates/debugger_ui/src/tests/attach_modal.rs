@@ -104,14 +104,14 @@ async fn test_show_attach_modal_and_select_process(
         .update(cx, |workspace, window, cx| {
             let workspace_handle = cx.weak_entity();
             workspace.toggle_modal(window, cx, |window, cx| {
-                AttachModal::with_processes(
-                    workspace_handle,
-                    task::ZedDebugConfig {
-                        adapter: FakeAdapter::ADAPTER_NAME.into(),
-                        request: dap::DebugRequest::Attach(AttachRequest::default()),
-                        label: "attach example".into(),
-                        stop_on_entry: None,
-                    },
+                    AttachModal::with_processes(
+                        workspace_handle,
+                        task::VectorDebugConfig {
+                            adapter: FakeAdapter::ADAPTER_NAME.into(),
+                            request: dap::DebugRequest::Attach(AttachRequest::default()),
+                            label: "attach example".into(),
+                            stop_on_entry: None,
+                        },
                     vec![
                         Candidate {
                             pid: 0,

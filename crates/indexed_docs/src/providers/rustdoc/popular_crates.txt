@@ -218,7 +218,6 @@ signal-hook
 async-std
 filetime
 num-complex
-opentelemetry
 cmake
 arc-swap
 derive_builder

@@ -37,7 +37,7 @@ impl DapLocator for NodeLocator {
             return None;
         }
         let test_library = build_config.args.first()?;
-        let program_path = Path::new("$ZED_WORKTREE_ROOT")
+        let program_path = Path::new("$VECTOR_WORKTREE_ROOT")
             .join("node_modules")
             .join(".bin")
             .join(test_library);

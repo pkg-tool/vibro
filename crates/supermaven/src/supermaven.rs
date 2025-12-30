@@ -4,12 +4,11 @@ mod supermaven_completion_provider;
 pub use supermaven_completion_provider::*;
 
 use anyhow::{Context as _, Result};
-#[allow(unused_imports)]
-use client::{Client, proto};
 use collections::BTreeMap;
 
 use futures::{AsyncBufReadExt, StreamExt, channel::mpsc, io::BufReader};
 use gpui::{App, AsyncApp, Context, Entity, EntityId, Global, Task, WeakEntity, actions};
+use http_client::HttpClient;
 use language::{
     Anchor, Buffer, BufferSnapshot, ToOffset, language_settings::all_language_settings,
 };
@@ -27,13 +26,13 @@ use util::ResultExt;
 
 actions!(supermaven, [SignOut]);
 
-pub fn init(client: Arc<Client>, cx: &mut App) {
+pub fn init(http_client: Arc<dyn HttpClient>, cx: &mut App) {
     let supermaven = cx.new(|_| Supermaven::Starting);
     Supermaven::set_global(supermaven.clone(), cx);
 
     let mut provider = all_language_settings(None, cx).edit_predictions.provider;
     if provider == language::language_settings::EditPredictionProvider::Supermaven {
-        supermaven.update(cx, |supermaven, cx| supermaven.start(client.clone(), cx));
+        supermaven.update(cx, |supermaven, cx| supermaven.start(http_client.clone(), cx));
     }
 
     cx.observe_global::<SettingsStore>(move |cx| {
@@ -41,7 +40,7 @@ pub fn init(client: Arc<Client>, cx: &mut App) {
         if new_provider != provider {
             provider = new_provider;
             if provider == language::language_settings::EditPredictionProvider::Supermaven {
-                supermaven.update(cx, |supermaven, cx| supermaven.start(client.clone(), cx));
+                supermaven.update(cx, |supermaven, cx| supermaven.start(http_client.clone(), cx));
             } else {
                 supermaven.update(cx, |supermaven, _cx| supermaven.stop());
             }
@@ -85,16 +84,15 @@ impl Supermaven {
         cx.set_global(SupermavenGlobal(supermaven));
     }
 
-    pub fn start(&mut self, client: Arc<Client>, cx: &mut Context<Self>) {
+    pub fn start(&mut self, http_client: Arc<dyn HttpClient>, cx: &mut Context<Self>) {
         if let Self::Starting = self {
             cx.spawn(async move |this, cx| {
                 let binary_path =
-                    supermaven_api::get_supermaven_agent_path(client.http_client()).await?;
+                    supermaven_api::get_supermaven_agent_path(http_client).await?;
 
                 this.update(cx, |this, cx| {
                     if let Self::Starting = this {
-                        *this =
-                            Self::Spawned(SupermavenAgent::new(binary_path, client.clone(), cx)?);
+                        *this = Self::Spawned(SupermavenAgent::new(binary_path, cx)?);
                     }
                     anyhow::Ok(())
                 })
@@ -257,16 +255,10 @@ pub struct SupermavenAgent {
     _handle_incoming_messages: Task<Result<()>>,
     pub account_status: AccountStatus,
     service_tier: Option<ServiceTier>,
-    #[allow(dead_code)]
-    client: Arc<Client>,
 }
 
 impl SupermavenAgent {
-    fn new(
-        binary_path: PathBuf,
-        client: Arc<Client>,
-        cx: &mut Context<Supermaven>,
-    ) -> Result<Self> {
+    fn new(binary_path: PathBuf, cx: &mut Context<Supermaven>) -> Result<Self> {
         let mut process = util::command::new_smol_command(&binary_path)
             .arg("stdio")
             .stdin(Stdio::piped())
@@ -287,31 +279,6 @@ impl SupermavenAgent {
 
         let (outgoing_tx, outgoing_rx) = mpsc::unbounded();
 
-        cx.spawn({
-            let client = client.clone();
-            let outgoing_tx = outgoing_tx.clone();
-            async move |this, cx| {
-                let mut status = client.status();
-                while let Some(status) = status.next().await {
-                    if status.is_connected() {
-                        let api_key = client.request(proto::GetSupermavenApiKey {}).await?.api_key;
-                        outgoing_tx
-                            .unbounded_send(OutboundMessage::SetApiKey(SetApiKey { api_key }))
-                            .ok();
-                        this.update(cx, |this, cx| {
-                            if let Supermaven::Spawned(this) = this {
-                                this.account_status = AccountStatus::Ready;
-                                cx.notify();
-                            }
-                        })?;
-                        break;
-                    }
-                }
-                anyhow::Ok(())
-            }
-        })
-        .detach();
-
         Ok(Self {
             _process: process,
             next_state_id: SupermavenCompletionStateId::default(),
@@ -325,7 +292,6 @@ impl SupermavenAgent {
             }),
             account_status: AccountStatus::Unknown,
             service_tier: None,
-            client,
         })
     }
 

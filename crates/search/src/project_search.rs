@@ -500,10 +500,6 @@ impl Item for ProjectSearchView {
             .unwrap_or_else(|| "Project Search".into())
     }
 
-    fn telemetry_event_text(&self) -> Option<&'static str> {
-        Some("Project Search Opened")
-    }
-
     fn for_each_project_item(
         &self,
         cx: &App,
@@ -4225,7 +4221,6 @@ pub mod tests {
             theme::init(theme::LoadThemes::JustBase, cx);
 
             language::init(cx);
-            client::init_settings(cx);
             editor::init(cx);
             workspace::init_settings(cx);
             Project::init_settings(cx);

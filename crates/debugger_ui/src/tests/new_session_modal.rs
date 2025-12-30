@@ -4,7 +4,7 @@ use project::{FakeFs, Fs, Project};
 use serde_json::json;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use task::{DebugRequest, DebugScenario, LaunchRequest, TaskContext, VariableName, ZedDebugConfig};
+use task::{DebugRequest, DebugScenario, LaunchRequest, TaskContext, VariableName, VectorDebugConfig};
 use util::path;
 
 use crate::new_session_modal::NewSessionMode;
@@ -66,10 +66,10 @@ async fn test_debug_session_substitutes_variables_and_relativizes_paths(
                 .to_string()
                 .leak(),
         ),
-        // Path with $ZED_WORKTREE_ROOT - should be substituted without double appending
+        // Path with $VECTOR_WORKTREE_ROOT - should be substituted without double appending
         (
             format!(
-                "$ZED_WORKTREE_ROOT{0}src{0}program",
+                "$VECTOR_WORKTREE_ROOT{0}src{0}program",
                 std::path::MAIN_SEPARATOR
             )
             .leak(),
@@ -103,9 +103,10 @@ async fn test_debug_session_substitutes_variables_and_relativizes_paths(
                             input_path
                         );
 
-                        let expected_other_field = if input_path.contains("$ZED_WORKTREE_ROOT") {
+                        let expected_other_field =
+                            if input_path.contains("$VECTOR_WORKTREE_ROOT") {
                             input_path
-                                .replace("$ZED_WORKTREE_ROOT", &path!("/test/worktree/path"))
+                                .replace("$VECTOR_WORKTREE_ROOT", &path!("/test/worktree/path"))
                                 .to_owned()
                         } else {
                             input_path.to_string()
@@ -198,7 +199,7 @@ async fn test_save_debug_scenario_to_file(executor: BackgroundExecutor, cx: &mut
     cx.executor().run_until_parked();
 
     let debug_json_content = fs
-        .load(path!("/project/.zed/debug.json").as_ref())
+        .load(path!("/project/.vector/debug.json").as_ref())
         .await
         .expect("debug.json should exist");
 
@@ -227,7 +228,7 @@ async fn test_save_debug_scenario_to_file(executor: BackgroundExecutor, cx: &mut
     cx.executor().run_until_parked();
 
     let debug_json_content = fs
-        .load(path!("/project/.zed/debug.json").as_ref())
+        .load(path!("/project/.vector/debug.json").as_ref())
         .await
         .expect("debug.json should exist after second save");
 
@@ -278,7 +279,7 @@ async fn test_dap_adapter_config_conversion_and_validation(cx: &mut TestAppConte
         registry.enumerate_adapters()
     });
 
-    let zed_config = ZedDebugConfig {
+    let scenario_definition = VectorDebugConfig {
         label: "test_debug_session".into(),
         adapter: "test_adapter".into(),
         request: DebugRequest::Launch(LaunchRequest {
@@ -303,14 +304,14 @@ async fn test_dap_adapter_config_conversion_and_validation(cx: &mut TestAppConte
             })
             .unwrap_or_else(|| panic!("Adapter {} should exist", adapter_name));
 
-        let mut adapter_specific_config = zed_config.clone();
+        let mut adapter_specific_config = scenario_definition.clone();
         adapter_specific_config.adapter = adapter_name.to_string().into();
 
         let debug_scenario = adapter
-            .config_from_zed_format(adapter_specific_config)
+            .config_from_vector_format(adapter_specific_config)
             .unwrap_or_else(|_| {
                 panic!(
-                    "Adapter {} should successfully convert from Zed format",
+                    "Adapter {} should successfully convert from Vector format",
                     adapter_name
                 )
             });

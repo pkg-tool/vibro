@@ -2,7 +2,6 @@ mod project_panel_settings;
 mod utils;
 
 use anyhow::{Context as _, Result};
-use client::{ErrorCode, ErrorExt};
 use collections::{BTreeSet, HashMap, hash_map};
 use command_palette_hooks::CommandPaletteFilter;
 use db::kvp::KEY_VALUE_STORE;
@@ -65,7 +64,7 @@ use workspace::{
     notifications::{DetachAndPromptErr, NotifyTaskExt},
 };
 use worktree::CreatedEntry;
-use zed_actions::OpenRecent;
+use vector_actions::OpenRecent;
 
 const PROJECT_PANEL_KEY: &str = "ProjectPanel";
 const NEW_ENTRY_ID: ProjectEntryId = ProjectEntryId::MAX;
@@ -517,7 +516,6 @@ impl ProjectPanel {
                             let file_path = entry.path.clone();
                             let worktree_id = worktree.read(cx).id();
                             let entry_id = entry.id;
-                            let is_via_ssh = project.read(cx).is_via_ssh();
 
                             workspace
                                 .open_path_preview(
@@ -532,20 +530,10 @@ impl ProjectPanel {
                                     window, cx,
                                 )
                                 .detach_and_prompt_err("Failed to open file", window, cx, move |e, _, _| {
-                                    match e.error_code() {
-                                        ErrorCode::Disconnected => if is_via_ssh {
-                                            Some("Disconnected from SSH host".to_string())
-                                        } else {
-                                            Some("Disconnected from remote project".to_string())
-                                        },
-                                        ErrorCode::UnsharedItem => Some(format!(
-                                            "{} is not shared by the host. This could be because it has been marked as `private`",
-                                            file_path.display()
-                                        )),
-                                        // See note in worktree.rs where this error originates. Returning Some in this case prevents
-                                        // the error popup from saying "Try Again", which is a red herring in this case
-                                        ErrorCode::Internal if e.to_string().contains("File is too large to load") => Some(e.to_string()),
-                                        _ => None,
+                                    if e.to_string().contains("File is too large to load") {
+                                        Some(e.to_string())
+                                    } else {
+                                        None
                                     }
                                 });
 
@@ -756,7 +744,7 @@ impl ProjectPanel {
             let is_dir = entry.is_dir();
             let is_foldable = auto_fold_dirs && self.is_foldable(entry, worktree);
             let is_unfoldable = auto_fold_dirs && self.is_unfoldable(entry, worktree);
-            let is_read_only = project.is_read_only(cx);
+            let is_read_only = project.is_read_only();
             let is_remote = project.is_via_collab();
             let is_local = project.is_local();
 
@@ -803,10 +791,10 @@ impl ProjectPanel {
                                 }
                             })
                             .separator()
-                            .action("Copy Path", Box::new(zed_actions::workspace::CopyPath))
+                            .action("Copy Path", Box::new(vector_actions::workspace::CopyPath))
                             .action(
                                 "Copy Relative Path",
-                                Box::new(zed_actions::workspace::CopyRelativePath),
+                                Box::new(vector_actions::workspace::CopyRelativePath),
                             )
                             .separator()
                             .when(!is_root || !cfg!(target_os = "windows"), |menu| {
@@ -2355,7 +2343,7 @@ impl ProjectPanel {
 
     fn copy_path(
         &mut self,
-        _: &zed_actions::workspace::CopyPath,
+        _: &vector_actions::workspace::CopyPath,
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -2384,7 +2372,7 @@ impl ProjectPanel {
 
     fn copy_relative_path(
         &mut self,
-        _: &zed_actions::workspace::CopyRelativePath,
+        _: &vector_actions::workspace::CopyRelativePath,
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -3028,9 +3016,8 @@ impl ProjectPanel {
 
         let open_file_after_drop = paths.len() == 1 && paths[0].is_file();
 
-        let Some((target_directory, worktree, fs)) = maybe!({
+        let Some((target_directory, worktree)) = maybe!({
             let project = self.project.read(cx);
-            let fs = project.fs().clone();
             let worktree = project.worktree_for_entry(entry_id, cx)?;
             let entry = worktree.read(cx).entry_for_id(entry_id)?;
             let path = entry.path.clone();
@@ -3039,7 +3026,7 @@ impl ProjectPanel {
             } else {
                 path.parent()?.to_path_buf()
             };
-            Some((target_directory, worktree, fs))
+            Some((target_directory, worktree))
         }) else {
             return;
         };
@@ -3081,7 +3068,7 @@ impl ProjectPanel {
                 }
 
                 let task = worktree.update( cx, |worktree, cx| {
-                    worktree.copy_external_entries(target_directory.into(), paths, fs, cx)
+                    worktree.copy_external_entries(target_directory.into(), paths, cx)
                 })?;
 
                 let opened_entries = task.await.with_context(|| "failed to copy external paths")?;
@@ -4671,7 +4658,7 @@ impl Render for ProjectPanel {
                 .on_action(cx.listener(Self::unfold_directory))
                 .on_action(cx.listener(Self::fold_directory))
                 .on_action(cx.listener(Self::remove_from_project))
-                .when(!project.is_read_only(cx), |el| {
+                .when(!project.is_read_only(), |el| {
                     el.on_action(cx.listener(Self::new_file))
                         .on_action(cx.listener(Self::new_directory))
                         .on_action(cx.listener(Self::rename))
@@ -4708,9 +4695,6 @@ impl Render for ProjectPanel {
                     el.on_action(cx.listener(Self::reveal_in_finder))
                         .on_action(cx.listener(Self::open_system))
                         .on_action(cx.listener(Self::open_in_terminal))
-                })
-                .when(project.is_via_ssh(), |el| {
-                    el.on_action(cx.listener(Self::open_in_terminal))
                 })
                 .on_mouse_down(
                     MouseButton::Right,

@@ -26,7 +26,6 @@ use language::Buffer;
 use project::debugger::session::{Session, SessionStateEvent};
 use project::{Fs, ProjectPath, WorktreeId};
 use project::{Project, debugger::session::ThreadStatus};
-use rpc::proto::{self};
 use settings::Settings;
 use std::any::TypeId;
 use std::sync::Arc;
@@ -997,7 +996,7 @@ impl DebugPanel {
                             .read(cx)
                             .project_path_for_absolute_path(&path, cx)
                             .context(
-                                "Couldn't get project path for .zed/debug.json in active worktree",
+                                "Couldn't get project path for .vector/debug.json in active worktree",
                             )
                     })?
                 })
@@ -1136,10 +1135,6 @@ impl Panel for DebugPanel {
 
     fn set_size(&mut self, size: Option<Pixels>, _window: &mut Window, _cx: &mut Context<Self>) {
         self.size = size.unwrap_or(px(300.));
-    }
-
-    fn remote_id() -> Option<proto::PanelId> {
-        Some(proto::PanelId::DebugPanel)
     }
 
     fn icon(&self, _window: &Window, _cx: &App) -> Option<IconName> {

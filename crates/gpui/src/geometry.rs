@@ -1356,7 +1356,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use zed::{Bounds, Corner, Point, Size};
+    /// # use gpui::{Bounds, Corner, Point, Size};
     /// let bounds = Bounds {
     ///     origin: Point { x: 0, y: 0 },
     ///     size: Size { width: 10, height: 20 },
@@ -2119,7 +2119,7 @@ impl Corner {
     /// # Examples
     ///
     /// ```
-    /// # use zed::Corner;
+    /// # use gpui::Corner;
     /// assert_eq!(Corner::TopLeft.opposite_corner(), Corner::BottomRight);
     /// ```
     pub fn opposite_corner(self) -> Self {
@@ -2136,7 +2136,7 @@ impl Corner {
     /// # Examples
     ///
     /// ```
-    /// # use zed::Corner;
+    /// # use gpui::Corner;
     /// let result = Corner::TopLeft.other_side_corner_along(Axis::Horizontal);
     /// assert_eq!(result, Corner::TopRight);
     /// ```
@@ -2221,7 +2221,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use zed::{Corner, Corners};
+    /// # use gpui::{Corner, Corners};
     /// let corners = Corners {
     ///     top_left: 1,
     ///     top_right: 2,

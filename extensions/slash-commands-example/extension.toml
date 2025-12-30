@@ -3,8 +3,8 @@ name = "Slash Commands Example"
 description = "An example extension showcasing slash commands."
 version = "0.1.0"
 schema_version = 1
-authors = ["Zed Industries <hi@zed.dev>"]
-repository = "https://github.com/zed-industries/zed"
+authors = ["Vector Contributors <team@vector.dev>"]
+repository = "https://github.com/vector-editor/vector"
 
 [slash_commands.echo]
 description = "echoes the provided input"

@@ -1,26 +1,37 @@
 use crate::{
-    Entry, EntryKind, Event, PathChange, WorkDirectory, Worktree, WorktreeModelHandle,
+    EntryKind, Event, PathChange, WorkDirectory, Worktree, WorktreeModelHandle,
     worktree_settings::WorktreeSettings,
 };
+#[cfg(feature = "remote")]
 use anyhow::Result;
-use fs::{FakeFs, Fs, RealFs, RemoveOptions};
+use fs::{FakeFs, Fs, RealFs};
+#[cfg(feature = "remote")]
+use fs::RemoveOptions;
+#[cfg(feature = "remote")]
 use git::GITIGNORE;
-use gpui::{AppContext as _, BackgroundExecutor, BorrowAppContext, Context, Task, TestAppContext};
+use gpui::{BackgroundExecutor, BorrowAppContext, TestAppContext};
+#[cfg(feature = "remote")]
+use gpui::{Context, Task};
 use parking_lot::Mutex;
-use postage::stream::Stream;
+use postage::prelude::Stream as _;
 use pretty_assertions::assert_eq;
+#[cfg(feature = "remote")]
 use rand::prelude::*;
 
 use serde_json::json;
 use settings::{Settings, SettingsStore};
 use std::{
-    env,
-    fmt::Write,
     mem,
     path::{Path, PathBuf},
     sync::Arc,
 };
-use util::{ResultExt, path, test::TempTree};
+use util::{path, test::TempTree};
+
+#[cfg(feature = "remote")]
+use std::fmt::Write as _;
+
+#[cfg(feature = "remote")]
+use util::ResultExt as _;
 
 #[gpui::test]
 async fn test_traversal(cx: &mut TestAppContext) {
@@ -1225,6 +1236,7 @@ async fn test_fs_events_in_dot_git_worktree(cx: &mut TestAppContext) {
     });
 }
 
+#[cfg(feature = "remote")]
 #[gpui::test(iterations = 30)]
 async fn test_create_directory_during_initial_scan(cx: &mut TestAppContext) {
     init_test(cx);
@@ -1408,16 +1420,17 @@ async fn test_create_dir_all_on_create_entry(cx: &mut TestAppContext) {
     });
 }
 
+#[cfg(feature = "remote")]
 #[gpui::test(iterations = 100)]
 async fn test_random_worktree_operations_during_initial_scan(
     cx: &mut TestAppContext,
     mut rng: StdRng,
 ) {
     init_test(cx);
-    let operations = env::var("OPERATIONS")
+    let operations = std::env::var("OPERATIONS")
         .map(|o| o.parse().unwrap())
         .unwrap_or(5);
-    let initial_entries = env::var("INITIAL_ENTRIES")
+    let initial_entries = std::env::var("INITIAL_ENTRIES")
         .map(|o| o.parse().unwrap())
         .unwrap_or(20);
 
@@ -1502,13 +1515,14 @@ async fn test_random_worktree_operations_during_initial_scan(
     }
 }
 
+#[cfg(feature = "remote")]
 #[gpui::test(iterations = 100)]
 async fn test_random_worktree_changes(cx: &mut TestAppContext, mut rng: StdRng) {
     init_test(cx);
-    let operations = env::var("OPERATIONS")
+    let operations = std::env::var("OPERATIONS")
         .map(|o| o.parse().unwrap())
         .unwrap_or(40);
-    let initial_entries = env::var("INITIAL_ENTRIES")
+    let initial_entries = std::env::var("INITIAL_ENTRIES")
         .map(|o| o.parse().unwrap())
         .unwrap_or(20);
 
@@ -1644,7 +1658,7 @@ async fn test_random_worktree_changes(cx: &mut TestAppContext, mut rng: StdRng) 
         );
     }
 
-    fn ignore_pending_dir(entry: &Entry) -> Entry {
+    fn ignore_pending_dir(entry: &crate::Entry) -> crate::Entry {
         let mut entry = entry.clone();
         if entry.kind.is_dir() {
             entry.kind = EntryKind::Dir
@@ -1655,6 +1669,7 @@ async fn test_random_worktree_changes(cx: &mut TestAppContext, mut rng: StdRng) 
 
 // The worktree's `UpdatedEntries` event can be used to follow along with
 // all changes to the worktree's snapshot.
+#[cfg(feature = "remote")]
 fn check_worktree_change_events(tree: &mut Worktree, cx: &mut Context<Worktree>) {
     let mut entries = tree.entries(true, 0).cloned().collect::<Vec<_>>();
     cx.subscribe(&cx.entity(), move |tree, _, event, _| {
@@ -1691,6 +1706,7 @@ fn check_worktree_change_events(tree: &mut Worktree, cx: &mut Context<Worktree>)
     .detach();
 }
 
+#[cfg(feature = "remote")]
 fn randomly_mutate_worktree(
     worktree: &mut Worktree,
     rng: &mut impl Rng,
@@ -1757,6 +1773,7 @@ fn randomly_mutate_worktree(
     }
 }
 
+#[cfg(feature = "remote")]
 async fn randomly_mutate_fs(
     fs: &Arc<dyn Fs>,
     root_path: &Path,
@@ -1917,6 +1934,7 @@ async fn randomly_mutate_fs(
     }
 }
 
+#[cfg(feature = "remote")]
 fn random_filename(rng: &mut impl Rng) -> String {
     (0..6)
         .map(|_| rng.sample(rand::distributions::Alphanumeric))
@@ -1962,7 +1980,7 @@ fn test_unrelativize() {
     );
 
     let work_directory = WorkDirectory::AboveProject {
-        absolute_path: Path::new("/projects/zed").into(),
+        absolute_path: Path::new("/projects/vector").into(),
         location_in_repo: Path::new("crates/gpui").into(),
     };
 

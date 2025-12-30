@@ -2,7 +2,6 @@ use ::serde::{Deserialize, Serialize};
 use anyhow::Context as _;
 use gpui::{App, Entity, PromptLevel, Task, WeakEntity};
 use lsp::LanguageServer;
-use rpc::proto;
 
 use crate::{
     LanguageServerPromptRequest, LspStore, LspStoreEvent, Project, ProjectPath, lsp_store,
@@ -89,7 +88,6 @@ pub fn cancel_flycheck(
     buffer_path: ProjectPath,
     cx: &mut App,
 ) -> Task<anyhow::Result<()>> {
-    let upstream_client = project.read(cx).lsp_store().read(cx).upstream_client();
     let lsp_store = project.read(cx).lsp_store();
     let buffer = project.update(cx, |project, cx| {
         project.buffer_store().update(cx, |buffer_store, cx| {
@@ -109,28 +107,15 @@ pub fn cancel_flycheck(
         else {
             return Ok(());
         };
-        let buffer_id = buffer.read_with(cx, |buffer, _| buffer.remote_id().to_proto())?;
 
-        if let Some((client, project_id)) = upstream_client {
-            let request = proto::LspExtCancelFlycheck {
-                project_id,
-                buffer_id,
-                language_server_id: rust_analyzer_server.to_proto(),
-            };
-            client
-                .request(request)
-                .await
-                .context("lsp ext cancel flycheck proto request")?;
-        } else {
-            lsp_store
-                .read_with(cx, |lsp_store, _| {
-                    if let Some(server) = lsp_store.language_server_for_id(rust_analyzer_server) {
-                        server.notify::<lsp_store::lsp_ext_command::LspExtCancelFlycheck>(&())?;
-                    }
-                    anyhow::Ok(())
-                })?
-                .context("lsp ext cancel flycheck")?;
-        };
+        lsp_store
+            .read_with(cx, |lsp_store, _| {
+                if let Some(server) = lsp_store.language_server_for_id(rust_analyzer_server) {
+                    server.notify::<lsp_store::lsp_ext_command::LspExtCancelFlycheck>(&())?;
+                }
+                anyhow::Ok(())
+            })?
+            .context("lsp ext cancel flycheck")?;
         anyhow::Ok(())
     })
 }
@@ -140,7 +125,6 @@ pub fn run_flycheck(
     buffer_path: ProjectPath,
     cx: &mut App,
 ) -> Task<anyhow::Result<()>> {
-    let upstream_client = project.read(cx).lsp_store().read(cx).upstream_client();
     let lsp_store = project.read(cx).lsp_store();
     let buffer = project.update(cx, |project, cx| {
         project.buffer_store().update(cx, |buffer_store, cx| {
@@ -160,33 +144,19 @@ pub fn run_flycheck(
         else {
             return Ok(());
         };
-        let buffer_id = buffer.read_with(cx, |buffer, _| buffer.remote_id().to_proto())?;
 
-        if let Some((client, project_id)) = upstream_client {
-            let request = proto::LspExtRunFlycheck {
-                project_id,
-                buffer_id,
-                language_server_id: rust_analyzer_server.to_proto(),
-                current_file_only: false,
-            };
-            client
-                .request(request)
-                .await
-                .context("lsp ext run flycheck proto request")?;
-        } else {
-            lsp_store
-                .read_with(cx, |lsp_store, _| {
-                    if let Some(server) = lsp_store.language_server_for_id(rust_analyzer_server) {
-                        server.notify::<lsp_store::lsp_ext_command::LspExtRunFlycheck>(
-                            &lsp_store::lsp_ext_command::RunFlycheckParams {
-                                text_document: None,
-                            },
-                        )?;
-                    }
-                    anyhow::Ok(())
-                })?
-                .context("lsp ext run flycheck")?;
-        };
+        lsp_store
+            .read_with(cx, |lsp_store, _| {
+                if let Some(server) = lsp_store.language_server_for_id(rust_analyzer_server) {
+                    server.notify::<lsp_store::lsp_ext_command::LspExtRunFlycheck>(
+                        &lsp_store::lsp_ext_command::RunFlycheckParams {
+                            text_document: None,
+                        },
+                    )?;
+                }
+                anyhow::Ok(())
+            })?
+            .context("lsp ext run flycheck")?;
         anyhow::Ok(())
     })
 }
@@ -196,7 +166,6 @@ pub fn clear_flycheck(
     buffer_path: ProjectPath,
     cx: &mut App,
 ) -> Task<anyhow::Result<()>> {
-    let upstream_client = project.read(cx).lsp_store().read(cx).upstream_client();
     let lsp_store = project.read(cx).lsp_store();
     let buffer = project.update(cx, |project, cx| {
         project.buffer_store().update(cx, |buffer_store, cx| {
@@ -216,28 +185,15 @@ pub fn clear_flycheck(
         else {
             return Ok(());
         };
-        let buffer_id = buffer.read_with(cx, |buffer, _| buffer.remote_id().to_proto())?;
 
-        if let Some((client, project_id)) = upstream_client {
-            let request = proto::LspExtClearFlycheck {
-                project_id,
-                buffer_id,
-                language_server_id: rust_analyzer_server.to_proto(),
-            };
-            client
-                .request(request)
-                .await
-                .context("lsp ext clear flycheck proto request")?;
-        } else {
-            lsp_store
-                .read_with(cx, |lsp_store, _| {
-                    if let Some(server) = lsp_store.language_server_for_id(rust_analyzer_server) {
-                        server.notify::<lsp_store::lsp_ext_command::LspExtClearFlycheck>(&())?;
-                    }
-                    anyhow::Ok(())
-                })?
-                .context("lsp ext clear flycheck")?;
-        };
+        lsp_store
+            .read_with(cx, |lsp_store, _| {
+                if let Some(server) = lsp_store.language_server_for_id(rust_analyzer_server) {
+                    server.notify::<lsp_store::lsp_ext_command::LspExtClearFlycheck>(&())?;
+                }
+                anyhow::Ok(())
+            })?
+            .context("lsp ext clear flycheck")?;
         anyhow::Ok(())
     })
 }

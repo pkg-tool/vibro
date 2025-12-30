@@ -2,7 +2,6 @@ pub use crate::{
     Grammar, Language, LanguageRegistry,
     diagnostic_set::DiagnosticSet,
     highlight_map::{HighlightId, HighlightMap},
-    proto,
 };
 use crate::{
     LanguageScope, Outline, OutlineConfig, RunnableCapture, RunnableTag, TextObject,
@@ -17,10 +16,10 @@ use crate::{
     task_context::RunnableRange,
     text_diff::text_diff,
 };
-use anyhow::{Context as _, Result};
+use anyhow::Result;
 use async_watch as watch;
 pub use clock::ReplicaId;
-use clock::{AGENT_REPLICA_ID, Lamport};
+use clock::Lamport;
 use collections::HashMap;
 use fs::MTime;
 use futures::channel::oneshot;
@@ -341,10 +340,7 @@ pub trait File: Send + Sync + Any {
     /// This is needed for looking up project-specific settings.
     fn worktree_id(&self, cx: &App) -> WorktreeId;
 
-    /// Converts this file into a protobuf message.
-    fn to_proto(&self, cx: &App) -> rpc::proto::File;
-
-    /// Return whether Zed considers this to be a private file.
+    /// Return whether Vector considers this to be a private file.
     fn is_private(&self) -> bool;
 }
 
@@ -354,7 +350,7 @@ pub trait File: Send + Sync + Any {
 /// indicator for new files.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum DiskState {
-    /// File created in Zed that has not been saved.
+    /// File created in Vector that has not been saved.
     New,
     /// File present on the filesystem.
     Present { mtime: MTime },
@@ -798,101 +794,6 @@ impl Buffer {
             None,
             Capability::ReadWrite,
         )
-    }
-
-    /// Create a new buffer that is a replica of a remote buffer.
-    pub fn remote(
-        remote_id: BufferId,
-        replica_id: ReplicaId,
-        capability: Capability,
-        base_text: impl Into<String>,
-    ) -> Self {
-        Self::build(
-            TextBuffer::new(replica_id, remote_id, base_text.into()),
-            None,
-            capability,
-        )
-    }
-
-    /// Create a new buffer that is a replica of a remote buffer, populating its
-    /// state from the given protobuf message.
-    pub fn from_proto(
-        replica_id: ReplicaId,
-        capability: Capability,
-        message: proto::BufferState,
-        file: Option<Arc<dyn File>>,
-    ) -> Result<Self> {
-        let buffer_id = BufferId::new(message.id).context("Could not deserialize buffer_id")?;
-        let buffer = TextBuffer::new(replica_id, buffer_id, message.base_text);
-        let mut this = Self::build(buffer, file, capability);
-        this.text.set_line_ending(proto::deserialize_line_ending(
-            rpc::proto::LineEnding::from_i32(message.line_ending).context("missing line_ending")?,
-        ));
-        this.saved_version = proto::deserialize_version(&message.saved_version);
-        this.saved_mtime = message.saved_mtime.map(|time| time.into());
-        Ok(this)
-    }
-
-    /// Serialize the buffer's state to a protobuf message.
-    pub fn to_proto(&self, cx: &App) -> proto::BufferState {
-        proto::BufferState {
-            id: self.remote_id().into(),
-            file: self.file.as_ref().map(|f| f.to_proto(cx)),
-            base_text: self.base_text().to_string(),
-            line_ending: proto::serialize_line_ending(self.line_ending()) as i32,
-            saved_version: proto::serialize_version(&self.saved_version),
-            saved_mtime: self.saved_mtime.map(|time| time.into()),
-        }
-    }
-
-    /// Serialize as protobufs all of the changes to the buffer since the given version.
-    pub fn serialize_ops(
-        &self,
-        since: Option<clock::Global>,
-        cx: &App,
-    ) -> Task<Vec<proto::Operation>> {
-        let mut operations = Vec::new();
-        operations.extend(self.deferred_ops.iter().map(proto::serialize_operation));
-
-        operations.extend(self.remote_selections.iter().map(|(_, set)| {
-            proto::serialize_operation(&Operation::UpdateSelections {
-                selections: set.selections.clone(),
-                lamport_timestamp: set.lamport_timestamp,
-                line_mode: set.line_mode,
-                cursor_shape: set.cursor_shape,
-            })
-        }));
-
-        for (server_id, diagnostics) in &self.diagnostics {
-            operations.push(proto::serialize_operation(&Operation::UpdateDiagnostics {
-                lamport_timestamp: self.diagnostics_timestamp,
-                server_id: *server_id,
-                diagnostics: diagnostics.iter().cloned().collect(),
-            }));
-        }
-
-        for (server_id, completions) in &self.completion_triggers_per_language_server {
-            operations.push(proto::serialize_operation(
-                &Operation::UpdateCompletionTriggers {
-                    triggers: completions.iter().cloned().collect(),
-                    lamport_timestamp: self.completion_triggers_timestamp,
-                    server_id: *server_id,
-                },
-            ));
-        }
-
-        let text_operations = self.text.operations().clone();
-        cx.background_spawn(async move {
-            let since = since.unwrap_or_default();
-            operations.extend(
-                text_operations
-                    .iter()
-                    .filter(|(_, op)| !since.observed(op.timestamp()))
-                    .map(|(_, op)| proto::serialize_operation(&Operation::Buffer(op.clone()))),
-            );
-            operations.sort_unstable_by_key(proto::lamport_timestamp_for_operation);
-            operations
-        })
     }
 
     /// Assign a language to the buffer, returning the buffer.
@@ -2128,31 +2029,6 @@ impl Buffer {
         {
             self.set_active_selections(Arc::default(), false, Default::default(), cx);
         }
-    }
-
-    pub fn set_agent_selections(
-        &mut self,
-        selections: Arc<[Selection<Anchor>]>,
-        line_mode: bool,
-        cursor_shape: CursorShape,
-        cx: &mut Context<Self>,
-    ) {
-        let lamport_timestamp = self.text.lamport_clock.tick();
-        self.remote_selections.insert(
-            AGENT_REPLICA_ID,
-            SelectionSet {
-                selections: selections.clone(),
-                lamport_timestamp,
-                line_mode,
-                cursor_shape,
-            },
-        );
-        self.non_text_state_update_count += 1;
-        cx.notify();
-    }
-
-    pub fn remove_agent_selections(&mut self, cx: &mut Context<Self>) {
-        self.set_agent_selections(Arc::default(), false, Default::default(), cx);
     }
 
     /// Replaces the buffer's entire text.
@@ -4743,10 +4619,6 @@ impl File for TestFile {
 
     fn worktree_id(&self, _: &App) -> WorktreeId {
         WorktreeId::from_usize(0)
-    }
-
-    fn to_proto(&self, _: &App) -> rpc::proto::File {
-        unimplemented!()
     }
 
     fn is_private(&self) -> bool {

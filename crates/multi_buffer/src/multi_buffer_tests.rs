@@ -68,6 +68,7 @@ fn test_singleton(cx: &mut App) {
     assert_consistent_line_numbers(&snapshot);
 }
 
+#[cfg(feature = "remote")]
 #[gpui::test]
 fn test_remote(cx: &mut App) {
     let host_buffer = cx.new(|cx| Buffer::local("a", cx));

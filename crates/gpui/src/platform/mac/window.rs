@@ -56,7 +56,7 @@ static mut VIEW_CLASS: *const Class = ptr::null();
 
 #[allow(non_upper_case_globals)]
 const NSWindowStyleMaskNonactivatingPanel: NSWindowStyleMask =
-    NSWindowStyleMask::from_bits_retain(1 << 7);
+    unsafe { NSWindowStyleMask::from_bits_unchecked(1 << 7) };
 #[allow(non_upper_case_globals)]
 const NSNormalWindowLevel: NSInteger = 0;
 #[allow(non_upper_case_globals)]
@@ -364,7 +364,7 @@ impl MacWindowState {
         if let Some(traffic_light_position) = self.traffic_light_position {
             if self.is_fullscreen() {
                 // Moving traffic lights while fullscreen doesn't work,
-                // see https://github.com/zed-industries/zed/issues/4712
+                // see https://github.com/vector-editor/vector/issues/4712
                 return;
             }
 
@@ -1255,7 +1255,7 @@ fn get_scale_factor(native_window: id) -> f32 {
     };
 
     // We are not certain what triggers this, but it seems that sometimes
-    // this method would return 0 (https://github.com/zed-industries/zed/issues/6412)
+    // this method would return 0 (https://github.com/vector-editor/vector/issues/6412)
     // It seems most likely that this would happen if the window has no screen
     // (if it is off-screen), though we'd expect to see viewDidChangeBackingProperties before
     // it was rendered for real.

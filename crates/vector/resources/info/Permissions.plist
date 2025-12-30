@@ -1,0 +1,4 @@
+<key>NSSystemAdministrationUsageDescription</key>
+<string>The operation being performed by a program in Vector requires elevated permission.</string>
+<key>NSAppleEventsUsageDescription</key>
+<string>An application in Vector wants to use AppleScript.</string>

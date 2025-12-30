@@ -94,7 +94,7 @@ pub enum Model {
     Custom {
         name: String,
         max_tokens: usize,
-        /// The name displayed in the UI, such as in the assistant panel model dropdown menu.
+        /// The name displayed in the UI, such as in the AI model dropdown menu.
         display_name: Option<String>,
         max_output_tokens: Option<u32>,
         default_temperature: Option<f32>,

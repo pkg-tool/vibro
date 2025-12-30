@@ -67,10 +67,6 @@ impl ConfiguredModel {
     pub fn is_same_as(&self, other: &ConfiguredModel) -> bool {
         self.model.id() == other.model.id() && self.provider.id() == other.provider.id()
     }
-
-    pub fn is_provided_by_zed(&self) -> bool {
-        self.provider.id().0 == crate::ZED_CLOUD_PROVIDER_ID
-    }
 }
 
 pub enum Event {
@@ -137,19 +133,7 @@ impl LanguageModelRegistry {
     }
 
     pub fn providers(&self) -> Vec<Arc<dyn LanguageModelProvider>> {
-        let zed_provider_id = LanguageModelProviderId("zed.dev".into());
-        let mut providers = Vec::with_capacity(self.providers.len());
-        if let Some(provider) = self.providers.get(&zed_provider_id) {
-            providers.push(provider.clone());
-        }
-        providers.extend(self.providers.values().filter_map(|p| {
-            if p.id() != zed_provider_id {
-                Some(p.clone())
-            } else {
-                None
-            }
-        }));
-        providers
+        self.providers.values().cloned().collect()
     }
 
     pub fn available_models<'a>(
@@ -285,7 +269,7 @@ impl LanguageModelRegistry {
 
     pub fn default_model(&self) -> Option<ConfiguredModel> {
         #[cfg(debug_assertions)]
-        if std::env::var("ZED_SIMULATE_NO_LLM_PROVIDER").is_ok() {
+        if std::env::var("VECTOR_SIMULATE_NO_LLM_PROVIDER").is_ok() {
             return None;
         }
 
@@ -294,7 +278,7 @@ impl LanguageModelRegistry {
 
     pub fn inline_assistant_model(&self) -> Option<ConfiguredModel> {
         #[cfg(debug_assertions)]
-        if std::env::var("ZED_SIMULATE_NO_LLM_PROVIDER").is_ok() {
+        if std::env::var("VECTOR_SIMULATE_NO_LLM_PROVIDER").is_ok() {
             return None;
         }
 
@@ -305,7 +289,7 @@ impl LanguageModelRegistry {
 
     pub fn commit_message_model(&self) -> Option<ConfiguredModel> {
         #[cfg(debug_assertions)]
-        if std::env::var("ZED_SIMULATE_NO_LLM_PROVIDER").is_ok() {
+        if std::env::var("VECTOR_SIMULATE_NO_LLM_PROVIDER").is_ok() {
             return None;
         }
 
@@ -317,7 +301,7 @@ impl LanguageModelRegistry {
 
     pub fn thread_summary_model(&self) -> Option<ConfiguredModel> {
         #[cfg(debug_assertions)]
-        if std::env::var("ZED_SIMULATE_NO_LLM_PROVIDER").is_ok() {
+        if std::env::var("VECTOR_SIMULATE_NO_LLM_PROVIDER").is_ok() {
             return None;
         }
 

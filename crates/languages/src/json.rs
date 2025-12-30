@@ -39,15 +39,15 @@ const PACKAGE_JSON_SCHEMA: &str = include_str!("json/schemas/package.json");
 pub(super) fn json_task_context() -> ContextProviderWithTasks {
     ContextProviderWithTasks::new(TaskTemplates(vec![
         TaskTemplate {
-            label: "package script $ZED_CUSTOM_script".to_owned(),
-            command: "npm --prefix $ZED_DIRNAME run".to_owned(),
+            label: "package script $VECTOR_CUSTOM_script".to_owned(),
+            command: "npm --prefix $VECTOR_DIRNAME run".to_owned(),
             args: vec![VariableName::Custom("script".into()).template_value()],
             tags: vec!["package-script".into()],
             ..TaskTemplate::default()
         },
         TaskTemplate {
-            label: "composer script $ZED_CUSTOM_script".to_owned(),
-            command: "composer -d $ZED_DIRNAME".to_owned(),
+            label: "composer script $VECTOR_CUSTOM_script".to_owned(),
+            command: "composer -d $VECTOR_DIRNAME".to_owned(),
             args: vec![VariableName::Custom("script".into()).template_value()],
             tags: vec!["composer-script".into()],
             ..TaskTemplate::default()
@@ -149,7 +149,7 @@ impl JsonLspAdapter {
             schemas.as_array_mut().unwrap().push(serde_json::json!(
                 {
                     "fileMatch": [
-                        "zed-inspector-style.json"
+                        "vector-inspector-style.json"
                     ],
                     "schema": generate_inspector_style_schema(),
                 }
@@ -401,7 +401,7 @@ impl LspAdapter for NodeVersionAdapter {
         delegate: &dyn LspAdapterDelegate,
     ) -> Result<Box<dyn 'static + Send + Any>> {
         let release = latest_github_release(
-            "zed-industries/package-version-server",
+            "vector-editor/package-version-server",
             true,
             false,
             delegate.http_client(),

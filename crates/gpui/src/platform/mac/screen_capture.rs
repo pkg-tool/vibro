@@ -9,7 +9,7 @@ use cocoa::{
     base::{YES, id, nil},
     foundation::NSArray,
 };
-use core_foundation::base::TCFType;
+use core_foundation10::base::TCFType;
 use core_graphics::display::{
     CGDirectDisplayID, CGDisplayCopyDisplayMode, CGDisplayModeGetPixelHeight,
     CGDisplayModeGetPixelWidth, CGDisplayModeRelease,

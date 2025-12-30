@@ -3,8 +3,8 @@ name = "Emmet"
 description = "Emmet support"
 version = "0.0.3"
 schema_version = 1
-authors = ["Piotr Osiewicz <piotr@zed.dev>"]
-repository = "https://github.com/zed-industries/zed"
+authors = ["Piotr Osiewicz"]
+repository = "https://github.com/vector-editor/vector"
 
 [language_servers.emmet-language-server]
 name = "Emmet Language Server"

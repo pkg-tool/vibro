@@ -113,7 +113,7 @@ impl From<IconName> for Icon {
 
 /// The source of an icon.
 enum IconSource {
-    /// An SVG embedded in the Zed binary.
+    /// An SVG embedded in the Vector binary.
     Svg(SharedString),
     /// An image file located at the specified path.
     ///

@@ -348,8 +348,8 @@ impl BladeRenderer {
             name: "main",
             buffer_count: 2,
         });
-        // workaround for https://github.com/zed-industries/zed/issues/26143
-        let path_sample_count = std::env::var("ZED_PATH_SAMPLE_COUNT")
+        // workaround for https://github.com/vector-editor/vector/issues/26143
+        let path_sample_count = std::env::var("VECTOR_PATH_SAMPLE_COUNT")
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(DEFAULT_PATH_SAMPLE_COUNT);
@@ -399,10 +399,10 @@ impl BladeRenderer {
                 #[cfg(target_os = "linux")]
                 if self.gpu.device_information().driver_name == "radv" {
                     log::error!(
-                        "there's a known bug with amdgpu/radv, try setting ZED_PATH_SAMPLE_COUNT=0 as a workaround"
+                        "there's a known bug with amdgpu/radv, try setting VECTOR_PATH_SAMPLE_COUNT=0 as a workaround"
                     );
                     log::error!(
-                        "if that helps you're running into https://github.com/zed-industries/zed/issues/26143"
+                        "if that helps you're running into https://github.com/vector-editor/vector/issues/26143"
                     );
                 }
                 log::error!(
@@ -728,7 +728,7 @@ impl BladeRenderer {
                             #[cfg(target_os = "macos")]
                             {
                                 let (t_y, t_cb_cr) = unsafe {
-                                    use core_foundation::base::TCFType as _;
+                                    use core_foundation10::base::TCFType as _;
                                     use std::ptr;
 
                                     assert_eq!(

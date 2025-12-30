@@ -1,5 +1,5 @@
 name: Bug Report (Debugger)
-description: Zed Debugger-Related Bugs
+description: Vector Debugger-Related Bugs
 type: "Bug"
 labels: ["debugger"]
 title: "Debugger: <a short description of the Debugger bug>"
@@ -13,7 +13,7 @@ body:
         SUMMARY_SENTENCE_HERE
 
         ### Description
-        <!--  Describe with sufficient detail to reproduce from a clean Zed install. -->
+        <!--  Describe with sufficient detail to reproduce from a clean Vector install. -->
         Steps to trigger the problem:
         1.
         2.
@@ -27,9 +27,9 @@ body:
   - type: textarea
     id: environment
     attributes:
-      label: Zed Version and System Specs
-      description: 'Open Zed, and in the command palette select "zed: copy system specs into clipboard"'
+      label: Vector Version and System Specs
+      description: 'Run `vector --system-specs` in a terminal and paste the output'
       placeholder: |
-        Output of "zed: copy system specs into clipboard"
+        Output of `vector --system-specs`
     validations:
       required: true

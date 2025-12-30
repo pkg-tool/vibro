@@ -4,16 +4,12 @@ use context_server::ContextServerCommand;
 use dap::adapters::DebugAdapterName;
 use fs::Fs;
 use futures::StreamExt as _;
-use gpui::{App, AsyncApp, BorrowAppContext, Context, Entity, EventEmitter, Task};
+use gpui::{App, BorrowAppContext, Context, Entity, EventEmitter, Task};
 use lsp::LanguageServerName;
 use paths::{
     EDITORCONFIG_NAME, local_debug_file_relative_path, local_settings_file_relative_path,
     local_tasks_file_relative_path, local_vscode_launch_file_relative_path,
     local_vscode_tasks_file_relative_path, task_file_name,
-};
-use rpc::{
-    AnyProtoClient, TypedEnvelope,
-    proto::{self, FromProto, ToProto},
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -28,7 +24,7 @@ use std::{
 };
 use task::{DebugTaskFile, TaskTemplates, VsCodeDebugTaskFile, VsCodeTaskFile};
 use util::{ResultExt, serde::default_true};
-use worktree::{PathChange, UpdatedEntriesSet, Worktree, WorktreeId};
+use worktree::{PathChange, UpdatedEntriesSet, Worktree};
 
 use crate::{
     task_store::{TaskSettingsLocation, TaskStore},
@@ -101,9 +97,9 @@ pub struct ContextServerConfiguration {
 pub struct NodeBinarySettings {
     /// The path to the Node binary.
     pub path: Option<String>,
-    /// The path to the npm binary Zed should use (defaults to `.path/../npm`).
+    /// The path to the npm binary Vector should use (defaults to `.path/../npm`).
     pub npm_path: Option<String>,
-    /// If enabled, Zed will download its own copy of Node.
+    /// If enabled, Vector will download its own copy of Node.
     #[serde(default)]
     pub ignore_system_version: bool,
 }
@@ -171,7 +167,7 @@ pub struct InlineDiagnosticsSettings {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema)]
 pub struct CargoDiagnosticsSettings {
-    /// When enabled, Zed disables rust-analyzer's check on save and starts to query
+    /// When enabled, Vector disables rust-analyzer's check on save and starts to query
     /// Cargo diagnostics separately.
     ///
     /// Default: false
@@ -339,7 +335,7 @@ pub struct LspSettings {
     pub initialization_options: Option<serde_json::Value>,
     pub settings: Option<serde_json::Value>,
     /// If the server supports sending tasks over LSP extensions,
-    /// this setting can be used to enable or disable them in Zed.
+    /// this setting can be used to enable or disable them in Vector.
     /// Default: true
     #[serde(default = "default_true")]
     pub enable_lsp_tasks: bool,
@@ -447,7 +443,6 @@ impl Settings for ProjectSettings {
 
 pub enum SettingsObserverMode {
     Local(Arc<dyn Fs>),
-    Remote,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -460,23 +455,16 @@ impl EventEmitter<SettingsObserverEvent> for SettingsObserver {}
 
 pub struct SettingsObserver {
     mode: SettingsObserverMode,
-    downstream_client: Option<AnyProtoClient>,
-    worktree_store: Entity<WorktreeStore>,
-    project_id: u64,
     task_store: Entity<TaskStore>,
     _global_task_config_watcher: Task<()>,
 }
 
-/// SettingsObserver observers changes to .zed/{settings, task}.json files in local worktrees
+/// SettingsObserver observes changes to `.vector/{settings, task}.json` files in local worktrees
 /// (or the equivalent protobuf messages from upstream) and updates local settings
 /// and sends notifications downstream.
-/// In ssh mode it also monitors ~/.config/zed/{settings, task}.json and sends the content
+/// In ssh mode it also monitors `~/.config/vector/{settings, task}.json` and sends the content
 /// upstream.
 impl SettingsObserver {
-    pub fn init(client: &AnyProtoClient) {
-        client.add_entity_message_handler(Self::handle_update_worktree_settings);
-    }
-
     pub fn new_local(
         fs: Arc<dyn Fs>,
         worktree_store: Entity<WorktreeStore>,
@@ -487,115 +475,14 @@ impl SettingsObserver {
             .detach();
 
         Self {
-            worktree_store,
             task_store,
             mode: SettingsObserverMode::Local(fs.clone()),
-            downstream_client: None,
-            project_id: 0,
             _global_task_config_watcher: Self::subscribe_to_global_task_file_changes(
                 fs.clone(),
                 paths::tasks_file().clone(),
                 cx,
             ),
         }
-    }
-
-    pub fn new_remote(
-        fs: Arc<dyn Fs>,
-        worktree_store: Entity<WorktreeStore>,
-        task_store: Entity<TaskStore>,
-        cx: &mut Context<Self>,
-    ) -> Self {
-        Self {
-            worktree_store,
-            task_store,
-            mode: SettingsObserverMode::Remote,
-            downstream_client: None,
-            project_id: 0,
-            _global_task_config_watcher: Self::subscribe_to_global_task_file_changes(
-                fs.clone(),
-                paths::tasks_file().clone(),
-                cx,
-            ),
-        }
-    }
-
-    pub fn shared(
-        &mut self,
-        project_id: u64,
-        downstream_client: AnyProtoClient,
-        cx: &mut Context<Self>,
-    ) {
-        self.project_id = project_id;
-        self.downstream_client = Some(downstream_client.clone());
-
-        let store = cx.global::<SettingsStore>();
-        for worktree in self.worktree_store.read(cx).worktrees() {
-            let worktree_id = worktree.read(cx).id().to_proto();
-            for (path, content) in store.local_settings(worktree.read(cx).id()) {
-                downstream_client
-                    .send(proto::UpdateWorktreeSettings {
-                        project_id,
-                        worktree_id,
-                        path: path.to_proto(),
-                        content: Some(content),
-                        kind: Some(
-                            local_settings_kind_to_proto(LocalSettingsKind::Settings).into(),
-                        ),
-                    })
-                    .log_err();
-            }
-            for (path, content, _) in store.local_editorconfig_settings(worktree.read(cx).id()) {
-                downstream_client
-                    .send(proto::UpdateWorktreeSettings {
-                        project_id,
-                        worktree_id,
-                        path: path.to_proto(),
-                        content: Some(content),
-                        kind: Some(
-                            local_settings_kind_to_proto(LocalSettingsKind::Editorconfig).into(),
-                        ),
-                    })
-                    .log_err();
-            }
-        }
-    }
-
-    pub fn unshared(&mut self, _: &mut Context<Self>) {
-        self.downstream_client = None;
-    }
-
-    async fn handle_update_worktree_settings(
-        this: Entity<Self>,
-        envelope: TypedEnvelope<proto::UpdateWorktreeSettings>,
-        mut cx: AsyncApp,
-    ) -> anyhow::Result<()> {
-        let kind = match envelope.payload.kind {
-            Some(kind) => proto::LocalSettingsKind::from_i32(kind)
-                .with_context(|| format!("unknown kind {kind}"))?,
-            None => proto::LocalSettingsKind::Settings,
-        };
-        this.update(&mut cx, |this, cx| {
-            let worktree_id = WorktreeId::from_proto(envelope.payload.worktree_id);
-            let Some(worktree) = this
-                .worktree_store
-                .read(cx)
-                .worktree_for_id(worktree_id, cx)
-            else {
-                return;
-            };
-
-            this.update_settings(
-                worktree,
-                [(
-                    Arc::<Path>::from_proto(envelope.payload.path.clone()),
-                    local_settings_kind_from_proto(kind),
-                    envelope.payload.content,
-                )],
-                cx,
-            );
-        })?;
-        Ok(())
     }
 
     fn on_worktree_store_event(
@@ -620,9 +507,7 @@ impl SettingsObserver {
         changes: &UpdatedEntriesSet,
         cx: &mut Context<Self>,
     ) {
-        let SettingsObserverMode::Local(fs) = &self.mode else {
-            return;
-        };
+        let SettingsObserverMode::Local(fs) = &self.mode;
 
         let mut settings_contents = Vec::new();
         for (path, _, change) in changes.iter() {
@@ -718,12 +603,12 @@ impl SettingsObserver {
                                     let zed_tasks = TaskTemplates::try_from(vscode_tasks)
                                         .with_context(|| {
                                             format!(
-                                        "converting VSCode tasks into Zed ones, file {abs_path:?}"
+                                        "converting VSCode tasks into Vector ones, file {abs_path:?}"
                                     )
                                         })?;
                                     serde_json::to_string(&zed_tasks).with_context(|| {
                                         format!(
-                                            "serializing Zed tasks into JSON, file {abs_path:?}"
+                                            "serializing Vector tasks into JSON, file {abs_path:?}"
                                         )
                                     })
                                 } else if abs_path.ends_with(local_vscode_launch_file_relative_path()) {
@@ -735,12 +620,12 @@ impl SettingsObserver {
                                     let zed_tasks = DebugTaskFile::try_from(vscode_tasks)
                                         .with_context(|| {
                                             format!(
-                                        "converting VSCode debug tasks into Zed ones, file {abs_path:?}"
+                                        "converting VSCode debug tasks into Vector ones, file {abs_path:?}"
                                     )
                                         })?;
                                     serde_json::to_string(&zed_tasks).with_context(|| {
                                         format!(
-                                            "serializing Zed tasks into JSON, file {abs_path:?}"
+                                            "serializing Vector tasks into JSON, file {abs_path:?}"
                                         )
                                     })
                                 } else {
@@ -784,7 +669,6 @@ impl SettingsObserver {
         cx: &mut Context<Self>,
     ) {
         let worktree_id = worktree.read(cx).id();
-        let remote_worktree_id = worktree.read(cx).id();
         let task_store = self.task_store.clone();
 
         for (directory, kind, file_content) in settings_contents {
@@ -878,17 +762,6 @@ impl SettingsObserver {
                 }
             };
 
-            if let Some(downstream_client) = &self.downstream_client {
-                downstream_client
-                    .send(proto::UpdateWorktreeSettings {
-                        project_id: self.project_id,
-                        worktree_id: remote_worktree_id.to_proto(),
-                        path: directory.to_proto(),
-                        content: file_content,
-                        kind: Some(local_settings_kind_to_proto(kind).into()),
-                    })
-                    .log_err();
-            }
         }
     }
 
@@ -949,20 +822,4 @@ impl SettingsObserver {
     }
 }
 
-pub fn local_settings_kind_from_proto(kind: proto::LocalSettingsKind) -> LocalSettingsKind {
-    match kind {
-        proto::LocalSettingsKind::Settings => LocalSettingsKind::Settings,
-        proto::LocalSettingsKind::Tasks => LocalSettingsKind::Tasks,
-        proto::LocalSettingsKind::Editorconfig => LocalSettingsKind::Editorconfig,
-        proto::LocalSettingsKind::Debug => LocalSettingsKind::Debug,
-    }
-}
-
-pub fn local_settings_kind_to_proto(kind: LocalSettingsKind) -> proto::LocalSettingsKind {
-    match kind {
-        LocalSettingsKind::Settings => proto::LocalSettingsKind::Settings,
-        LocalSettingsKind::Tasks => proto::LocalSettingsKind::Tasks,
-        LocalSettingsKind::Editorconfig => proto::LocalSettingsKind::Editorconfig,
-        LocalSettingsKind::Debug => proto::LocalSettingsKind::Debug,
-    }
-}
+// Proto conversions were used for remote/collab plumbing and are intentionally removed.

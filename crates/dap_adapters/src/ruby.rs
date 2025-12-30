@@ -11,7 +11,7 @@ use language::LanguageName;
 use serde_json::json;
 use std::path::PathBuf;
 use std::sync::Arc;
-use task::{DebugScenario, ZedDebugConfig};
+use task::{DebugScenario, VectorDebugConfig};
 use util::command::new_smol_command;
 
 #[derive(Default)]
@@ -63,7 +63,7 @@ impl DebugAdapter for RubyDebugAdapter {
                                 "cwd": {
                                     "type": "string",
                                     "description": "Directory to execute the program in",
-                                    "default": "${ZED_WORKTREE_ROOT}"
+                                    "default": "${VECTOR_WORKTREE_ROOT}"
                                 },
                                 "args": {
                                     "type": "array",
@@ -173,7 +173,7 @@ impl DebugAdapter for RubyDebugAdapter {
         })
     }
 
-    fn config_from_zed_format(&self, zed_scenario: ZedDebugConfig) -> Result<DebugScenario> {
+    fn config_from_vector_format(&self, zed_scenario: VectorDebugConfig) -> Result<DebugScenario> {
         let mut config = serde_json::Map::new();
 
         match &zed_scenario.request {

@@ -1,10 +1,10 @@
-# Building Zed for Windows
+# Building Vector for Windows
 
 > The following commands may be executed in any shell.
 
 ## Repository
 
-Clone down the [Zed repository](https://github.com/zed-industries/zed).
+Clone the Vector repository.
 
 ## Dependencies
 
@@ -16,7 +16,7 @@ Clone down the [Zed repository](https://github.com/zed-industries/zed).
 - Install Windows 11 or 10 SDK depending on your system, but ensure that at least `Windows 10 SDK version 2104 (10.0.20348.0)` is installed on your machine. You can download it from the [Windows SDK Archive](https://developer.microsoft.com/windows/downloads/windows-sdk/)
 - Install [CMake](https://cmake.org/download) (required by [a dependency](https://docs.rs/wasmtime-c-api-impl/latest/wasmtime_c_api/)). Or you can install it through Visual Studio Installer, then manually add the `bin` directory to your `PATH`, for example: `C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin`.
 
-If you can't compile Zed, make sure that you have at least the following components installed in case of a Visual Studio installation:
+If you can't compile Vector, make sure that you have at least the following components installed in case of a Visual Studio installation:
 
 ```json
 {
@@ -68,42 +68,11 @@ The list can be obtained as follows:
 
 ## Backend dependencies
 
-> This section is still in development. The instructions are not yet complete.
-
-If you are developing collaborative features of Zed, you'll need to install the dependencies of zed's `collab` server:
-
-- Install [Postgres](https://www.postgresql.org/download/windows/)
-- Install [Livekit](https://github.com/livekit/livekit), optionally you can add the `livekit-server` binary to your `PATH`.
-
-Alternatively, if you have [Docker](https://www.docker.com/) installed you can bring up all the `collab` dependencies using Docker Compose:
-
-```sh
-docker compose up -d
-```
-
-### Notes
-
-You should modify the `pg_hba.conf` file in the `data` directory to use `trust` instead of `scram-sha-256` for the `host` method. Otherwise, the connection will fail with the error `password authentication failed`. The `pg_hba.conf` file typically locates at `C:\Program Files\PostgreSQL\17\data\pg_hba.conf`. After the modification, the file should look like this:
-
-```conf
-# IPv4 local connections:
-host    all             all             127.0.0.1/32            trust
-# IPv6 local connections:
-host    all             all             ::1/128                 trust
-```
-
-Also, if you are using a non-latin Windows version, you must modify the`lc_messages` parameter in the `postgresql.conf` file in the `data` directory to `English_United States.1252` (or whatever UTF8-compatible encoding you have). Otherwise, the database will panic. The `postgresql.conf` file should look like this:
-
-```conf
-# lc_messages = 'Chinese (Simplified)_China.936' # locale for system error message strings
-lc_messages = 'English_United States.1252'
-```
-
-After this, you should restart the `postgresql` service. Press the `win` key + `R` to launch the `Run` window. Type the `services.msc` and hit the `OK` button to open the Services Manager. Then, find the `postgresql-x64-XX` service, right-click on it, and select `Restart`.
+Vector does not include collaboration or call features in this fork, so there are no additional backend services required for development.
 
 ## Building from source
 
-Once you have the dependencies installed, you can build Zed using [Cargo](https://doc.rust-lang.org/cargo/).
+Once you have the dependencies installed, you can build Vector using [Cargo](https://doc.rust-lang.org/cargo/).
 
 For a debug build:
 
@@ -125,26 +94,24 @@ cargo test --workspace
 
 ## Installing from msys2
 
-[MSYS2](https://msys2.org/) distribution provides Zed as a package [mingw-w64-zed](https://packages.msys2.org/base/mingw-w64-zed). The package is available for UCRT64, MINGW64 and CLANG64 repositories. To download it, run
+[MSYS2](https://msys2.org/) distribution provides Vector as a package `mingw-w64-vector`. The package is available for UCRT64, MINGW64 and CLANG64 repositories. To download it, run
 
 ```sh
 pacman -Syu
-pacman -S $MINGW_PACKAGE_PREFIX-zed
+pacman -S $MINGW_PACKAGE_PREFIX-vector
 ```
 
-then you can run `zeditor` CLI. Editor executable is installed under `$MINGW_PREFIX/lib/zed` directory
+then you can run the `vector` CLI. Editor executable is installed under `$MINGW_PREFIX/lib/vector` directory
 
-You can see the [build script](https://github.com/msys2/MINGW-packages/blob/master/mingw-w64-zed/PKGBUILD) for more details on build process.
+You can see the build script for more details on the build process.
 
-> Please, report any issue in [msys2/MINGW-packages/issues](https://github.com/msys2/MINGW-packages/issues?q=is%3Aissue+is%3Aopen+zed) first.
-
-Note that `collab` is not supported for MSYS2.
+> Please, report any issue in [msys2/MINGW-packages/issues](https://github.com/msys2/MINGW-packages/issues) first.
 
 ## Troubleshooting
 
 ### Setting `RUSTFLAGS` env var breaks builds
 
-If you set the `RUSTFLAGS` env var, it will override the `rustflags` settings in `.cargo/config.toml` which is required to properly build Zed.
+If you set the `RUSTFLAGS` env var, it will override the `rustflags` settings in `.cargo/config.toml` which is required to properly build Vector.
 
 Since these settings can vary from time to time, the build errors you receive may vary from linker errors, to other stranger errors.
 
@@ -169,13 +136,13 @@ rustflags = [
 ]
 ```
 
-Or, you can create a new `.cargo/config.toml` in the same folder as the Zed repo (see below). This is particularly useful if you are doing CI builds since you don't have to edit the original `.cargo/config.toml`.
+Or, you can create a new `.cargo/config.toml` in the same folder as the Vector repo (see below). This is particularly useful if you are doing CI builds since you don't have to edit the original `.cargo/config.toml`.
 
 ```
 upper_dir
 ├── .cargo          // <-- Make this folder
 │   └── config.toml // <-- Make this file
-└── zed
+└── vector
     ├── .cargo
     │   └── config.toml
     └── crates
@@ -198,22 +165,22 @@ Try `cargo clean` and `cargo build`.
 
 This error can happen if you are using the "rust-lld.exe" linker. Consider trying a different linker.
 
-If you are using a global config, consider moving the Zed repository to a nested directory and add a `.cargo/config.toml` with a custom linker config in the parent directory.
+If you are using a global config, consider moving the Vector repository to a nested directory and add a `.cargo/config.toml` with a custom linker config in the parent directory.
 
-See this issue for more information [#12041](https://github.com/zed-industries/zed/issues/12041)
+See this issue for more information [#12041](https://github.com/vector-editor/vector/issues/12041)
 
 ### Invalid RC path selected
 
-Sometimes, depending on the security rules applied to your laptop, you may get the following error while compiling Zed:
+Sometimes, depending on the security rules applied to your laptop, you may get the following error while compiling Vector:
 
 ```
-error: failed to run custom build command for `zed(C:\Users\USER\src\zed\crates\zed)`
+error: failed to run custom build command for `vector(C:\Users\USER\src\vector\crates\vector)`
 
 Caused by:
-  process didn't exit successfully: `C:\Users\USER\src\zed\target\debug\build\zed-b24f1e9300107efc\build-script-build` (exit code: 1)
+  process didn't exit successfully: `C:\Users\USER\src\vector\target\debug\build\vector-b24f1e9300107efc\build-script-build` (exit code: 1)
   --- stdout
   cargo:rerun-if-changed=../../.git/logs/HEAD
-  cargo:rustc-env=ZED_COMMIT_SHA=25e2e9c6727ba9b77415588cfa11fd969612adb7
+  cargo:rustc-env=VECTOR_COMMIT_SHA=25e2e9c6727ba9b77415588cfa11fd969612adb7
   cargo:rustc-link-arg=/stack:8388608
   cargo:rerun-if-changed=resources/windows/app-icon.ico
   package.metadata.winresource does not exist
@@ -224,17 +191,17 @@ Caused by:
 warning: build failed, waiting for other jobs to finish...
 ```
 
-In order to fix this issue, you can manually set the `ZED_RC_TOOLKIT_PATH` environment variable to the RC toolkit path. Usually, you can set it to:
+In order to fix this issue, you can manually set the `VECTOR_RC_TOOLKIT_PATH` environment variable to the RC toolkit path. Usually, you can set it to:
 `C:\Program Files (x86)\Windows Kits\10\bin\<SDK_version>\x64`.
 
-See this [issue](https://github.com/zed-industries/zed/issues/18393) for more information.
+See this [issue](https://github.com/vector-editor/vector/issues/18393) for more information.
 
 ### Build fails: Path too long
 
 You may receive an error like the following when building
 
 ```
-error: failed to get `pet` as a dependency of package `languages v0.1.0 (D:\a\zed-windows-builds\zed-windows-builds\crates\languages)`
+error: failed to get `pet` as a dependency of package `languages v0.1.0 (D:\a\vector-windows-builds\vector-windows-builds\crates\languages)`
 
 Caused by:
   failed to load source for dependency `pet`

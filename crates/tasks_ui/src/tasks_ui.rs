@@ -142,7 +142,8 @@ pub fn toggle_modal(
     let task_store = workspace.project().read(cx).task_store().clone();
     let workspace_handle = workspace.weak_handle();
     let can_open_modal = workspace.project().update(cx, |project, cx| {
-        project.is_local() || project.ssh_connection_string(cx).is_some() || project.is_via_ssh()
+        let _ = cx;
+        project.is_local()
     });
     if can_open_modal {
         let task_contexts = task_contexts(workspace, window, cx);
@@ -385,7 +386,7 @@ mod tests {
     use editor::Editor;
     use gpui::TestAppContext;
     use language::{Language, LanguageConfig};
-    use project::{BasicContextProvider, FakeFs, Project, task_store::TaskStore};
+    use project::{BasicContextProvider, FakeFs, Project};
     use serde_json::json;
     use task::{TaskContext, TaskVariables, VariableName};
     use ui::VisualContext;
@@ -401,7 +402,7 @@ mod tests {
         fs.insert_tree(
             path!("/dir"),
             json!({
-                ".zed": {
+                ".vector": {
                     "tasks.json": r#"[
                             {
                                 "label": "example task",
@@ -596,7 +597,6 @@ mod tests {
             editor::init(cx);
             workspace::init_settings(cx);
             Project::init_settings(cx);
-            TaskStore::init(None);
             state
         })
     }

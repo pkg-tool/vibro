@@ -9,15 +9,15 @@ use util::{ResultExt, truncate_and_remove_front};
 
 use crate::{
     AttachRequest, ResolvedTask, RevealTarget, Shell, SpawnInTerminal, TaskContext, TaskId,
-    VariableName, ZED_VARIABLE_NAME_PREFIX,
+    VariableName, VECTOR_VARIABLE_NAME_PREFIX,
     serde_helpers::{non_empty_string_vec, non_empty_string_vec_json_schema},
 };
 
-/// A template definition of a Zed task to run.
+/// A template definition of a Vector task to run.
 /// May use the [`VariableName`] to get the corresponding substitutions into its fields.
 ///
 /// Template itself is not ready to spawn a task, it needs to be resolved with a [`TaskContext`] first, that
-/// contains all relevant Zed state in task variables.
+/// contains all relevant Vector state in task variables.
 /// A single template may produce different tasks (or none) for different contexts.
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -127,7 +127,7 @@ impl TaskTemplates {
 
 impl TaskTemplate {
     /// Replaces all `VariableName` task variables in the task template string fields.
-    /// If any replacement fails or the new string substitutions still have [`ZED_VARIABLE_NAME_PREFIX`],
+    /// If any replacement fails or the new string substitutions still have [`VECTOR_VARIABLE_NAME_PREFIX`],
     /// `None` is returned.
     ///
     /// Every [`ResolvedTask`] gets a [`TaskId`], based on the `id_base` (to avoid collision with various task sources),
@@ -336,7 +336,7 @@ fn substitute_all_template_variables_in_str<A: AsRef<str>>(
                 name.push_str(default);
             }
             return Ok(Some(name));
-        } else if variable_name.starts_with(ZED_VARIABLE_NAME_PREFIX) {
+        } else if variable_name.starts_with(VECTOR_VARIABLE_NAME_PREFIX) {
             bail!("Unknown variable name: {variable_name}");
         }
         // This is an unknown variable.
@@ -642,9 +642,9 @@ mod tests {
             assert_eq!(
                 spawn_in_terminal.args,
                 &[
-                    "arg1 $ZED_SELECTED_TEXT",
-                    "arg2 $ZED_COLUMN",
-                    "arg3 $ZED_SYMBOL",
+                    "arg1 $VECTOR_SELECTED_TEXT",
+                    "arg2 $VECTOR_COLUMN",
+                    "arg3 $VECTOR_SYMBOL",
                 ],
                 "Args should not be substituted with variables"
             );
@@ -692,7 +692,7 @@ mod tests {
             );
             assert_eq!(
                 resolved_task_attempt, None,
-                "If any of the Zed task variables is not substituted, the task should not be resolved, but got some resolution without the variable {removed_variable:?} (index {i})"
+                "If any of the Vector task variables is not substituted, the task should not be resolved, but got some resolution without the variable {removed_variable:?} (index {i})"
             );
         }
     }
@@ -716,11 +716,11 @@ mod tests {
     }
 
     #[test]
-    fn test_errors_on_missing_zed_variable() {
+    fn test_errors_on_missing_vector_variable() {
         let task = TaskTemplate {
             label: "My task".into(),
             command: "echo".into(),
-            args: vec!["$ZED_VARIABLE".into()],
+            args: vec!["$VECTOR_VARIABLE".into()],
             ..TaskTemplate::default()
         };
         assert!(

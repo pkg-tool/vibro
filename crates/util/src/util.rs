@@ -312,7 +312,7 @@ fn load_shell_from_passwd() -> Result<()> {
 pub fn load_login_shell_environment() -> Result<()> {
     load_shell_from_passwd().log_err();
 
-    let marker = "ZED_LOGIN_SHELL_START";
+    let marker = "VECTOR_LOGIN_SHELL_START";
     let shell = env::var("SHELL").context(
         "SHELL environment variable is not assigned so we can't source login environment variables",
     )?;
@@ -472,14 +472,14 @@ pub fn merge_non_null_json_value_into(source: serde_json::Value, target: &mut se
 }
 
 pub fn measure<R>(label: &str, f: impl FnOnce() -> R) -> R {
-    static ZED_MEASUREMENTS: OnceLock<bool> = OnceLock::new();
-    let zed_measurements = ZED_MEASUREMENTS.get_or_init(|| {
-        env::var("ZED_MEASUREMENTS")
+    static VECTOR_MEASUREMENTS: OnceLock<bool> = OnceLock::new();
+    let vector_measurements = VECTOR_MEASUREMENTS.get_or_init(|| {
+        env::var("VECTOR_MEASUREMENTS")
             .map(|measurements| measurements == "1" || measurements == "true")
             .unwrap_or(false)
     });
 
-    if *zed_measurements {
+    if *vector_measurements {
         let start = Instant::now();
         let result = f();
         let elapsed = start.elapsed();

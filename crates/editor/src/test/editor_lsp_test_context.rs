@@ -182,7 +182,7 @@ impl EditorLspTestContext {
             },
             lsp,
             workspace,
-            buffer_lsp_url: lsp::Url::from_file_path(root.join("dir").join(file_name)).unwrap(),
+            buffer_lsp_url: lsp::url_from_file_path(root.join("dir").join(file_name)).unwrap(),
         }
     }
 

@@ -21,7 +21,6 @@ crate-type = ["bin"]
 anyhow.workspace = true
 arrayvec.workspace = true
 blake3.workspace = true
-client.workspace = true
 clock.workspace = true
 collections.workspace = true
 feature_flags.workspace = true
@@ -53,7 +52,6 @@ worktree.workspace = true
 workspace-hack.workspace = true
 
 [dev-dependencies]
-client = { workspace = true, features = ["test-support"] }
 fs = { workspace = true, features = ["test-support"] }
 futures.workspace = true
 gpui = { workspace = true, features = ["test-support"] }

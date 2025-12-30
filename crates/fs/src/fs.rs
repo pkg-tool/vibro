@@ -230,18 +230,6 @@ impl MTime {
     }
 }
 
-impl From<proto::Timestamp> for MTime {
-    fn from(timestamp: proto::Timestamp) -> Self {
-        MTime(timestamp.into())
-    }
-}
-
-impl From<MTime> for proto::Timestamp {
-    fn from(mtime: MTime) -> Self {
-        mtime.0.into()
-    }
-}
-
 pub struct RealFs {
     git_binary_path: Option<PathBuf>,
     executor: BackgroundExecutor,
@@ -531,7 +519,7 @@ impl Fs for RealFs {
             let mut tmp_file = if cfg!(any(target_os = "linux", target_os = "freebsd")) {
                 // Use the directory of the destination as temp dir to avoid
                 // invalid cross-device link error, and XDG_CACHE_DIR for fallback.
-                // See https://github.com/zed-industries/zed/pull/8437 for more details.
+                // See https://github.com/vector-editor/vector/pull/8437 for more details.
                 tempfile::NamedTempFile::new_in(path.parent().unwrap_or(paths::temp_dir()))
             } else {
                 tempfile::NamedTempFile::new()
@@ -559,7 +547,7 @@ impl Fs for RealFs {
             // https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-replacefilew#remarks
             //
             // So we use the directory of the destination as a temp dir to avoid it.
-            // https://github.com/zed-industries/zed/issues/16571
+            // https://github.com/vector-editor/vector/issues/16571
             let temp_dir = TempDir::new_in(path.parent().unwrap_or(paths::temp_dir()))?;
             let temp_file = {
                 let temp_file_path = temp_dir.path().join("temp_file");
@@ -2933,7 +2921,7 @@ mod tests {
     #[gpui::test]
     async fn test_realfs_atomic_write(executor: BackgroundExecutor) {
         // With the file handle still open, the file should be replaced
-        // https://github.com/zed-industries/zed/issues/30054
+        // https://github.com/vector-editor/vector/issues/30054
         let fs = RealFs {
             git_binary_path: None,
             executor,

@@ -1,5 +1,5 @@
 {
-  description = "High-performance, multiplayer code editor from the creators of Atom and Tree-sitter";
+  description = "High-performance code editor";
 
   inputs = {
     nixpkgs.url = "https://channels.nixos.org/nixpkgs-unstable/nixexprs.tar.xz";
@@ -27,7 +27,7 @@
       ];
 
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
-      mkZed =
+      mkVector =
         pkgs:
         let
           rustBin = rust-overlay.lib.mkRustBin { } pkgs;
@@ -39,27 +39,25 @@
     in
     rec {
       packages = forAllSystems (pkgs: rec {
-        default = mkZed pkgs;
+        default = mkVector pkgs;
         debug = default.override { profile = "dev"; };
       });
       devShells = forAllSystems (pkgs: {
         default = pkgs.callPackage ./nix/shell.nix {
-          zed-editor = packages.${pkgs.hostPlatform.system}.default;
+          vector-editor = packages.${pkgs.hostPlatform.system}.default;
         };
       });
       formatter = forAllSystems (pkgs: pkgs.nixfmt-rfc-style);
       overlays.default = final: _: {
-        zed-editor = mkZed final;
+        vector-editor = mkVector final;
       };
     };
 
   nixConfig = {
     extra-substituters = [
-      "https://zed.cachix.org"
       "https://cache.garnix.io"
     ];
     extra-trusted-public-keys = [
-      "zed.cachix.org-1:/pHQ6dpMsAZk2DiP4WCL0p9YDNKWj2Q5FL20bNmw1cU="
       "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
     ];
   };

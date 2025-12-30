@@ -142,7 +142,7 @@ async fn test_editorconfig_support(cx: &mut gpui::TestAppContext) {
         [*.js]
             tab_width = 10
         "#,
-        ".zed": {
+        ".vector": {
             "settings.json": r#"{
                 "tab_size": 8,
                 "hard_tabs": false,
@@ -199,7 +199,7 @@ async fn test_editorconfig_support(cx: &mut gpui::TestAppContext) {
         let settings_c = settings_for("c.js");
         let settings_readme = settings_for("README.json");
 
-        // .editorconfig overrides .zed/settings
+        // .editorconfig overrides .vector/settings
         assert_eq!(Some(settings_a.tab_size), NonZeroU32::new(3));
         assert_eq!(settings_a.hard_tabs, true);
         assert_eq!(settings_a.ensure_final_newline_on_save, true);
@@ -225,7 +225,7 @@ async fn test_managing_project_specific_settings(cx: &mut gpui::TestAppContext) 
     fs.insert_tree(
         path!("/dir"),
         json!({
-            ".zed": {
+            ".vector": {
                 "settings.json": r#"{ "tab_size": 8 }"#,
                 "tasks.json": r#"[{
                     "label": "cargo check all",
@@ -237,7 +237,7 @@ async fn test_managing_project_specific_settings(cx: &mut gpui::TestAppContext) 
                 "a.rs": "fn a() {\n    A\n}"
             },
             "b": {
-                ".zed": {
+                ".vector": {
                     "settings.json": r#"{ "tab_size": 2 }"#,
                     "tasks.json": r#"[{
                         "label": "cargo check",
@@ -266,8 +266,8 @@ async fn test_managing_project_specific_settings(cx: &mut gpui::TestAppContext) 
 
     let topmost_local_task_source_kind = TaskSourceKind::Worktree {
         id: worktree_id,
-        directory_in_worktree: PathBuf::from(".zed"),
-        id_base: "local worktree tasks from directory \".zed\"".into(),
+        directory_in_worktree: PathBuf::from(".vector"),
+        id_base: "local worktree tasks from directory \".vector\"".into(),
     };
 
     let all_tasks = cx
@@ -307,11 +307,11 @@ async fn test_managing_project_specific_settings(cx: &mut gpui::TestAppContext) 
             (
                 TaskSourceKind::Worktree {
                     id: worktree_id,
-                    directory_in_worktree: PathBuf::from(separator!("b/.zed")),
+                    directory_in_worktree: PathBuf::from(separator!("b/.vector")),
                     id_base: if cfg!(windows) {
-                        "local worktree tasks from directory \"b\\\\.zed\"".into()
+                        "local worktree tasks from directory \"b\\\\.vector\"".into()
                     } else {
-                        "local worktree tasks from directory \"b/.zed\"".into()
+                        "local worktree tasks from directory \"b/.vector\"".into()
                     },
                 },
                 "cargo check".to_string(),
@@ -390,11 +390,11 @@ async fn test_managing_project_specific_settings(cx: &mut gpui::TestAppContext) 
             (
                 TaskSourceKind::Worktree {
                     id: worktree_id,
-                    directory_in_worktree: PathBuf::from(separator!("b/.zed")),
+                    directory_in_worktree: PathBuf::from(separator!("b/.vector")),
                     id_base: if cfg!(windows) {
-                        "local worktree tasks from directory \"b\\\\.zed\"".into()
+                        "local worktree tasks from directory \"b\\\\.vector\"".into()
                     } else {
-                        "local worktree tasks from directory \"b/.zed\"".into()
+                        "local worktree tasks from directory \"b/.vector\"".into()
                     },
                 },
                 "cargo check".to_string(),
@@ -430,10 +430,10 @@ async fn test_fallback_to_single_worktree_tasks(cx: &mut gpui::TestAppContext) {
     fs.insert_tree(
         path!("/dir"),
         json!({
-            ".zed": {
+            ".vector": {
                 "tasks.json": r#"[{
                     "label": "test worktree root",
-                    "command": "echo $ZED_WORKTREE_ROOT"
+                    "command": "echo $VECTOR_WORKTREE_ROOT"
                 }]"#,
             },
             "a": {
@@ -468,7 +468,7 @@ async fn test_fallback_to_single_worktree_tasks(cx: &mut gpui::TestAppContext) {
     });
     assert!(
         active_non_worktree_item_tasks.is_empty(),
-        "A task can not be resolved with context with no ZED_WORKTREE_ROOT data"
+        "A task can not be resolved with context with no VECTOR_WORKTREE_ROOT data"
     );
 
     let active_worktree_tasks = cx.update(|cx| {
@@ -501,11 +501,11 @@ async fn test_fallback_to_single_worktree_tasks(cx: &mut gpui::TestAppContext) {
         vec![(
             TaskSourceKind::Worktree {
                 id: worktree_id,
-                directory_in_worktree: PathBuf::from(separator!(".zed")),
+                directory_in_worktree: PathBuf::from(separator!(".vector")),
                 id_base: if cfg!(windows) {
-                    "local worktree tasks from directory \".zed\"".into()
+                    "local worktree tasks from directory \".vector\"".into()
                 } else {
-                    "local worktree tasks from directory \".zed\"".into()
+                    "local worktree tasks from directory \".vector\"".into()
                 },
             },
             "echo /dir".to_string(),
@@ -8685,7 +8685,7 @@ fn git_remove_index(path: &Path, repo: &git2::Repository) {
 fn git_commit(msg: &'static str, repo: &git2::Repository) {
     use git2::Signature;
 
-    let signature = Signature::now("test", "test@zed.dev").unwrap();
+    let signature = Signature::now("test", "test@vector.dev").unwrap();
     let oid = repo.index().unwrap().write_tree().unwrap();
     let tree = repo.find_tree(oid).unwrap();
     if let Ok(head) = repo.head() {
@@ -8718,7 +8718,7 @@ fn git_cherry_pick(commit: &git2::Commit<'_>, repo: &git2::Repository) {
 fn git_stash(repo: &mut git2::Repository) {
     use git2::Signature;
 
-    let signature = Signature::now("test", "test@zed.dev").unwrap();
+    let signature = Signature::now("test", "test@vector.dev").unwrap();
     repo.stash_save(&signature, "N/A", None)
         .expect("Failed to stash");
 }

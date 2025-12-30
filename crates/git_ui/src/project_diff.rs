@@ -92,14 +92,6 @@ impl ProjectDiff {
         window: &mut Window,
         cx: &mut Context<Workspace>,
     ) {
-        telemetry::event!(
-            "Git Diff Opened",
-            source = if entry.is_some() {
-                "Git Panel"
-            } else {
-                "Action"
-            }
-        );
         let project_diff = if let Some(existing) = workspace.item_of_type::<Self>(cx) {
             workspace.activate_item(&existing, true, true, window, cx);
             existing
@@ -572,10 +564,6 @@ impl Item for ProjectDiff {
 
     fn tab_content_text(&self, _detail: usize, _: &App) -> SharedString {
         "Uncommitted Changes".into()
-    }
-
-    fn telemetry_event_text(&self) -> Option<&'static str> {
-        Some("Project Diff Opened")
     }
 
     fn as_searchable(&self, _: &Entity<Self>) -> Option<Box<dyn SearchableItemHandle>> {

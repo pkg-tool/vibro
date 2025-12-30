@@ -1,5 +1,4 @@
 use auto_update::AutoUpdater;
-use client::proto::UpdateNotification;
 use editor::{Editor, MultiBuffer};
 use gpui::{App, Context, DismissEvent, Entity, SharedString, Window, actions, prelude::*};
 use http_client::HttpClient;
@@ -13,6 +12,8 @@ use workspace::notifications::simple_message_notification::MessageNotification;
 use workspace::notifications::{NotificationId, show_app_notification};
 
 actions!(auto_update, [ViewReleaseNotesLocally]);
+
+struct AutoUpdateUiNotification;
 
 pub fn init(cx: &mut App) {
     notify_if_app_was_updated(cx);
@@ -38,8 +39,8 @@ fn view_release_notes_locally(
     let release_channel = ReleaseChannel::global(cx);
 
     let url = match release_channel {
-        ReleaseChannel::Nightly => Some("https://github.com/zed-industries/zed/commits/nightly/"),
-        ReleaseChannel::Dev => Some("https://github.com/zed-industries/zed/commits/main/"),
+        ReleaseChannel::Nightly => Some("https://github.com/vector-editor/vector/commits/nightly/"),
+        ReleaseChannel::Dev => Some("https://github.com/vector-editor/vector/commits/main/"),
         _ => None,
     };
 
@@ -50,8 +51,8 @@ fn view_release_notes_locally(
 
     let version = AppVersion::global(cx).to_string();
 
-    let client = client::Client::global(cx).http_client();
-    let url = client.build_url(&format!(
+    let http_client = workspace.app_state().http_client.clone();
+    let url = http_client.build_url(&format!(
         "/api/release_notes/v2/{}/{}",
         release_channel.dev_name(),
         version
@@ -66,7 +67,7 @@ fn view_release_notes_locally(
         .with_local_workspace(window, cx, move |_, window, cx| {
             cx.spawn_in(window, async move |workspace, cx| {
                 let markdown = markdown.await.log_err();
-                let response = client.get(&url, Default::default(), true).await;
+                let response = http_client.get(&url, Default::default(), true).await;
                 let Some(mut response) = response.log_err() else {
                     return;
                 };
@@ -137,7 +138,7 @@ pub fn notify_if_app_was_updated(cx: &mut App) {
                 let version = updater.read(cx).current_version();
                 let app_name = ReleaseChannel::global(cx).display_name();
                 show_app_notification(
-                    NotificationId::unique::<UpdateNotification>(),
+                    NotificationId::unique::<AutoUpdateUiNotification>(),
                     cx,
                     move |cx| {
                         let workspace_handle = cx.entity().downgrade();

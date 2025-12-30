@@ -41,11 +41,11 @@ wasmtime::component::bindgen!({
          "worktree": ExtensionWorktree,
          "project": ExtensionProject,
          "key-value-store": ExtensionKeyValueStore,
-         "zed:extension/http-client/http-response-stream": ExtensionHttpResponseStream
+         "vector:extension/http-client/http-response-stream": ExtensionHttpResponseStream
     },
 });
 
-pub use self::zed::extension::*;
+pub use self::vector::extension::*;
 
 mod settings {
     include!(concat!(env!("OUT_DIR"), "/since_v0.6.0/settings.rs"));

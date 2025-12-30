@@ -20,11 +20,7 @@ pub fn intercept_debug_sessions<T: Fn(&Arc<DebugAdapterClient>) + 'static>(
                     register_default_handlers(session, &client, cx);
                     configure(&client);
                     cx.background_spawn(async move {
-                        client
-                            .fake_event(dap::messages::Events::Initialized(
-                                Some(Default::default()),
-                            ))
-                            .await
+                        client.fake_event_no_body("initialized").await
                     })
                     .detach();
                 }

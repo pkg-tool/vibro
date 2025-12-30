@@ -12,8 +12,8 @@ use crate::prelude::*;
 )]
 #[strum(serialize_all = "snake_case")]
 pub enum VectorName {
-    ZedLogo,
-    ZedXCopilot,
+    VectorLogo,
+    VectorXCopilot,
     Grid,
     AiGrid,
 }
@@ -106,11 +106,11 @@ impl Component for Vector {
                         vec![
                             single_example(
                                 "Default",
-                                Vector::square(VectorName::ZedLogo, rems(8.)).into_any_element(),
+                                Vector::square(VectorName::VectorLogo, rems(8.)).into_any_element(),
                             ),
                             single_example(
                                 "Custom Size",
-                                Vector::new(VectorName::ZedLogo, rems(12.), rems(6.))
+                                Vector::new(VectorName::VectorLogo, rems(12.), rems(6.))
                                     .into_any_element(),
                             ),
                         ],
@@ -120,13 +120,13 @@ impl Component for Vector {
                         vec![
                             single_example(
                                 "Accent Color",
-                                Vector::square(VectorName::ZedLogo, rems(8.))
+                                Vector::square(VectorName::VectorLogo, rems(8.))
                                     .color(Color::Accent)
                                     .into_any_element(),
                             ),
                             single_example(
                                 "Error Color",
-                                Vector::square(VectorName::ZedLogo, rems(8.))
+                                Vector::square(VectorName::VectorLogo, rems(8.))
                                     .color(Color::Error)
                                     .into_any_element(),
                             ),
@@ -136,12 +136,12 @@ impl Component for Vector {
                         "Different Vectors",
                         vec![
                             single_example(
-                                "Zed Logo",
-                                Vector::square(VectorName::ZedLogo, rems(8.)).into_any_element(),
+                                "Vector Logo",
+                                Vector::square(VectorName::VectorLogo, rems(8.)).into_any_element(),
                             ),
                             single_example(
-                                "Zed X Copilot",
-                                Vector::square(VectorName::ZedXCopilot, rems(8.))
+                                "Vector X Copilot",
+                                Vector::square(VectorName::VectorXCopilot, rems(8.))
                                     .into_any_element(),
                             ),
                         ],
@@ -158,6 +158,9 @@ mod tests {
 
     #[test]
     fn vector_path() {
-        assert_eq!(VectorName::ZedLogo.path().as_ref(), "images/zed_logo.svg");
+        assert_eq!(
+            VectorName::VectorLogo.path().as_ref(),
+            "images/vector_logo.svg"
+        );
     }
 }

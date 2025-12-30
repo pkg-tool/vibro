@@ -27,7 +27,7 @@ use ui::{
 };
 use util::ResultExt;
 use workspace::Workspace;
-use zed_actions::{ToggleEnableBreakpoint, UnsetBreakpoint};
+use vector_actions::{ToggleEnableBreakpoint, UnsetBreakpoint};
 
 pub(crate) struct BreakpointList {
     workspace: WeakEntity<Workspace>,

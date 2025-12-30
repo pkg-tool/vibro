@@ -5,7 +5,7 @@ use crate::{
     persistence::SerializedPaneLayout,
     tests::{init_test, init_test_workspace, start_debug_session},
 };
-use dap::{StoppedEvent, StoppedEventReason, messages::Events};
+use dap::{StoppedEvent, StoppedEventReason};
 use gpui::{BackgroundExecutor, TestAppContext, VisualTestContext};
 use project::{FakeFs, Project};
 use serde_json::json;
@@ -44,7 +44,7 @@ async fn test_invert_axis_on_panel_position_change(
     cx.run_until_parked();
 
     client
-        .fake_event(Events::Stopped(StoppedEvent {
+        .fake_event("stopped", StoppedEvent {
             reason: StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -52,7 +52,7 @@ async fn test_invert_axis_on_panel_position_change(
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        }))
+        })
         .await;
 
     cx.run_until_parked();

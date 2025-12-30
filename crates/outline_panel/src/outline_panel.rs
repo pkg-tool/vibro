@@ -1380,10 +1380,10 @@ impl OutlinePanel {
                     menu.action("Fold Directory", Box::new(FoldDirectory))
                 })
                 .separator()
-                .action("Copy Path", Box::new(zed_actions::workspace::CopyPath))
+                .action("Copy Path", Box::new(vector_actions::workspace::CopyPath))
                 .action(
                     "Copy Relative Path",
-                    Box::new(zed_actions::workspace::CopyRelativePath),
+                    Box::new(vector_actions::workspace::CopyRelativePath),
                 )
         });
         window.focus(&context_menu.focus_handle(cx));
@@ -1847,7 +1847,7 @@ impl OutlinePanel {
 
     fn copy_path(
         &mut self,
-        _: &zed_actions::workspace::CopyPath,
+        _: &vector_actions::workspace::CopyPath,
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -1862,7 +1862,7 @@ impl OutlinePanel {
 
     fn copy_relative_path(
         &mut self,
-        _: &zed_actions::workspace::CopyRelativePath,
+        _: &vector_actions::workspace::CopyRelativePath,
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -4895,9 +4895,7 @@ impl EventEmitter<PanelEvent> for OutlinePanel {}
 
 impl Render for OutlinePanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let (is_local, is_via_ssh) = self
-            .project
-            .read_with(cx, |project, _| (project.is_local(), project.is_via_ssh()));
+        let is_local = self.project.read_with(cx, |project, _| project.is_local());
         let query = self.query(cx);
         let pinned = self.pinned;
         let settings = OutlinePanelSettings::get_global(cx);
@@ -4945,9 +4943,7 @@ impl Render for OutlinePanel {
             .when(is_local, |el| {
                 el.on_action(cx.listener(Self::reveal_in_finder))
             })
-            .when(is_local || is_via_ssh, |el| {
-                el.on_action(cx.listener(Self::open_in_terminal))
-            })
+            .when(is_local, |el| el.on_action(cx.listener(Self::open_in_terminal)))
             .on_mouse_down(
                 MouseButton::Right,
                 cx.listener(move |outline_panel, event: &MouseDownEvent, window, cx| {

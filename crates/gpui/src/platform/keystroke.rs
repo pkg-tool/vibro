@@ -21,7 +21,7 @@ pub struct Keystroke {
     pub key_char: Option<String>,
 }
 
-/// Error type for `Keystroke::parse`. This is used instead of `anyhow::Error` so that Zed can use
+/// Error type for `Keystroke::parse`. This is used instead of `anyhow::Error` so that Vector can use
 /// markdown to display it.
 #[derive(Debug)]
 pub struct InvalidKeystrokeError {

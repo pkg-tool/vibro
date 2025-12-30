@@ -75,11 +75,11 @@ mod tests {
                 Some("github.com".to_string()),
             ),
             (
-                "git@github.com:zed-industries/zed.git",
+                "git@github.com:vector-editor/vector.git",
                 Some("github.com".to_string()),
             ),
             (
-                "git@my.super.long.subdomain.com:zed-industries/zed.git",
+                "git@my.super.long.subdomain.com:vector-editor/vector.git",
                 Some("my.super.long.subdomain.com".to_string()),
             ),
         ];

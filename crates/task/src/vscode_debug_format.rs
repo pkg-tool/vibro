@@ -133,9 +133,9 @@ mod tests {
         "#;
         let parsed: VsCodeDebugTaskFile =
             serde_json_lenient::from_str(&raw).expect("deserializing launch.json");
-        let zed = DebugTaskFile::try_from(parsed).expect("converting to Zed debug templates");
+        let vector = DebugTaskFile::try_from(parsed).expect("converting to Vector debug templates");
         pretty_assertions::assert_eq!(
-            zed,
+            vector,
             DebugTaskFile(vec![DebugScenario {
                 label: "Debug my JS app".into(),
                 adapter: "JavaScript".into(),

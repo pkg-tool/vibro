@@ -39,7 +39,7 @@ pub struct StackFrameList {
     _refresh_task: Task<()>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum StackFrameEntry {
     Normal(dap::StackFrame),
     Collapsed(Vec<dap::StackFrame>),
@@ -179,7 +179,7 @@ impl StackFrameList {
         let stack_frames = self.stack_frames(cx);
         for stack_frame in &stack_frames {
             match stack_frame.dap.presentation_hint {
-                Some(dap::StackFramePresentationHint::Deemphasize) => {
+                Some(dap::StackFramePresentationHint::Subtle) => {
                     collapsed_entries.push(stack_frame.dap.clone());
                 }
                 _ => {
@@ -380,10 +380,7 @@ impl StackFrameList {
 
         let should_deemphasize = matches!(
             stack_frame.presentation_hint,
-            Some(
-                dap::StackFramePresentationHint::Subtle
-                    | dap::StackFramePresentationHint::Deemphasize
-            )
+            Some(dap::StackFramePresentationHint::Subtle)
         );
         h_flex()
             .rounded_md()

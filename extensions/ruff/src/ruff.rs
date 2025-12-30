@@ -1,6 +1,6 @@
 use std::fs;
-use zed::LanguageServerId;
-use zed_extension_api::{self as zed, Result, settings::LspSettings};
+use vector::LanguageServerId;
+use vector_extension_api::{self as vector, Result, settings::LspSettings};
 
 struct RuffBinary {
     path: String,
@@ -15,7 +15,7 @@ impl RuffExtension {
     fn language_server_binary(
         &mut self,
         language_server_id: &LanguageServerId,
-        worktree: &zed::Worktree,
+        worktree: &vector::Worktree,
     ) -> Result<RuffBinary> {
         let binary_settings = LspSettings::for_worktree("ruff", worktree)
             .ok()
@@ -47,37 +47,37 @@ impl RuffExtension {
             }
         }
 
-        zed::set_language_server_installation_status(
+        vector::set_language_server_installation_status(
             language_server_id,
-            &zed::LanguageServerInstallationStatus::CheckingForUpdate,
+            &vector::LanguageServerInstallationStatus::CheckingForUpdate,
         );
-        let release = zed::latest_github_release(
+        let release = vector::latest_github_release(
             "astral-sh/ruff",
-            zed::GithubReleaseOptions {
+            vector::GithubReleaseOptions {
                 require_assets: true,
                 pre_release: false,
             },
         )?;
 
-        let (platform, arch) = zed::current_platform();
+        let (platform, arch) = vector::current_platform();
 
         let asset_stem = format!(
             "ruff-{arch}-{os}",
             arch = match arch {
-                zed::Architecture::Aarch64 => "aarch64",
-                zed::Architecture::X86 => "x86",
-                zed::Architecture::X8664 => "x86_64",
+                vector::Architecture::Aarch64 => "aarch64",
+                vector::Architecture::X86 => "x86",
+                vector::Architecture::X8664 => "x86_64",
             },
             os = match platform {
-                zed::Os::Mac => "apple-darwin",
-                zed::Os::Linux => "unknown-linux-gnu",
-                zed::Os::Windows => "pc-windows-msvc",
+                vector::Os::Mac => "apple-darwin",
+                vector::Os::Linux => "unknown-linux-gnu",
+                vector::Os::Windows => "pc-windows-msvc",
             }
         );
         let asset_name = format!(
             "{asset_stem}.{suffix}",
             suffix = match platform {
-                zed::Os::Windows => "zip",
+                vector::Os::Windows => "zip",
                 _ => "tar.gz",
             }
         );
@@ -90,20 +90,20 @@ impl RuffExtension {
 
         let version_dir = format!("ruff-{}", release.version);
         let binary_path = match platform {
-            zed::Os::Windows => format!("{version_dir}/ruff.exe"),
+            vector::Os::Windows => format!("{version_dir}/ruff.exe"),
             _ => format!("{version_dir}/{asset_stem}/ruff"),
         };
 
         if !fs::metadata(&binary_path).map_or(false, |stat| stat.is_file()) {
-            zed::set_language_server_installation_status(
+            vector::set_language_server_installation_status(
                 language_server_id,
-                &zed::LanguageServerInstallationStatus::Downloading,
+                &vector::LanguageServerInstallationStatus::Downloading,
             );
             let file_kind = match platform {
-                zed::Os::Windows => zed::DownloadedFileType::Zip,
-                _ => zed::DownloadedFileType::GzipTar,
+                vector::Os::Windows => vector::DownloadedFileType::Zip,
+                _ => vector::DownloadedFileType::GzipTar,
             };
-            zed::download_file(&asset.download_url, &version_dir, file_kind)
+            vector::download_file(&asset.download_url, &version_dir, file_kind)
                 .map_err(|e| format!("failed to download file: {e}"))?;
 
             let entries =
@@ -124,7 +124,7 @@ impl RuffExtension {
     }
 }
 
-impl zed::Extension for RuffExtension {
+impl vector::Extension for RuffExtension {
     fn new() -> Self {
         Self {
             cached_binary_path: None,
@@ -134,10 +134,10 @@ impl zed::Extension for RuffExtension {
     fn language_server_command(
         &mut self,
         language_server_id: &LanguageServerId,
-        worktree: &zed::Worktree,
-    ) -> Result<zed::Command> {
+        worktree: &vector::Worktree,
+    ) -> Result<vector::Command> {
         let ruff_binary = self.language_server_binary(language_server_id, worktree)?;
-        Ok(zed::Command {
+        Ok(vector::Command {
             command: ruff_binary.path,
             args: ruff_binary.args.unwrap_or_else(|| vec!["server".into()]),
             env: vec![],
@@ -147,8 +147,8 @@ impl zed::Extension for RuffExtension {
     fn language_server_initialization_options(
         &mut self,
         server_id: &LanguageServerId,
-        worktree: &zed_extension_api::Worktree,
-    ) -> Result<Option<zed_extension_api::serde_json::Value>> {
+        worktree: &vector_extension_api::Worktree,
+    ) -> Result<Option<vector_extension_api::serde_json::Value>> {
         let settings = LspSettings::for_worktree(server_id.as_ref(), worktree)
             .ok()
             .and_then(|lsp_settings| lsp_settings.initialization_options.clone())
@@ -159,8 +159,8 @@ impl zed::Extension for RuffExtension {
     fn language_server_workspace_configuration(
         &mut self,
         server_id: &LanguageServerId,
-        worktree: &zed_extension_api::Worktree,
-    ) -> Result<Option<zed_extension_api::serde_json::Value>> {
+        worktree: &vector_extension_api::Worktree,
+    ) -> Result<Option<vector_extension_api::serde_json::Value>> {
         let settings = LspSettings::for_worktree(server_id.as_ref(), worktree)
             .ok()
             .and_then(|lsp_settings| lsp_settings.settings.clone())
@@ -169,4 +169,4 @@ impl zed::Extension for RuffExtension {
     }
 }
 
-zed::register_extension!(RuffExtension);
+vector::register_extension!(RuffExtension);

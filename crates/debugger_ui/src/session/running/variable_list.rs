@@ -66,7 +66,7 @@ impl EntryPath {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 enum EntryKind {
     Variable(dap::Variable),
     Scope(dap::Scope),
@@ -96,7 +96,7 @@ impl EntryKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 struct ListEntry {
     dap_kind: EntryKind,
     path: EntryPath,

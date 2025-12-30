@@ -5,7 +5,6 @@ use feature_flags::{DebuggerFeatureFlag, FeatureFlagViewExt};
 use gpui::{App, EntityInputHandler, actions};
 use new_session_modal::{NewSessionModal, NewSessionMode};
 use project::debugger::{self, breakpoint_store::SourceBreakpoint};
-use session::DebugSession;
 use settings::Settings;
 use stack_trace_view::StackTraceView;
 use tasks_ui::{Spawn, TaskOverrides};
@@ -54,7 +53,6 @@ actions!(
 
 pub fn init(cx: &mut App) {
     DebuggerSettings::register(cx);
-    workspace::FollowableViewRegistry::register::<DebugSession>(cx);
 
     cx.observe_new(|_: &mut Workspace, window, cx| {
         let Some(window) = window else {
@@ -297,7 +295,7 @@ pub fn init(cx: &mut App) {
                                     let stack_id = state.selected_stack_frame_id(cx);
 
                                     state.session().update(cx, |session, cx| {
-                                        session.evaluate(text, None, stack_id, None, cx).detach();
+                                        session.evaluate(text, None, stack_id, cx).detach();
                                     });
                                 });
                             });

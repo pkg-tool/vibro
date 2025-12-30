@@ -1,5 +1,5 @@
 name: Bug Report (AI Related)
-description: Zed Agent Panel Bugs
+description: Vector Agent Panel Bugs
 type: "Bug"
 labels: ["ai"]
 title: "AI: <a short description of the AI Related bug>"
@@ -13,7 +13,7 @@ body:
         SUMMARY_SENTENCE_HERE
 
         ### Description
-        <!--  Describe with sufficient detail to reproduce from a clean Zed install. -->
+        <!--  Describe with sufficient detail to reproduce from a clean Vector install. -->
         Steps to trigger the problem:
         1.
         2.
@@ -23,7 +23,7 @@ body:
         Expected Behavior:
 
         ### Model Provider Details
-        - Provider: (Anthropic via ZedPro, Anthropic via API key, Copilot Chat, Mistral, OpenAI, etc)
+        - Provider: (Anthropic, OpenAI, Google AI, Ollama, LM Studio, Copilot Chat, etc)
         - Model Name:
         - Mode: (Agent Panel, Inline Assistant, Terminal Assistant or Text Threads)
         - MCP Servers in-use:
@@ -34,9 +34,9 @@ body:
   - type: textarea
     id: environment
     attributes:
-      label: Zed Version and System Specs
-      description: 'Open Zed, and in the command palette select "zed: copy system specs into clipboard"'
+      label: Vector Version and System Specs
+      description: 'Run `vector --system-specs` in a terminal and paste the output'
       placeholder: |
-        Output of "zed: copy system specs into clipboard"
+        Output of `vector --system-specs`
     validations:
       required: true

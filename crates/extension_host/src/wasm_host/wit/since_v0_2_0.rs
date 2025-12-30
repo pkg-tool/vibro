@@ -17,16 +17,16 @@ wasmtime::component::bindgen!({
          "worktree": ExtensionWorktree,
          "project": ExtensionProject,
          "key-value-store": ExtensionKeyValueStore,
-         "zed:extension/github": latest::zed::extension::github,
-         "zed:extension/http-client": latest::zed::extension::http_client,
-         "zed:extension/lsp": latest::zed::extension::lsp,
-         "zed:extension/nodejs": latest::zed::extension::nodejs,
-         "zed:extension/platform": latest::zed::extension::platform,
-         "zed:extension/slash-command": latest::zed::extension::slash_command,
+         "vector:extension/github": latest::vector::extension::github,
+         "vector:extension/http-client": latest::vector::extension::http_client,
+         "vector:extension/lsp": latest::vector::extension::lsp,
+         "vector:extension/nodejs": latest::vector::extension::nodejs,
+         "vector:extension/platform": latest::vector::extension::platform,
+         "vector:extension/slash-command": latest::vector::extension::slash_command,
     },
 });
 
-pub use self::zed::extension::*;
+pub use self::vector::extension::*;
 
 mod settings {
     include!(concat!(env!("OUT_DIR"), "/since_v0.2.0/settings.rs"));

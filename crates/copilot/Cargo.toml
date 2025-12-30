@@ -26,7 +26,6 @@ test-support = [
 [dependencies]
 anyhow.workspace = true
 chrono.workspace = true
-client.workspace = true
 collections.workspace = true
 command_palette_hooks.workspace = true
 fs.workspace = true
@@ -56,7 +55,6 @@ itertools.workspace = true
 async-std = { version = "1.12.0", features = ["unstable"] }
 
 [dev-dependencies]
-client = { workspace = true, features = ["test-support"] }
 clock = { workspace = true, features = ["test-support"] }
 collections = { workspace = true, features = ["test-support"] }
 ctor.workspace = true
@@ -69,7 +67,6 @@ language = { workspace = true, features = ["test-support"] }
 lsp = { workspace = true, features = ["test-support"] }
 node_runtime = { workspace = true, features = ["test-support"] }
 project = { workspace = true, features = ["test-support"] }
-rpc = { workspace = true, features = ["test-support"] }
 serde_json.workspace = true
 settings = { workspace = true, features = ["test-support"] }
 theme = { workspace = true, features = ["test-support"] }

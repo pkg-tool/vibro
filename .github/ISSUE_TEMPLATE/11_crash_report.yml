@@ -1,5 +1,5 @@
 name: Crash Report
-description: Zed is Crashing or Hanging
+description: Vector is crashing or hanging
 type: "Crash"
 body:
   - type: textarea
@@ -11,7 +11,7 @@ body:
         SUMMARY_SENTENCE_HERE
 
         ### Description
-        <!-- Include all steps necessary to reproduce from a clean Zed installation. Be verbose -->
+        <!-- Include all steps necessary to reproduce from a clean Vector installation. Be verbose -->
         Steps to trigger the problem:
         1.
         2.
@@ -25,21 +25,21 @@ body:
   - type: textarea
     id: environment
     attributes:
-      label: Zed Version and System Specs
-      description: 'Open Zed, and in the command palette select "zed: copy system specs into clipboard"'
+      label: Vector Version and System Specs
+      description: 'Run `vector --system-specs` in a terminal and paste the output'
       placeholder: |
-        Output of "zed: copy system specs into clipboard"
+        Output of `vector --system-specs`
     validations:
       required: true
   - type: textarea
     attributes:
-      label: If applicable, attach your `~/Library/Logs/Zed/Zed.log` file to this issue.
+      label: If applicable, attach your Vector log file to this issue.
       description: |
-        macOS: `~/Library/Logs/Zed/Zed.log`
-        Linux: `~/.local/share/zed/logs/Zed.log` or $XDG_DATA_HOME
-        If you only need the most recent lines, you can run the `zed: open log` command palette action to see the last 1000.
+        macOS: `~/Library/Logs/Vector/Vector.log`
+        Linux: `~/.local/share/Vector/logs/Vector.log` (or `$XDG_DATA_HOME/Vector/logs/Vector.log`)
+        You can also use the "Open Log" action from the Command Palette to view recent lines.
       value: |
-        <details><summary>Zed.log</summary>
+        <details><summary>Vector.log</summary>
 
         <!-- Paste your log inside the code block. -->
         ```log

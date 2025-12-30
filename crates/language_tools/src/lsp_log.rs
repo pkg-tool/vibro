@@ -113,21 +113,13 @@ struct LanguageServerState {
 #[derive(PartialEq, Clone)]
 pub enum LanguageServerKind {
     Local { project: WeakEntity<Project> },
-    Remote { project: WeakEntity<Project> },
     Global,
-}
-
-impl LanguageServerKind {
-    fn is_remote(&self) -> bool {
-        matches!(self, LanguageServerKind::Remote { .. })
-    }
 }
 
 impl std::fmt::Debug for LanguageServerKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LanguageServerKind::Local { .. } => write!(f, "LanguageServerKind::Local"),
-            LanguageServerKind::Remote { .. } => write!(f, "LanguageServerKind::Remote"),
             LanguageServerKind::Global => write!(f, "LanguageServerKind::Global"),
         }
     }
@@ -137,7 +129,6 @@ impl LanguageServerKind {
     fn project(&self) -> Option<&WeakEntity<Project>> {
         match self {
             Self::Local { project } => Some(project),
-            Self::Remote { project } => Some(project),
             Self::Global { .. } => None,
         }
     }
@@ -208,7 +199,7 @@ pub fn init(cx: &mut App) {
 
     cx.observe_new(move |workspace: &mut Workspace, _, cx| {
         let project = workspace.project();
-        if project.read(cx).is_local() || project.read(cx).is_via_ssh() {
+        if project.read(cx).is_local() {
             log_store.update(cx, |store, cx| {
                 store.add_project(project, cx);
             });
@@ -217,7 +208,7 @@ pub fn init(cx: &mut App) {
         let log_store = log_store.clone();
         workspace.register_action(move |workspace, _: &OpenLanguageServerLogs, window, cx| {
             let project = workspace.project().read(cx);
-            if project.is_local() || project.is_via_ssh() {
+            if project.is_local() {
                 workspace.split_item(
                     SplitDirection::Right,
                     Box::new(cx.new(|cx| {
@@ -306,14 +297,8 @@ impl LogStore {
                             .retain(|_, state| state.kind.project() != Some(&weak_project));
                     }),
                     cx.subscribe(project, |this, project, event, cx| {
-                        let server_kind = if project.read(cx).is_via_ssh() {
-                            LanguageServerKind::Remote {
-                                project: project.downgrade(),
-                            }
-                        } else {
-                            LanguageServerKind::Local {
-                                project: project.downgrade(),
-                            }
+                        let server_kind = LanguageServerKind::Local {
+                            project: project.downgrade(),
                         };
 
                         match event {
@@ -495,7 +480,7 @@ impl LogStore {
         self.language_servers
             .iter()
             .filter_map(move |(id, state)| match &state.kind {
-                LanguageServerKind::Local { project } | LanguageServerKind::Remote { project } => {
+                LanguageServerKind::Local { project } => {
                     if project == lookup_project {
                         Some(*id)
                     } else {
@@ -736,10 +721,11 @@ impl LspLogView {
             WORKSPACE_FOLDERS = server
                 .workspace_folders()
                 .iter()
-                .filter_map(|path| path
-                    .to_file_path()
-                    .ok()
-                    .map(|path| path.to_string_lossy().into_owned()))
+                .filter_map(|path| {
+                    lsp::url_to_file_path(path)
+                        .ok()
+                        .map(|path| path.to_string_lossy().into_owned())
+                })
                 .collect::<Vec<_>>()
                 .join(", "),
             CAPABILITIES = serde_json::to_string_pretty(&server.capabilities())
@@ -768,7 +754,7 @@ impl LspLogView {
             .language_servers
             .iter()
             .map(|(server_id, state)| match &state.kind {
-                LanguageServerKind::Local { .. } | LanguageServerKind::Remote { .. } => {
+                LanguageServerKind::Local { .. } => {
                     let worktree_root_name = state
                         .worktree_id
                         .and_then(|id| self.project.read(cx).worktree_for_id(id, cx))
@@ -1048,10 +1034,6 @@ impl Item for LspLogView {
         "LSP Logs".into()
     }
 
-    fn telemetry_event_text(&self) -> Option<&'static str> {
-        None
-    }
-
     fn as_searchable(&self, handle: &Entity<Self>) -> Option<Box<dyn SearchableItemHandle>> {
         Some(Box::new(handle.clone()))
     }
@@ -1294,7 +1276,7 @@ impl Render for LspLogToolbarItemView {
             });
         let view_selector = current_server.map(|server| {
             let server_id = server.server_id;
-            let is_remote = server.server_kind.is_remote();
+            let is_remote = false;
             let rpc_trace_enabled = server.rpc_trace_enabled;
             let log_view = log_view.clone();
             PopoverMenu::new("LspViewSelector")

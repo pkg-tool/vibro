@@ -209,12 +209,12 @@ impl HttpClientWithUrl {
         format!("{}{}", self.base_url(), path)
     }
 
-    /// Builds a Zed API URL using the given path.
-    pub fn build_zed_api_url(&self, path: &str, query: &[(&str, &str)]) -> Result<Url> {
+    /// Builds a Vector API URL using the given path.
+    pub fn build_vector_api_url(&self, path: &str, query: &[(&str, &str)]) -> Result<Url> {
         let base_url = self.base_url();
         let base_api_url = match base_url.as_ref() {
-            "https://zed.dev" => "https://api.zed.dev",
-            "https://staging.zed.dev" => "https://api-staging.zed.dev",
+            "https://vector.dev" => "https://api.vector.dev",
+            "https://staging.vector.dev" => "https://api-staging.vector.dev",
             "http://localhost:3000" => "http://localhost:8080",
             other => other,
         };
@@ -225,12 +225,12 @@ impl HttpClientWithUrl {
         )?)
     }
 
-    /// Builds a Zed LLM URL using the given path.
-    pub fn build_zed_llm_url(&self, path: &str, query: &[(&str, &str)]) -> Result<Url> {
+    /// Builds a Vector LLM URL using the given path.
+    pub fn build_vector_llm_url(&self, path: &str, query: &[(&str, &str)]) -> Result<Url> {
         let base_url = self.base_url();
         let base_api_url = match base_url.as_ref() {
-            "https://zed.dev" => "https://llm.zed.dev",
-            "https://staging.zed.dev" => "https://llm-staging.zed.dev",
+            "https://vector.dev" => "https://llm.vector.dev",
+            "https://staging.vector.dev" => "https://llm-staging.vector.dev",
             "http://localhost:3000" => "http://localhost:8787",
             other => other,
         };

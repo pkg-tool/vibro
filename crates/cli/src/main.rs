@@ -24,33 +24,32 @@ use std::io::IsTerminal;
 struct Detect;
 
 trait InstalledApp {
-    fn zed_version_string(&self) -> String;
+    fn app_version_string(&self) -> String;
     fn launch(&self, ipc_url: String) -> anyhow::Result<()>;
     fn run_foreground(
         &self,
         ipc_url: String,
         user_data_dir: Option<&str>,
     ) -> io::Result<ExitStatus>;
-    fn path(&self) -> PathBuf;
 }
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "zed",
+    name = "vector",
     disable_version_flag = true,
-    before_help = "The Zed CLI binary.
-This CLI is a separate binary that invokes Zed.
+    before_help = "The Vector CLI binary.
+This CLI is a separate binary that invokes Vector.
 
 Examples:
-    `zed`
-          Simply opens Zed
-    `zed --foreground`
+    `vector`
+          Simply opens Vector
+    `vector --foreground`
           Runs in foreground (shows all logs)
-    `zed path-to-your-project`
-          Open your project in Zed
-    `zed -n path-to-file `
+    `vector path-to-your-project`
+          Open your project in Vector
+    `vector -n path-to-file `
           Open file/folder in a new window",
-    after_help = "To read from stdin, append '-', e.g. 'ps axf | zed -'"
+    after_help = "To read from stdin, append '-', e.g. 'ps axf | vector -'"
 )]
 struct Args {
     /// Wait for all of the given paths to be opened/closed before exiting.
@@ -64,32 +63,25 @@ struct Args {
     new: bool,
     /// Sets a custom directory for all user data (e.g., database, extensions, logs).
     /// This overrides the default platform-specific data directory location.
-    /// On macOS, the default is `~/Library/Application Support/Zed`.
-    /// On Linux/FreeBSD, the default is `$XDG_DATA_HOME/zed`.
-    /// On Windows, the default is `%LOCALAPPDATA%\Zed`.
+    /// On macOS, the default is `~/Library/Application Support/Vector`.
+    /// On Linux/FreeBSD, the default is `$XDG_DATA_HOME/vector`.
+    /// On Windows, the default is `%LOCALAPPDATA%\Vector`.
     #[arg(long, value_name = "DIR")]
     user_data_dir: Option<String>,
-    /// The paths to open in Zed (space-separated).
+    /// The paths to open in Vector (space-separated).
     ///
     /// Use `path:line:column` syntax to open a file at the given line and column.
     paths_with_position: Vec<String>,
-    /// Print Zed's version and the app path.
+    /// Print Vector's version and the app path.
     #[arg(short, long)]
     version: bool,
-    /// Run zed in the foreground (useful for debugging)
+    /// Run Vector in the foreground (useful for debugging)
     #[arg(long)]
     foreground: bool,
-    /// Custom path to Zed.app or the zed binary
+    /// Custom path to Vector.app or the vector binary
     #[arg(long)]
-    zed: Option<PathBuf>,
-    /// Run zed in dev-server mode
-    #[arg(long)]
-    dev_server_token: Option<String>,
-    /// Not supported in Zed CLI, only supported on Zed binary
-    /// Will attempt to give the correct command to run
-    #[arg(long)]
-    system_specs: bool,
-    /// Uninstall Zed from user system
+    vector: Option<PathBuf>,
+    /// Uninstall Vector from user system
     #[cfg(all(
         any(target_os = "linux", target_os = "macos"),
         not(feature = "no-bundled-uninstall")
@@ -155,21 +147,11 @@ fn main() -> Result<()> {
     #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     let args = flatpak::set_bin_if_no_escape(args);
 
-    let app = Detect::detect(args.zed.as_deref()).context("Bundle detection")?;
+    let app = Detect::detect(args.vector.as_deref()).context("Bundle detection")?;
 
     if args.version {
-        println!("{}", app.zed_version_string());
+        println!("{}", app.app_version_string());
         return Ok(());
-    }
-
-    if args.system_specs {
-        let path = app.path();
-        let msg = [
-            "The `--system-specs` argument is not supported in the Zed CLI, only on Zed binary.",
-            "To retrieve the system specs on the command line, run the following command:",
-            &format!("{} --system-specs", path.display()),
-        ];
-        anyhow::bail!(msg.join("\n"));
     }
 
     #[cfg(all(
@@ -188,7 +170,7 @@ fn main() -> Result<()> {
 
         let status = std::process::Command::new("sh")
             .arg(&script_path)
-            .env("ZED_CHANNEL", &*release_channel::RELEASE_CHANNEL_NAME)
+            .env("VECTOR_CHANNEL", &*release_channel::RELEASE_CHANNEL_NAME)
             .status()
             .context("Failed to execute uninstall script")?;
 
@@ -196,8 +178,8 @@ fn main() -> Result<()> {
     }
 
     let (server, server_name) =
-        IpcOneShotServer::<IpcHandshake>::new().context("Handshake before Zed spawn")?;
-    let url = format!("zed-cli://{server_name}");
+        IpcOneShotServer::<IpcHandshake>::new().context("Handshake before Vector spawn")?;
+    let url = format!("vector-cli://{server_name}");
 
     let open_new_workspace = if args.new {
         Some(true)
@@ -210,7 +192,7 @@ fn main() -> Result<()> {
     let env = {
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         {
-            // On Linux, the desktop entry uses `cli` to spawn `zed`.
+            // On Linux, the desktop entry uses `cli` to spawn `vector`.
             // We need to handle env vars correctly since std::env::vars() may not contain
             // project-specific vars (e.g. those set by direnv).
             // By setting env to None here, the LSP will use worktree env vars instead,
@@ -233,11 +215,10 @@ fn main() -> Result<()> {
     let mut anonymous_fd_tmp_files = vec![];
 
     for path in args.paths_with_position.iter() {
-        if path.starts_with("zed://")
+        if path.starts_with("vector://")
             || path.starts_with("http://")
             || path.starts_with("https://")
             || path.starts_with("file://")
-            || path.starts_with("ssh://")
         {
             urls.push(path.to_string());
         } else if path == "-" && args.paths_with_position.len() == 1 {
@@ -255,16 +236,11 @@ fn main() -> Result<()> {
         }
     }
 
-    anyhow::ensure!(
-        args.dev_server_token.is_none(),
-        "Dev servers were removed in v0.157.x please upgrade to SSH remoting: https://zed.dev/docs/remote-development"
-    );
-
     let sender: JoinHandle<anyhow::Result<()>> = thread::spawn({
         let exit_status = exit_status.clone();
         let user_data_dir_for_thread = user_data_dir.clone();
         move || {
-            let (_, handshake) = server.accept().context("Handshake after Zed spawn")?;
+            let (_, handshake) = server.accept().context("Handshake after Vector spawn")?;
             let (tx, rx) = (handshake.requests, handshake.responses);
 
             tx.send(CliRequest::Open {
@@ -406,7 +382,7 @@ mod linux {
     use crate::{Detect, InstalledApp};
 
     static RELEASE_CHANNEL: LazyLock<String> =
-        LazyLock::new(|| include_str!("../../zed/RELEASE_CHANNEL").trim().to_string());
+        LazyLock::new(|| include_str!("../../release_channel/RELEASE_CHANNEL").trim().to_string());
 
     struct App(PathBuf);
 
@@ -418,10 +394,10 @@ mod linux {
                 let cli = env::current_exe()?;
                 let dir = cli.parent().context("no parent path for cli")?;
 
-                // libexec is the standard, lib/zed is for Arch (and other non-libexec distros),
-                // ./zed is for the target directory in development builds.
+                // libexec is the standard, lib/vector is for some distros,
+                // ./vector is for the target directory in development builds.
                 let possible_locations =
-                    ["../libexec/zed-editor", "../lib/zed/zed-editor", "./zed"];
+                    ["../libexec/vector-editor", "../lib/vector/vector-editor", "./vector"];
                 possible_locations
                     .iter()
                     .find_map(|p| dir.join(p).canonicalize().ok().filter(|path| path != &cli))
@@ -435,16 +411,16 @@ mod linux {
     }
 
     impl InstalledApp for App {
-        fn zed_version_string(&self) -> String {
+        fn app_version_string(&self) -> String {
             format!(
-                "Zed {}{}{} – {}",
+                "Vector {}{}{} – {}",
                 if *RELEASE_CHANNEL == "stable" {
                     "".to_string()
                 } else {
                     format!("{} ", *RELEASE_CHANNEL)
                 },
                 option_env!("RELEASE_VERSION").unwrap_or_default(),
-                match option_env!("ZED_COMMIT_SHA") {
+                match option_env!("VECTOR_COMMIT_SHA") {
                     Some(commit_sha) => format!(" {commit_sha} "),
                     None => "".to_string(),
                 },
@@ -453,7 +429,7 @@ mod linux {
         }
 
         fn launch(&self, ipc_url: String) -> anyhow::Result<()> {
-            let sock_path = paths::data_dir().join(format!("zed-{}.sock", *RELEASE_CHANNEL));
+            let sock_path = paths::data_dir().join(format!("vector-{}.sock", *RELEASE_CHANNEL));
             let sock = UnixDatagram::unbound()?;
             if sock.connect(&sock_path).is_err() {
                 self.boot_background(ipc_url)?;
@@ -474,10 +450,6 @@ mod linux {
                 cmd.arg("--user-data-dir").arg(dir);
             }
             cmd.status()
-        }
-
-        fn path(&self) -> PathBuf {
-            self.0.clone()
         }
     }
 
@@ -529,8 +501,8 @@ mod flatpak {
     use std::process::Command;
     use std::{env, process};
 
-    const EXTRA_LIB_ENV_NAME: &'static str = "ZED_FLATPAK_LIB_PATH";
-    const NO_ESCAPE_ENV_NAME: &'static str = "ZED_FLATPAK_NO_ESCAPE";
+    const EXTRA_LIB_ENV_NAME: &'static str = "VECTOR_FLATPAK_LIB_PATH";
+    const NO_ESCAPE_ENV_NAME: &'static str = "VECTOR_FLATPAK_NO_ESCAPE";
 
     /// Adds bundled libraries to LD_LIBRARY_PATH if running under flatpak
     pub fn ld_extra_libs() {
@@ -552,7 +524,7 @@ mod flatpak {
         if let Some(flatpak_dir) = get_flatpak_dir() {
             let mut args = vec!["/usr/bin/flatpak-spawn".into(), "--host".into()];
             args.append(&mut get_xdg_env_args());
-            args.push("--env=ZED_UPDATE_EXPLANATION=Please use flatpak to update zed".into());
+            args.push("--env=VECTOR_UPDATE_EXPLANATION=Please use flatpak to update vector".into());
             args.push(
                 format!(
                     "--env={EXTRA_LIB_ENV_NAME}={}",
@@ -560,17 +532,17 @@ mod flatpak {
                 )
                 .into(),
             );
-            args.push(flatpak_dir.join("bin").join("zed").into());
+            args.push(flatpak_dir.join("bin").join("vector").into());
 
             let mut is_app_location_set = false;
             for arg in &env::args_os().collect::<Vec<_>>()[1..] {
                 args.push(arg.clone());
-                is_app_location_set |= arg == "--zed";
+                is_app_location_set |= arg == "--vector";
             }
 
             if !is_app_location_set {
-                args.push("--zed".into());
-                args.push(flatpak_dir.join("libexec").join("zed-editor").into());
+                args.push("--vector".into());
+                args.push(flatpak_dir.join("libexec").join("vector-editor").into());
             }
 
             let error = exec::execvp("/usr/bin/flatpak-spawn", args);
@@ -581,12 +553,12 @@ mod flatpak {
 
     pub fn set_bin_if_no_escape(mut args: super::Args) -> super::Args {
         if env::var(NO_ESCAPE_ENV_NAME).is_ok()
-            && env::var("FLATPAK_ID").map_or(false, |id| id.starts_with("dev.zed.Zed"))
+            && env::var("FLATPAK_ID").map_or(false, |id| id.starts_with("dev.vector.Vector"))
         {
-            if args.zed.is_none() {
-                args.zed = Some("/app/libexec/zed-editor".into());
+            if args.vector.is_none() {
+                args.vector = Some("/app/libexec/vector-editor".into());
                 unsafe {
-                    env::set_var("ZED_UPDATE_EXPLANATION", "Please use flatpak to update zed")
+                    env::set_var("VECTOR_UPDATE_EXPLANATION", "Please use flatpak to update vector")
                 };
             }
         }
@@ -599,7 +571,7 @@ mod flatpak {
         }
 
         if let Ok(flatpak_id) = env::var("FLATPAK_ID") {
-            if !flatpak_id.starts_with("dev.zed.Zed") {
+            if !flatpak_id.starts_with("dev.vector.Vector") {
                 return None;
             }
 
@@ -669,16 +641,16 @@ mod windows {
     struct App(PathBuf);
 
     impl InstalledApp for App {
-        fn zed_version_string(&self) -> String {
+        fn app_version_string(&self) -> String {
             format!(
-                "Zed {}{}{} – {}",
+                "Vector {}{}{} – {}",
                 if *release_channel::RELEASE_CHANNEL_NAME == "stable" {
                     "".to_string()
                 } else {
                     format!("{} ", *release_channel::RELEASE_CHANNEL_NAME)
                 },
                 option_env!("RELEASE_VERSION").unwrap_or_default(),
-                match option_env!("ZED_COMMIT_SHA") {
+                match option_env!("VECTOR_COMMIT_SHA") {
                     Some(commit_sha) => format!(" {commit_sha} "),
                     None => "".to_string(),
                 },
@@ -723,10 +695,6 @@ mod windows {
             }
             cmd.spawn()?.wait()
         }
-
-        fn path(&self) -> PathBuf {
-            self.0.clone()
-        }
     }
 
     impl Detect {
@@ -737,9 +705,13 @@ mod windows {
                 let cli = std::env::current_exe()?;
                 let dir = cli.parent().context("no parent path for cli")?;
 
-                // ../Zed.exe is the standard, lib/zed is for MSYS2, ./zed.exe is for the target
+                // ../Vector.exe is the standard, lib/vector is for MSYS2, ./vector.exe is for the target
                 // directory in development builds.
-                let possible_locations = ["../Zed.exe", "../lib/zed/zed-editor.exe", "./zed.exe"];
+                let possible_locations = [
+                    "../Vector.exe",
+                    "../lib/vector/vector-editor.exe",
+                    "./vector.exe",
+                ];
                 possible_locations
                     .iter()
                     .find_map(|p| dir.join(p).canonicalize().ok().filter(|path| path != &cli))
@@ -835,8 +807,8 @@ mod mac_os {
     }
 
     impl InstalledApp for Bundle {
-        fn zed_version_string(&self) -> String {
-            format!("Zed {} – {}", self.version(), self.path().display(),)
+        fn app_version_string(&self) -> String {
+            format!("Vector {} – {}", self.version(), self.path().display(),)
         }
 
         fn launch(&self, url: String) -> anyhow::Result<()> {
@@ -854,7 +826,7 @@ mod mac_os {
                             kCFStringEncodingUTF8,
                             ptr::null(),
                         ));
-                        // equivalent to: open zed-cli:... -a /Applications/Zed\ Preview.app
+                        // equivalent to: open vector-cli:... -a /Applications/Vector\\ Preview.app
                         let urls_to_open =
                             CFArray::from_copyable(&[url_to_open.as_concrete_TypeRef()]);
                         LSOpenFromURLSpec(
@@ -872,7 +844,7 @@ mod mac_os {
                     anyhow::ensure!(
                         status == 0,
                         "cannot start app bundle {}",
-                        self.zed_version_string()
+                        self.app_version_string()
                     );
                 }
 
@@ -881,7 +853,7 @@ mod mac_os {
                         .parent()
                         .with_context(|| format!("Executable {executable:?} path has no parent"))?;
                     let subprocess_stdout_file = fs::File::create(
-                        executable_parent.join("zed_dev.log"),
+                        executable_parent.join("vector_dev.log"),
                     )
                     .with_context(|| format!("Log file creation in {executable_parent:?}"))?;
                     let subprocess_stdin_file =
@@ -910,7 +882,7 @@ mod mac_os {
             user_data_dir: Option<&str>,
         ) -> io::Result<ExitStatus> {
             let path = match self {
-                Bundle::App { app_bundle, .. } => app_bundle.join("Contents/MacOS/zed"),
+                Bundle::App { app_bundle, .. } => app_bundle.join("Contents/MacOS/vector"),
                 Bundle::LocalPath { executable, .. } => executable.clone(),
             };
 
@@ -920,13 +892,6 @@ mod mac_os {
                 cmd.arg("--user-data-dir").arg(dir);
             }
             cmd.status()
-        }
-
-        fn path(&self) -> PathBuf {
-            match self {
-                Bundle::App { app_bundle, .. } => app_bundle.join("Contents/MacOS/zed").clone(),
-                Bundle::LocalPath { executable, .. } => executable.clone(),
-            }
         }
     }
 

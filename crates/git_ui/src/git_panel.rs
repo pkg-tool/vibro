@@ -9,7 +9,6 @@ use crate::{branch_picker, picker_prompt, render_remote_button};
 use crate::{
     git_panel_settings::GitPanelSettings, git_status_icon, repository_selector::RepositorySelector,
 };
-use agent_settings::AgentSettings;
 use anyhow::Context as _;
 use askpass::AskPassDelegate;
 use db::kvp::KEY_VALUE_STORE;
@@ -69,7 +68,7 @@ use workspace::{
     dock::{DockPosition, Panel, PanelEvent},
     notifications::DetachAndPromptErr,
 };
-use zed_llm_client::CompletionIntent;
+use vector_llm_client::CompletionIntent;
 
 actions!(
     git_panel,
@@ -364,7 +363,6 @@ const MAX_PANEL_EDITOR_LINES: usize = 6;
 pub(crate) fn commit_message_editor(
     commit_message_buffer: Entity<Buffer>,
     placeholder: Option<SharedString>,
-    project: Entity<Project>,
     in_panel: bool,
     window: &mut Window,
     cx: &mut Context<Editor>,
@@ -378,7 +376,6 @@ pub(crate) fn commit_message_editor(
         window,
         cx,
     );
-    commit_editor.set_collaboration_hub(Box::new(project));
     commit_editor.set_use_autoclose(false);
     commit_editor.set_show_gutter(false, cx);
     commit_editor.set_show_wrap_guides(false, cx);
@@ -423,7 +420,7 @@ impl GitPanel {
         // Once the active git repo is set, this buffer will be replaced.
         let temporary_buffer = cx.new(|cx| Buffer::local("", cx));
         let commit_editor = cx.new(|cx| {
-            commit_message_editor(temporary_buffer, None, project.clone(), true, window, cx)
+            commit_message_editor(temporary_buffer, None, true, window, cx)
         });
 
         commit_editor.update(cx, |editor, cx| {
@@ -544,7 +541,7 @@ impl GitPanel {
         // Once this is fixed we can extend the GitPanelSettings with a `scrollbar.axis`
         // so we can show each axis based on the settings.
         //
-        // We should fix this. PR: https://github.com/zed-industries/zed/pull/19495
+        // We should fix this. PR: https://github.com/vector-editor/vector/pull/19495
 
         let show_setting = GitPanelSettings::get_global(cx)
             .scrollbar
@@ -1413,7 +1410,6 @@ impl GitPanel {
             .focus_handle(cx)
             .contains_focused(window, cx)
         {
-            telemetry::event!("Git Committed", source = "Git Panel");
             self.commit_changes(CommitOptions { amend: false }, window, cx)
         } else {
             cx.propagate();
@@ -1436,7 +1432,6 @@ impl GitPanel {
                     self.set_amend_pending(true, cx);
                     self.load_last_commit_message_if_empty(cx);
                 } else {
-                    telemetry::event!("Git Amended", source = "Git Panel");
                     self.set_amend_pending(false, cx);
                     self.commit_changes(CommitOptions { amend: true }, window, cx);
                 }
@@ -1583,7 +1578,6 @@ impl GitPanel {
         let Some(repo) = self.active_repository.clone() else {
             return;
         };
-        telemetry::event!("Git Uncommitted");
 
         let confirmation = self.check_for_pushed_commits(window, cx);
         let prior_head = self.load_commit_details("HEAD".to_string(), cx);
@@ -1724,8 +1718,6 @@ impl GitPanel {
             return;
         };
 
-        telemetry::event!("Git Commit Message Generated");
-
         let diff = repo.update(cx, |repo, cx| {
             if self.has_staged_changes() {
                 repo.diff(DiffType::HeadToIndex, cx)
@@ -1734,7 +1726,7 @@ impl GitPanel {
             }
         });
 
-        let temperature = AgentSettings::temperature_for_model(&model, cx);
+        let temperature = None;
 
         self.generate_commit_message_task = Some(cx.spawn(async move |this, cx| {
              async move {
@@ -1816,7 +1808,6 @@ impl GitPanel {
         let Some(repo) = self.active_repository.clone() else {
             return;
         };
-        telemetry::event!("Git Fetched");
         let askpass = self.askpass_delegate("git fetch", window, cx);
         let this = cx.weak_entity();
         window
@@ -1934,7 +1925,6 @@ impl GitPanel {
         let Some(branch) = repo.read(cx).branch.as_ref() else {
             return;
         };
-        telemetry::event!("Git Pulled");
         let branch = branch.clone();
         let remote = self.get_current_remote(window, cx);
         cx.spawn_in(window, async move |this, cx| {
@@ -1991,7 +1981,6 @@ impl GitPanel {
         let Some(branch) = repo.read(cx).branch.as_ref() else {
             return;
         };
-        telemetry::event!("Git Pushed");
         let branch = branch.clone();
 
         let options = if force_push {
@@ -2127,53 +2116,8 @@ impl GitPanel {
     }
 
     fn potential_co_authors(&self, cx: &App) -> Vec<(String, String)> {
-        let mut new_co_authors = Vec::new();
-        let project = self.project.read(cx);
-
-        let Some(room) = self
-            .workspace
-            .upgrade()
-            .and_then(|workspace| workspace.read(cx).active_call()?.read(cx).room().cloned())
-        else {
-            return Vec::default();
-        };
-
-        let room = room.read(cx);
-
-        for (peer_id, collaborator) in project.collaborators() {
-            if collaborator.is_host {
-                continue;
-            }
-
-            let Some(participant) = room.remote_participant_for_peer_id(*peer_id) else {
-                continue;
-            };
-            if participant.can_write() && participant.user.email.is_some() {
-                let email = participant.user.email.clone().unwrap();
-
-                new_co_authors.push((
-                    participant
-                        .user
-                        .name
-                        .clone()
-                        .unwrap_or_else(|| participant.user.github_login.clone()),
-                    email,
-                ))
-            }
-        }
-        if !project.is_local() && !project.is_read_only(cx) {
-            if let Some(user) = room.local_participant_user(cx) {
-                if let Some(email) = user.email.clone() {
-                    new_co_authors.push((
-                        user.name
-                            .clone()
-                            .unwrap_or_else(|| user.github_login.clone()),
-                        email.clone(),
-                    ))
-                }
-            }
-        }
-        new_co_authors
+        let _ = cx;
+        Vec::default()
     }
 
     fn toggle_fill_co_authors(
@@ -2287,7 +2231,6 @@ impl GitPanel {
                         commit_message_editor(
                             buffer,
                             git_panel.suggest_commit_message(cx).map(SharedString::from),
-                            git_panel.project.clone(),
                             true,
                             window,
                             cx,
@@ -3142,7 +3085,6 @@ impl GitPanel {
                                 .on_click({
                                     let git_panel = cx.weak_entity();
                                     move |_, window, cx| {
-                                        telemetry::event!("Git Amended", source = "Git Panel");
                                         git_panel
                                             .update(cx, |git_panel, cx| {
                                                 git_panel.set_amend_pending(false, cx);
@@ -3174,7 +3116,6 @@ impl GitPanel {
                         .on_click({
                             let git_panel = cx.weak_entity();
                             move |_, window, cx| {
-                                telemetry::event!("Git Committed", source = "Git Panel");
                                 git_panel
                                     .update(cx, |git_panel, cx| {
                                         git_panel.commit_changes(
@@ -3232,7 +3173,6 @@ impl GitPanel {
                             .on_click({
                                 let git_panel = cx.weak_entity();
                                 move |_, window, cx| {
-                                    telemetry::event!("Git Committed", source = "Git Panel");
                                     git_panel
                                         .update(cx, |git_panel, cx| {
                                             git_panel.commit_changes(
@@ -4035,7 +3975,7 @@ impl GitPanel {
     }
 
     fn has_write_access(&self, cx: &App) -> bool {
-        !self.project.read(cx).is_read_only(cx)
+        !self.project.read(cx).is_read_only()
     }
 
     pub fn amend_pending(&self) -> bool {
@@ -4049,41 +3989,24 @@ impl GitPanel {
 }
 
 fn current_language_model(cx: &Context<'_, GitPanel>) -> Option<Arc<dyn LanguageModel>> {
-    agent_settings::AgentSettings::get_global(cx)
-        .enabled
-        .then(|| {
-            let ConfiguredModel { provider, model } =
-                LanguageModelRegistry::read_global(cx).commit_message_model()?;
-
-            provider.is_authenticated(cx).then(|| model)
-        })
-        .flatten()
+    let ConfiguredModel { provider, model } =
+        LanguageModelRegistry::read_global(cx).commit_message_model()?;
+    provider.is_authenticated(cx).then(|| model)
 }
 
 impl Render for GitPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let project = self.project.read(cx);
         let has_entries = self.entries.len() > 0;
-        let room = self
-            .workspace
-            .upgrade()
-            .and_then(|workspace| workspace.read(cx).active_call()?.read(cx).room().cloned());
-
         let has_write_access = self.has_write_access(cx);
-
-        let has_co_authors = room.map_or(false, |room| {
-            room.read(cx)
-                .remote_participants()
-                .values()
-                .any(|remote_participant| remote_participant.can_write())
-        });
+        let has_co_authors = false;
 
         v_flex()
             .id("git_panel")
             .key_context(self.dispatch_context(window, cx))
             .track_focus(&self.focus_handle)
             .on_modifiers_changed(cx.listener(Self::handle_modifiers_changed))
-            .when(has_write_access && !project.is_read_only(cx), |this| {
+            .when(has_write_access && !project.is_read_only(), |this| {
                 this.on_action(cx.listener(Self::toggle_staged_for_selected))
                     .on_action(cx.listener(GitPanel::commit))
                     .on_action(cx.listener(GitPanel::amend))
@@ -4440,17 +4363,17 @@ impl RenderOnce for PanelRepoFooter {
             .truncate(true)
             .tooltip(Tooltip::for_action_title(
                 "Switch Branch",
-                &zed_actions::git::Switch,
+                &vector_actions::git::Switch,
             ))
             .on_click(|_, window, cx| {
-                window.dispatch_action(zed_actions::git::Switch.boxed_clone(), cx);
+                window.dispatch_action(vector_actions::git::Switch.boxed_clone(), cx);
             });
 
         let branch_selector = PopoverMenu::new("popover-button")
             .menu(move |window, cx| Some(branch_picker::popover(repo.clone(), window, cx)))
             .trigger_with_tooltip(
                 branch_selector_button,
-                Tooltip::for_action_title("Switch Branch", &zed_actions::git::Switch),
+                Tooltip::for_action_title("Switch Branch", &vector_actions::git::Switch),
             )
             .anchor(Corner::BottomLeft)
             .offset(gpui::Point {
@@ -4560,7 +4483,7 @@ impl Component for PanelRepoFooter {
                 is_head: true,
                 ref_name: branch_name.to_string().into(),
                 upstream: upstream.map(|tracking| Upstream {
-                    ref_name: format!("zed/{}", branch_name).into(),
+                    ref_name: format!("vector/{}", branch_name).into(),
                     tracking,
                 }),
                 most_recent_commit: Some(CommitSummary {
@@ -4678,7 +4601,7 @@ impl Component for PanelRepoFooter {
                                     .w(example_width)
                                     .overflow_hidden()
                                     .child(PanelRepoFooter::new_preview(
-                                        SharedString::from("zed"),
+                                        SharedString::from("vector"),
                                         Some(custom("main", behind_upstream)),
                                     ))
                                     .into_any_element(),
@@ -4689,7 +4612,7 @@ impl Component for PanelRepoFooter {
                                     .w(example_width)
                                     .overflow_hidden()
                                     .child(PanelRepoFooter::new_preview(
-                                        SharedString::from("zed"),
+                                        SharedString::from("vector"),
                                         Some(custom(
                                             "redesign-and-update-git-ui-list-entry-style",
                                             behind_upstream,
@@ -4703,7 +4626,7 @@ impl Component for PanelRepoFooter {
                                     .w(example_width)
                                     .overflow_hidden()
                                     .child(PanelRepoFooter::new_preview(
-                                        SharedString::from("zed-industries-community-examples"),
+                                        SharedString::from("vector-editor-community-examples"),
                                         Some(custom("gpui", ahead_of_upstream)),
                                     ))
                                     .into_any_element(),
@@ -4714,7 +4637,7 @@ impl Component for PanelRepoFooter {
                                     .w(example_width)
                                     .overflow_hidden()
                                     .child(PanelRepoFooter::new_preview(
-                                        SharedString::from("zed-industries-community-examples"),
+                                        SharedString::from("vector-editor-community-examples"),
                                         Some(custom(
                                             "redesign-and-update-git-ui-list-entry-style",
                                             behind_upstream,
@@ -4739,7 +4662,7 @@ impl Component for PanelRepoFooter {
                                     .w(example_width)
                                     .overflow_hidden()
                                     .child(PanelRepoFooter::new_preview(
-                                        SharedString::from("zed"),
+                                        SharedString::from("vector"),
                                         Some(custom("update-README", behind_upstream)),
                                     ))
                                     .into_any_element(),
@@ -4772,7 +4695,6 @@ mod tests {
         cx.update(|cx| {
             let settings_store = SettingsStore::test(cx);
             cx.set_global(settings_store);
-            AgentSettings::register(cx);
             WorktreeSettings::register(cx);
             workspace::init_settings(cx);
             theme::init(LoadThemes::JustBase, cx);
@@ -4790,7 +4712,7 @@ mod tests {
         fs.insert_tree(
             "/root",
             json!({
-                "zed": {
+                "vector": {
                     ".git": {},
                     "crates": {
                         "gpui": {
@@ -4806,7 +4728,7 @@ mod tests {
         .await;
 
         fs.set_status_for_repo(
-            Path::new(path!("/root/zed/.git")),
+            Path::new(path!("/root/vector/.git")),
             &[
                 (
                     Path::new("crates/gpui/gpui.rs"),
@@ -4820,7 +4742,7 @@ mod tests {
         );
 
         let project =
-            Project::test(fs.clone(), [path!("/root/zed/crates/gpui").as_ref()], cx).await;
+            Project::test(fs.clone(), [path!("/root/vector/crates/gpui").as_ref()], cx).await;
         let (workspace, cx) =
             cx.add_window_view(|window, cx| Workspace::test_new(project.clone(), window, cx));
 
@@ -4858,13 +4780,13 @@ mod tests {
                     header: Section::Tracked
                 }),
                 GitListEntry::GitStatusEntry(GitStatusEntry {
-                    abs_path: path!("/root/zed/crates/gpui/gpui.rs").into(),
+                    abs_path: path!("/root/vector/crates/gpui/gpui.rs").into(),
                     repo_path: "crates/gpui/gpui.rs".into(),
                     status: StatusCode::Modified.worktree(),
                     staging: StageStatus::Unstaged,
                 }),
                 GitListEntry::GitStatusEntry(GitStatusEntry {
-                    abs_path: path!("/root/zed/crates/util/util.rs").into(),
+                    abs_path: path!("/root/vector/crates/util/util.rs").into(),
                     repo_path: "crates/util/util.rs".into(),
                     status: StatusCode::Modified.worktree(),
                     staging: StageStatus::Unstaged,
@@ -4889,8 +4811,8 @@ mod tests {
         //pretty_assertions::assert_eq!(
         //    worktree_roots,
         //    vec![
-        //        Path::new(path!("/root/zed/crates/gpui")).into(),
-        //        Path::new(path!("/root/zed/crates/util/util.rs")).into(),
+        //        Path::new(path!("/root/vector/crates/gpui")).into(),
+        //        Path::new(path!("/root/vector/crates/util/util.rs")).into(),
         //    ]
         //);
 
@@ -4903,7 +4825,7 @@ mod tests {
         //        .collect::<Vec<_>>();
         //    assert_eq!(
         //        filtered_entries,
-        //        [Path::new(path!("/root/zed/crates/gpui")).into()]
+        //        [Path::new(path!("/root/vector/crates/gpui")).into()]
         //    );
         //    // But we can select it artificially here.
         //    let repo_from_single_file_worktree = git_store
@@ -4911,7 +4833,7 @@ mod tests {
         //        .values()
         //        .find(|repo| {
         //            repo.read(cx).worktree_abs_path.as_ref()
-        //                == Path::new(path!("/root/zed/crates/util/util.rs"))
+        //                == Path::new(path!("/root/vector/crates/util/util.rs"))
         //        })
         //        .unwrap()
         //        .clone();
@@ -4933,13 +4855,13 @@ mod tests {
                     header: Section::Tracked
                 }),
                 GitListEntry::GitStatusEntry(GitStatusEntry {
-                    abs_path: path!("/root/zed/crates/gpui/gpui.rs").into(),
+                    abs_path: path!("/root/vector/crates/gpui/gpui.rs").into(),
                     repo_path: "crates/gpui/gpui.rs".into(),
                     status: StatusCode::Modified.worktree(),
                     staging: StageStatus::Unstaged,
                 }),
                 GitListEntry::GitStatusEntry(GitStatusEntry {
-                    abs_path: path!("/root/zed/crates/util/util.rs").into(),
+                    abs_path: path!("/root/vector/crates/util/util.rs").into(),
                     repo_path: "crates/util/util.rs".into(),
                     status: StatusCode::Modified.worktree(),
                     staging: StageStatus::Unstaged,

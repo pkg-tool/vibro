@@ -1073,7 +1073,7 @@ enum WindowOpenState {
 }
 
 fn register_wnd_class(icon_handle: HICON) -> PCWSTR {
-    const CLASS_NAME: PCWSTR = w!("Zed::Window");
+    const CLASS_NAME: PCWSTR = w!("Vector::Window");
 
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
@@ -1149,7 +1149,7 @@ fn get_module_handle() -> HMODULE {
         let mut h_module = std::mem::zeroed();
         GetModuleHandleExW(
             GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-            windows::core::w!("ZedModule"),
+            windows::core::w!("VectorModule"),
             &mut h_module,
         )
         .expect("Unable to get module handle"); // this should never fail

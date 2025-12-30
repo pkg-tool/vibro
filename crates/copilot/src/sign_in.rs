@@ -253,7 +253,7 @@ impl CopilotCodeVerification {
             .flex_1()
             .gap_2()
             .items_center()
-            .child(Headline::new("Use GitHub Copilot in Zed.").size(HeadlineSize::Large))
+            .child(Headline::new("Use GitHub Copilot in Vector.").size(HeadlineSize::Large))
             .child(
                 Label::new("Using Copilot requires an active subscription on GitHub.")
                     .color(Color::Muted),
@@ -367,7 +367,7 @@ impl Render for CopilotCodeVerification {
                 window.focus(&this.focus_handle);
             }))
             .child(
-                Vector::new(VectorName::ZedXCopilot, rems(8.), rems(4.))
+                Vector::new(VectorName::VectorXCopilot, rems(8.), rems(4.))
                     .color(Color::Custom(cx.theme().colors().icon)),
             )
             .child(prompt)

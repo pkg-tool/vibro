@@ -1,14 +1,14 @@
 # Debugger (Beta)
 
-Zed uses the Debug Adapter Protocol (DAP) to provide debugging functionality across multiple programming languages.
+Vector uses the Debug Adapter Protocol (DAP) to provide debugging functionality across multiple programming languages.
 DAP is a standardized protocol that defines how debuggers, editors, and IDEs communicate with each other.
-It allows Zed to support various debuggers without needing to implement language-specific debugging logic.
+It allows Vector to support various debuggers without needing to implement language-specific debugging logic.
 This protocol enables features like setting breakpoints, stepping through code, inspecting variables,
 and more, in a consistent manner across different programming languages and runtime environments.
 
 ## Supported Debug Adapters
 
-Zed supports a variety of debug adapters for different programming languages:
+Vector supports a variety of debug adapters for different programming languages:
 
 - JavaScript (node): Enables debugging of Node.js applications, including setting breakpoints, stepping through code, and inspecting variables in JavaScript.
 
@@ -24,13 +24,13 @@ Zed supports a variety of debug adapters for different programming languages:
 
 - Ruby (rdbg): Provides debugging capabilities for Ruby applications
 
-These adapters enable Zed to provide a consistent debugging experience across multiple languages while leveraging the specific features and capabilities of each debugger.
+These adapters enable Vector to provide a consistent debugging experience across multiple languages while leveraging the specific features and capabilities of each debugger.
 
 ## Getting Started
 
 For basic debugging, you can set up a new configuration by opening the `New Session Modal` either via the `debugger: start` (default: f4) or by clicking the plus icon at the top right of the debug panel.
 
-For more advanced use cases, you can create debug configurations by directly editing the `.zed/debug.json` file in your project root directory.
+For more advanced use cases, you can create debug configurations by directly editing the `.vector/debug.json` file in your project root directory.
 
 You can then use the `New Session Modal` to select a configuration and start debugging.
 
@@ -43,17 +43,17 @@ While configuration fields are debug adapter-dependent, most adapters support th
   {
     // The label for the debug configuration and used to identify the debug session inside the debug panel & new session modal
     "label": "Example Start debugger config",
-    // The debug adapter that Zed should use to debug the program
+    // The debug adapter that Vector should use to debug the program
     "adapter": "Example adapter name",
     // Request:
-    //  - launch: Zed will launch the program if specified or shows a debug terminal with the right configuration
-    //  - attach: Zed will attach to a running program to debug it or when the process_id is not specified we will show a process picker (only supported for node currently)
+    //  - launch: Vector will launch the program if specified or shows a debug terminal with the right configuration
+    //  - attach: Vector will attach to a running program to debug it or when the process_id is not specified we will show a process picker (only supported for node currently)
     "request": "launch",
     // program: The program that you want to debug
     // This field supports path resolution with ~ or . symbols
     "program": "path_to_program",
-    // cwd: defaults to the current working directory of your project ($ZED_WORKTREE_ROOT)
-    "cwd": "$ZED_WORKTREE_ROOT"
+    // cwd: defaults to the current working directory of your project ($VECTOR_WORKTREE_ROOT)
+    "cwd": "$VECTOR_WORKTREE_ROOT"
   }
 ]
 ```
@@ -62,7 +62,7 @@ While configuration fields are debug adapter-dependent, most adapters support th
 
 All configuration fields support task variables. See [Tasks Variables](./tasks.md#variables)
 
-Zed also allows embedding a task that is run before the debugger starts. This is useful for setting up the environment or running any necessary setup steps before the debugger starts.
+Vector also allows embedding a task that is run before the debugger starts. This is useful for setting up the environment or running any necessary setup steps before the debugger starts.
 
 See an example [here](#build-binary-then-debug)
 
@@ -75,7 +75,7 @@ See an example [here](#build-binary-then-debug)
   {
     "label": "Active File",
     "adapter": "Debugpy",
-    "program": "$ZED_FILE",
+    "program": "$VECTOR_FILE",
     "request": "launch"
   }
 ]
@@ -103,7 +103,7 @@ For a common Flask Application with a file structure similar to the following:
     "adapter": "Debugpy",
     "request": "launch",
     "module": "app",
-    "cwd": "$ZED_WORKTREE_ROOT",
+    "cwd": "$VECTOR_WORKTREE_ROOT",
     "env": {
       "FLASK_APP": "app",
       "FLASK_DEBUG": "1"
@@ -130,7 +130,7 @@ For a common Flask Application with a file structure similar to the following:
 [
   {
     "label": "Debug native binary",
-    "program": "$ZED_WORKTREE_ROOT/build/binary",
+    "program": "$VECTOR_WORKTREE_ROOT/build/binary",
     "request": "launch",
     "adapter": "CodeLLDB" // GDB is available on non arm macs as well as linux
   }
@@ -147,7 +147,7 @@ For a common Flask Application with a file structure similar to the following:
       "command": "cargo",
       "args": ["build"]
     },
-    "program": "$ZED_WORKTREE_ROOT/target/debug/binary",
+    "program": "$VECTOR_WORKTREE_ROOT/target/debug/binary",
     "request": "launch",
     "adapter": "CodeLLDB" // GDB is available on non arm macs as well as linux
   }
@@ -156,7 +156,7 @@ For a common Flask Application with a file structure similar to the following:
 
 ## Breakpoints
 
-Zed currently supports these types of breakpoints:
+Vector currently supports these types of breakpoints:
 
 - Standard Breakpoints: Stop at the breakpoint when it's hit
 - Log Breakpoints: Output a log message instead of stopping at the breakpoint when it's hit
@@ -170,10 +170,10 @@ Other kinds of breakpoints can be toggled/edited by right-clicking on the breakp
 ## Settings
 
 - `stepping_granularity`: Determines the stepping granularity.
-- `save_breakpoints`: Whether the breakpoints should be reused across Zed sessions.
+- `save_breakpoints`: Whether the breakpoints should be reused across Vector sessions.
 - `button`: Whether to show the debug button in the status bar.
 - `timeout`: Time in milliseconds until timeout error when connecting to a TCP debug adapter.
-- `log_dap_communications`: Whether to log messages between active debug adapters and Zed.
+- `log_dap_communications`: Whether to log messages between active debug adapters and Vector.
 - `format_dap_log_messages`: Whether to format DAP messages when adding them to the debug adapter logger.
 
 ### Stepping granularity
@@ -218,7 +218,7 @@ Other kinds of breakpoints can be toggled/edited by right-clicking on the breakp
 
 ### Save Breakpoints
 
-- Description: Whether the breakpoints should be saved across Zed sessions.
+- Description: Whether the breakpoints should be saved across Vector sessions.
 - Default: true
 - Setting: debugger.save_breakpoints
 
@@ -272,7 +272,7 @@ Other kinds of breakpoints can be toggled/edited by right-clicking on the breakp
 
 ### Log Dap Communications
 
-- Description: Whether to log messages between active debug adapters and Zed. (Used for DAP development)
+- Description: Whether to log messages between active debug adapters and Vector. (Used for DAP development)
 - Default: false
 - Setting: debugger.log_dap_communications
 

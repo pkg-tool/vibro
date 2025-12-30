@@ -1,8 +1,31 @@
-use dap_types::SteppingGranularity;
 use gpui::{App, Global};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use settings::{Settings, SettingsSources};
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SteppingGranularitySetting {
+    Statement,
+    Line,
+    Instruction,
+}
+
+impl Default for SteppingGranularitySetting {
+    fn default() -> Self {
+        Self::Line
+    }
+}
+
+impl SteppingGranularitySetting {
+    pub fn to_dap(self) -> dap_types::SteppingGranularity {
+        match self {
+            Self::Statement => dap_types::SteppingGranularity::Statement,
+            Self::Line => dap_types::SteppingGranularity::Line,
+            Self::Instruction => dap_types::SteppingGranularity::Instruction,
+        }
+    }
+}
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -18,8 +41,8 @@ pub struct DebuggerSettings {
     /// Determines the stepping granularity.
     ///
     /// Default: line
-    pub stepping_granularity: SteppingGranularity,
-    /// Whether the breakpoints should be reused across Zed sessions.
+    pub stepping_granularity: SteppingGranularitySetting,
+    /// Whether the breakpoints should be reused across Vector sessions.
     ///
     /// Default: true
     pub save_breakpoints: bool,
@@ -31,7 +54,7 @@ pub struct DebuggerSettings {
     ///
     /// Default: 2000ms
     pub timeout: u64,
-    /// Whether to log messages between active debug adapters and Zed
+    /// Whether to log messages between active debug adapters and Vector
     ///
     /// Default: true
     pub log_dap_communications: bool,
@@ -50,7 +73,7 @@ impl Default for DebuggerSettings {
         Self {
             button: true,
             save_breakpoints: true,
-            stepping_granularity: SteppingGranularity::Line,
+            stepping_granularity: SteppingGranularitySetting::Line,
             timeout: 2000,
             log_dap_communications: true,
             format_dap_log_messages: true,

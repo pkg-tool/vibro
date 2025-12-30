@@ -27,7 +27,6 @@ test-support = [
 
 [dependencies]
 anyhow.workspace = true
-client.workspace = true
 collections.workspace = true
 command_palette_hooks.workspace = true
 dap.workspace = true
@@ -47,7 +46,6 @@ paths.workspace = true
 picker.workspace = true
 pretty_assertions.workspace = true
 project.workspace = true
-rpc.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 settings.workspace = true
@@ -63,7 +61,7 @@ workspace.workspace = true
 workspace-hack.workspace = true
 debugger_tools = { workspace = true, optional = true }
 unindent = { workspace = true, optional = true }
-zed_actions.workspace = true
+vector_actions.workspace = true
 
 [dev-dependencies]
 dap = { workspace = true, features = ["test-support"] }

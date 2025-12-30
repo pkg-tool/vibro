@@ -165,10 +165,6 @@ impl LanguageModel for FakeLanguageModel {
         false
     }
 
-    fn telemetry_id(&self) -> String {
-        "fake".to_string()
-    }
-
     fn max_token_count(&self) -> usize {
         1000000
     }

@@ -29,26 +29,26 @@ exit 1
 fi
 echo "Uploading nightly for target: $target"
 
-bucket_name="zed-nightly-host"
+bucket_name="vector-nightly-host"
 
 sha=$(git rev-parse HEAD)
 echo ${sha} > target/latest-sha
 
-find target -type f -name "zed-remote-server-*.gz" -print0 | while IFS= read -r -d '' file_to_upload; do
+find target -type f -name "vector-remote-server-*.gz" -print0 | while IFS= read -r -d '' file_to_upload; do
     upload_to_blob_store $bucket_name "$file_to_upload" "nightly/$(basename "$file_to_upload")"
     rm -f "$file_to_upload"
 done
 
 case "$target" in
     macos)
-        upload_to_blob_store $bucket_name "target/aarch64-apple-darwin/release/Zed.dmg" "nightly/Zed-aarch64.dmg"
-        upload_to_blob_store $bucket_name "target/x86_64-apple-darwin/release/Zed.dmg" "nightly/Zed-x86_64.dmg"
+        upload_to_blob_store $bucket_name "target/aarch64-apple-darwin/release/Vector.dmg" "nightly/Vector-aarch64.dmg"
+        upload_to_blob_store $bucket_name "target/x86_64-apple-darwin/release/Vector.dmg" "nightly/Vector-x86_64.dmg"
         upload_to_blob_store $bucket_name "target/latest-sha" "nightly/latest-sha"
-        rm -f "target/aarch64-apple-darwin/release/Zed.dmg" "target/x86_64-apple-darwin/release/Zed.dmg" "target/release/Zed.dmg"
+        rm -f "target/aarch64-apple-darwin/release/Vector.dmg" "target/x86_64-apple-darwin/release/Vector.dmg" "target/release/Vector.dmg"
         rm -f "target/latest-sha"
         ;;
     linux-targz)
-        find . -type f -name "zed-*.tar.gz" -print0 | while IFS= read -r -d '' file_to_upload; do
+        find . -type f -name "vector-*.tar.gz" -print0 | while IFS= read -r -d '' file_to_upload; do
             upload_to_blob_store $bucket_name "$file_to_upload" "nightly/$(basename "$file_to_upload")"
             rm -f "$file_to_upload"
         done

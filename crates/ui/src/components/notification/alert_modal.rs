@@ -99,10 +99,9 @@ impl Component for AlertModal {
                     vec![
                         single_example(
                             "Basic Alert",
-                            AlertModal::new("simple-modal", "Do you want to leave the current call?")
-                                .child("The current window will be closed, and connections to any shared projects will be terminated."
-                                )
-                                .primary_action("Leave Call")
+                            AlertModal::new("simple-modal", "Do you want to close this window?")
+                                .child("The current window will be closed.")
+                                .primary_action("Close Window")
                                 .into_any_element(),
                         )
                     ],

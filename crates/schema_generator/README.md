@@ -1,6 +1,6 @@
-# Zed Schema Generator
+# Vector Schema Generator
 
-Prints various Zed schemas to stdout.
+Prints various Vector schemas to stdout.
 
 ## Usage
 

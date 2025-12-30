@@ -15,7 +15,6 @@ doctest = false
 [features]
 test-support = [
     "buffer_diff/test-support",
-    "client/test-support",
     "language/test-support",
     "settings/test-support",
     "text/test-support",
@@ -33,7 +32,6 @@ askpass.workspace = true
 async-trait.workspace = true
 buffer_diff.workspace = true
 circular-buffer.workspace = true
-client.workspace = true
 clock.workspace = true
 collections.workspace = true
 context_server.workspace = true
@@ -62,8 +60,6 @@ postage.workspace = true
 prettier.workspace = true
 rand.workspace = true
 regex.workspace = true
-remote.workspace = true
-rpc.workspace = true
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -88,7 +84,6 @@ zlog.workspace = true
 workspace-hack.workspace = true
 
 [dev-dependencies]
-client = { workspace = true, features = ["test-support"] }
 collections = { workspace = true, features = ["test-support"] }
 buffer_diff = { workspace = true, features = ["test-support"] }
 dap = { workspace = true, features = ["test-support"] }
@@ -101,7 +96,6 @@ lsp = { workspace = true, features = ["test-support"] }
 prettier = { workspace = true, features = ["test-support"] }
 pretty_assertions.workspace = true
 release_channel.workspace = true
-rpc = { workspace = true, features = ["test-support"] }
 settings = { workspace = true, features = ["test-support"] }
 unindent.workspace = true
 util = { workspace = true, features = ["test-support"] }

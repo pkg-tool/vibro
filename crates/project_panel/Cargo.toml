@@ -35,15 +35,13 @@ smallvec.workspace = true
 theme.workspace = true
 ui.workspace = true
 util.workspace = true
-client.workspace = true
 worktree.workspace = true
 workspace.workspace = true
 language.workspace = true
-zed_actions.workspace = true
+vector_actions.workspace = true
 workspace-hack.workspace = true
 
 [dev-dependencies]
-client = { workspace = true, features = ["test-support"] }
 editor = { workspace = true, features = ["test-support"] }
 gpui = { workspace = true, features = ["test-support"] }
 language = { workspace = true, features = ["test-support"] }

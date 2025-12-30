@@ -179,11 +179,10 @@ impl CommitModal {
             git_panel.set_modal_open(true, cx);
             let buffer = git_panel.commit_message_buffer(cx).clone();
             let panel_editor = git_panel.commit_editor.clone();
-            let project = git_panel.project.clone();
 
             cx.new(|cx| {
                 let mut editor =
-                    commit_message_editor(buffer, None, project.clone(), false, window, cx);
+                    commit_message_editor(buffer, None, false, window, cx);
                 editor.sync_selections(panel_editor, cx).detach();
 
                 editor
@@ -332,10 +331,10 @@ impl CommitModal {
             .icon_position(IconPosition::Start)
             .tooltip(Tooltip::for_action_title(
                 "Switch Branch",
-                &zed_actions::git::Branch,
+                &vector_actions::git::Branch,
             ))
             .on_click(cx.listener(|_, _, window, cx| {
-                window.dispatch_action(zed_actions::git::Branch.boxed_clone(), cx);
+                window.dispatch_action(vector_actions::git::Branch.boxed_clone(), cx);
             }))
             .style(ButtonStyle::Transparent);
 
@@ -344,7 +343,7 @@ impl CommitModal {
             .with_handle(self.branch_list_handle.clone())
             .trigger_with_tooltip(
                 branch_picker_button,
-                Tooltip::for_action_title("Switch Branch", &zed_actions::git::Branch),
+                Tooltip::for_action_title("Switch Branch", &vector_actions::git::Branch),
             )
             .anchor(Corner::BottomLeft)
             .offset(gpui::Point {
@@ -414,7 +413,6 @@ impl CommitModal {
                                 })
                                 .disabled(!can_commit)
                                 .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                                    telemetry::event!("Git Amended", source = "Git Modal");
                                     this.git_panel.update(cx, |git_panel, cx| {
                                         git_panel.set_amend_pending(false, cx);
                                         git_panel.commit_changes(
@@ -441,7 +439,6 @@ impl CommitModal {
                                         .mr_0p5(),
                                 )
                                 .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                                    telemetry::event!("Git Committed", source = "Git Modal");
                                     this.git_panel.update(cx, |git_panel, cx| {
                                         git_panel.commit_changes(
                                             CommitOptions { amend: false },
@@ -498,10 +495,6 @@ impl CommitModal {
                                     .disabled(!can_commit)
                                     .on_click(cx.listener(
                                         move |this, _: &ClickEvent, window, cx| {
-                                            telemetry::event!(
-                                                "Git Committed",
-                                                source = "Git Modal"
-                                            );
                                             this.git_panel.update(cx, |git_panel, cx| {
                                                 git_panel.commit_changes(
                                                     CommitOptions { amend: false },
@@ -531,7 +524,6 @@ impl CommitModal {
         if self.git_panel.read(cx).amend_pending() {
             return;
         }
-        telemetry::event!("Git Committed", source = "Git Modal");
         self.git_panel.update(cx, |git_panel, cx| {
             git_panel.commit_changes(CommitOptions { amend: false }, window, cx)
         });
@@ -555,7 +547,6 @@ impl CommitModal {
                 git_panel.load_last_commit_message_if_empty(cx);
             });
         } else {
-            telemetry::event!("Git Amended", source = "Git Modal");
             self.git_panel.update(cx, |git_panel, cx| {
                 git_panel.set_amend_pending(false, cx);
                 git_panel.commit_changes(CommitOptions { amend: true }, window, cx);
@@ -593,17 +584,17 @@ impl Render for CommitModal {
                 })
             }))
             .on_action(
-                cx.listener(|this, _: &zed_actions::git::Branch, window, cx| {
+                cx.listener(|this, _: &vector_actions::git::Branch, window, cx| {
                     this.toggle_branch_selector(window, cx);
                 }),
             )
             .on_action(
-                cx.listener(|this, _: &zed_actions::git::CheckoutBranch, window, cx| {
+                cx.listener(|this, _: &vector_actions::git::CheckoutBranch, window, cx| {
                     this.toggle_branch_selector(window, cx);
                 }),
             )
             .on_action(
-                cx.listener(|this, _: &zed_actions::git::Switch, window, cx| {
+                cx.listener(|this, _: &vector_actions::git::Switch, window, cx| {
                     this.toggle_branch_selector(window, cx);
                 }),
             )

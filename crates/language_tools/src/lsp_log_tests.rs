@@ -111,7 +111,6 @@ fn init_test(cx: &mut gpui::TestAppContext) {
         theme::init(theme::LoadThemes::JustBase, cx);
         release_channel::init(SemanticVersion::default(), cx);
         language::init(cx);
-        client::init_settings(cx);
         Project::init_settings(cx);
         editor::init_settings(cx);
     });

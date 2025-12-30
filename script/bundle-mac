@@ -13,7 +13,7 @@ bundle_name=""
 can_code_sign=false
 
 # This must match the team in the provisioning profile.
-IDENTITY="Zed Industries, Inc."
+IDENTITY="Vector"
 APPLE_NOTARIZATION_TEAM="MQ55VZLNZQ"
 
 # Function for displaying help info
@@ -64,16 +64,14 @@ if [[ $# -gt 0 ]]; then
 fi
 
 # Get release channel
-pushd crates/zed
-channel=$(<RELEASE_CHANNEL)
-export ZED_RELEASE_CHANNEL="${channel}"
-popd
+channel=$(<crates/release_channel/RELEASE_CHANNEL)
+export VECTOR_RELEASE_CHANNEL="${channel}"
 
-export ZED_BUNDLE=true
+export VECTOR_BUNDLE=true
 
 cargo_bundle_version=$(cargo -q bundle --help 2>&1 | head -n 1 || echo "")
-if [ "$cargo_bundle_version" != "cargo-bundle v0.6.1-zed" ]; then
-    cargo install cargo-bundle --git https://github.com/zed-industries/cargo-bundle.git --branch zed-deploy
+if [ "$cargo_bundle_version" != "cargo-bundle v0.6.1" ]; then
+    cargo install cargo-bundle --version 0.6.1
 fi
 
 # Deal with versions of macOS that don't include libstdc++ headers
@@ -88,17 +86,14 @@ script/generate-licenses
 
 if [ "$local_arch" = true ]; then
     echo "Building for local target only."
-    cargo build ${build_flag} --package zed --package cli --package remote_server
+    cargo build ${build_flag} --package vector --package cli
 else
-    echo "Compiling zed binaries"
-    cargo build ${build_flag} --package zed --package cli --target aarch64-apple-darwin --target x86_64-apple-darwin
-    # Build remote_server in separate invocation to prevent feature unification from other crates
-    # from influencing dynamic libraries required by it.
-    cargo build ${build_flag} --package remote_server     --target aarch64-apple-darwin --target x86_64-apple-darwin
+    echo "Compiling vector binaries"
+    cargo build ${build_flag} --package vector --package cli --target aarch64-apple-darwin --target x86_64-apple-darwin
 fi
 
 echo "Creating application bundle"
-pushd crates/zed
+pushd crates/vector
 cp Cargo.toml Cargo.toml.backup
 sed \
     -i.backup \
@@ -121,18 +116,18 @@ if [[ -n "${MACOS_CERTIFICATE:-}" && -n "${MACOS_CERTIFICATE_PASSWORD:-}" && -n 
     can_code_sign=true
 
     echo "Setting up keychain for code signing..."
-    security create-keychain -p "$MACOS_CERTIFICATE_PASSWORD" zed.keychain || echo ""
-    security default-keychain -s zed.keychain
-    security unlock-keychain -p "$MACOS_CERTIFICATE_PASSWORD" zed.keychain
-    echo "$MACOS_CERTIFICATE" | base64 --decode > /tmp/zed-certificate.p12
-    security import /tmp/zed-certificate.p12 -k zed.keychain -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-    rm /tmp/zed-certificate.p12
-    security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MACOS_CERTIFICATE_PASSWORD" zed.keychain
+    security create-keychain -p "$MACOS_CERTIFICATE_PASSWORD" vector.keychain || echo ""
+    security default-keychain -s vector.keychain
+    security unlock-keychain -p "$MACOS_CERTIFICATE_PASSWORD" vector.keychain
+    echo "$MACOS_CERTIFICATE" | base64 --decode > /tmp/vector-certificate.p12
+    security import /tmp/vector-certificate.p12 -k vector.keychain -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+    rm /tmp/vector-certificate.p12
+    security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MACOS_CERTIFICATE_PASSWORD" vector.keychain
 
     function cleanup() {
         echo "Cleaning up keychain"
         security default-keychain -s login.keychain
-        security delete-keychain zed.keychain
+        security delete-keychain vector.keychain
     }
 
     trap cleanup EXIT
@@ -191,31 +186,31 @@ function prepare_binaries() {
     local app_path=$2
 
     echo "Unpacking dSYMs for $architecture"
-    exe_path="target/${architecture}/${target_dir}/Zed"
+    exe_path="target/${architecture}/${target_dir}/Vector"
     if ! dsymutil --flat "${exe_path}" 2> target/dsymutil.log; then
         echo "dsymutil failed"
         cat target/dsymutil.log
         exit 1
     fi
     uuid=$(dwarfdump --uuid "${exe_path}" | cut -d ' ' -f 2 | tr 'A-F' 'a-f')
-    version="$(cargo metadata --no-deps --manifest-path crates/zed/Cargo.toml --offline --format-version=1 | jq -r '.packages | map(select(.name == "zed"))[0].version')"
+    version="$(cargo metadata --no-deps --manifest-path crates/vector/Cargo.toml --offline --format-version=1 | jq -r '.packages | map(select(.name == "vector"))[0].version')"
     if [ "$channel" == "nightly" ]; then
         version="$version-$(git rev-parse --short HEAD)"
     fi
 
     echo "Removing existing gzipped dSYMs for $architecture"
-    rm -f target/${architecture}/${target_dir}/Zed.dwarf.gz
+    rm -f target/${architecture}/${target_dir}/Vector.dwarf.gz
 
     echo "Gzipping dSYMs for $architecture"
-    gzip -f target/${architecture}/${target_dir}/Zed.dwarf
+    gzip -f target/${architecture}/${target_dir}/Vector.dwarf
 
     echo "Uploading dSYMs${architecture} for $architecture to by-uuid/${uuid}.dwarf.gz"
     upload_to_blob_store_public \
-        "zed-debug-symbols" \
-        target/${architecture}/${target_dir}/Zed.dwarf.gz \
+        "vector-debug-symbols" \
+        target/${architecture}/${target_dir}/Vector.dwarf.gz \
         "by-uuid/${uuid}.dwarf.gz"
 
-    cp target/${architecture}/${target_dir}/zed "${app_path}/Contents/MacOS/zed"
+    cp target/${architecture}/${target_dir}/vector "${app_path}/Contents/MacOS/vector"
     cp target/${architecture}/${target_dir}/cli "${app_path}/Contents/MacOS/cli"
 }
 
@@ -233,15 +228,15 @@ function sign_app_binaries() {
     download_git "${architecture}" "${app_path}/Contents/MacOS/git"
 
     # Note: The app identifier for our development builds is the same as the app identifier for nightly.
-    cp crates/zed/contents/$channel/embedded.provisionprofile "${app_path}/Contents/"
+    cp crates/vector/contents/$channel/embedded.provisionprofile "${app_path}/Contents/"
 
     if [[ $can_code_sign = true ]]; then
         echo "Code signing binaries"
         # sequence of codesign commands modeled after this example: https://developer.apple.com/forums/thread/701514
         /usr/bin/codesign --deep --force --timestamp --options runtime --sign "$IDENTITY" "${app_path}/Contents/MacOS/cli" -v
         /usr/bin/codesign --deep --force --timestamp --options runtime --sign "$IDENTITY" "${app_path}/Contents/MacOS/git" -v
-        /usr/bin/codesign --deep --force --timestamp --options runtime --entitlements crates/zed/resources/zed.entitlements --sign "$IDENTITY" "${app_path}/Contents/MacOS/zed" -v
-        /usr/bin/codesign --force --timestamp --options runtime --entitlements crates/zed/resources/zed.entitlements --sign "$IDENTITY" "${app_path}" -v
+        /usr/bin/codesign --deep --force --timestamp --options runtime --entitlements crates/vector/resources/vector.entitlements --sign "$IDENTITY" "${app_path}/Contents/MacOS/vector" -v
+        /usr/bin/codesign --force --timestamp --options runtime --entitlements crates/vector/resources/vector.entitlements --sign "$IDENTITY" "${app_path}" -v
     else
         echo "One or more of the following variables are missing: MACOS_CERTIFICATE, MACOS_CERTIFICATE_PASSWORD, APPLE_NOTARIZATION_KEY, APPLE_NOTARIZATION_KEY_ID, APPLE_NOTARIZATION_ISSUER_ID"
         if [[ "$local_only" = false ]]; then
@@ -258,9 +253,9 @@ function sign_app_binaries() {
         # - get a signing key for the MQ55VZLNZQ team from Nathan.
         # - create your own signing key, and update references to MQ55VZLNZQ to your own team ID
         # then comment out this line.
-        cat crates/zed/resources/zed.entitlements | sed '/com.apple.developer.associated-domains/,+1d' > "${app_path}/Contents/Resources/zed.entitlements"
+        cat crates/vector/resources/vector.entitlements | sed '/com.apple.developer.associated-domains/,+1d' > "${app_path}/Contents/Resources/vector.entitlements"
 
-        codesign --force --deep --entitlements "${app_path}/Contents/Resources/zed.entitlements" --sign ${MACOS_SIGNING_KEY:- -} "${app_path}" -v
+        codesign --force --deep --entitlements "${app_path}/Contents/Resources/vector.entitlements" --sign ${MACOS_SIGNING_KEY:- -} "${app_path}" -v
     fi
 
     if [[ "$target_dir" = "debug" && "$local_only" = false ]]; then
@@ -301,7 +296,7 @@ function sign_app_binaries() {
     else
         dmg_target_directory="target/${architecture_dir}/${target_dir}"
         dmg_source_directory="${dmg_target_directory}/dmg"
-        dmg_file_path="${dmg_target_directory}/Zed.dmg"
+        dmg_file_path="${dmg_target_directory}/Vector.dmg"
         xcode_bin_dir_path="$(xcode-select -p)/usr/bin"
 
         rm -rf ${dmg_source_directory}
@@ -313,16 +308,20 @@ function sign_app_binaries() {
         ln -s /Applications ${dmg_source_directory}
 
         echo "Creating final DMG at ${dmg_file_path} using ${dmg_source_directory}"
-        hdiutil create -volname Zed -srcfolder "${dmg_source_directory}" -ov -format UDZO "${dmg_file_path}"
+        hdiutil create -volname Vector -srcfolder "${dmg_source_directory}" -ov -format UDZO "${dmg_file_path}"
 
         # If someone runs this bundle script locally, a symlink will be placed in `dmg_source_directory`.
-        # This symlink causes CPU issues with Zed if the Zed codebase is the project being worked on, so we simply remove it for now.
+        # This symlink causes CPU issues if the codebase is the project being worked on, so we simply remove it for now.
         echo "Removing symlink to /Applications from ${dmg_source_directory}"
         rm ${dmg_source_directory}/Applications
 
-        echo "Adding license agreement to DMG"
-        npm install --global dmg-license minimist
-        dmg-license script/terms/terms.json "${dmg_file_path}"
+        if [[ -f script/terms/terms.json ]]; then
+            echo "Adding license agreement to DMG"
+            npm install --global dmg-license minimist
+            dmg-license script/terms/terms.json "${dmg_file_path}"
+        else
+            echo "Skipping DMG license agreement (script/terms/terms.json not found)"
+        fi
 
         if [[ $can_code_sign = true ]]; then
             echo "Notarizing DMG with Apple"
@@ -344,14 +343,12 @@ function sign_binary() {
 
     if [[ $can_code_sign = true ]]; then
         echo "Code signing executable $binary_path"
-        /usr/bin/codesign --deep --force --timestamp --options runtime --entitlements crates/zed/resources/zed.entitlements --sign "$IDENTITY" "${binary_path}" -v
+        /usr/bin/codesign --deep --force --timestamp --options runtime --entitlements crates/vector/resources/vector.entitlements --sign "$IDENTITY" "${binary_path}" -v
     fi
 }
 
 if [ "$local_arch" = true ]; then
     sign_app_binaries "$app_path" "$local_target_triple" "$local_target_triple"
-
-    sign_binary "target/release/remote_server"
 else
     # Create universal binary
     prepare_binaries "aarch64-apple-darwin" "$app_path_aarch64"
@@ -360,9 +357,4 @@ else
 
     sign_app_binaries "$app_path_x64" "x86_64-apple-darwin" "x86_64-apple-darwin"
     sign_app_binaries "$app_path_aarch64" "aarch64-apple-darwin" "aarch64-apple-darwin"
-
-    sign_binary "target/x86_64-apple-darwin/release/remote_server"
-    sign_binary "target/aarch64-apple-darwin/release/remote_server"
-    gzip -f --stdout --best target/x86_64-apple-darwin/release/remote_server > target/zed-remote-server-macos-x86_64.gz
-    gzip -f --stdout --best target/aarch64-apple-darwin/release/remote_server > target/zed-remote-server-macos-aarch64.gz
 fi

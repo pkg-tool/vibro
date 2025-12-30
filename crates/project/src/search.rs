@@ -1,6 +1,5 @@
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
 use anyhow::Result;
-use client::proto;
 use fancy_regex::{Captures, Regex, RegexBuilder};
 use gpui::Entity;
 use language::{Buffer, BufferSnapshot, CharKind};
@@ -192,33 +191,6 @@ impl SearchQuery {
         })
     }
 
-    pub fn from_proto(message: proto::SearchQuery) -> Result<Self> {
-        if message.regex {
-            Self::regex(
-                message.query,
-                message.whole_word,
-                message.case_sensitive,
-                message.include_ignored,
-                false,
-                deserialize_path_matches(&message.files_to_include)?,
-                deserialize_path_matches(&message.files_to_exclude)?,
-                message.match_full_paths,
-                None, // search opened only don't need search remote
-            )
-        } else {
-            Self::text(
-                message.query,
-                message.whole_word,
-                message.case_sensitive,
-                message.include_ignored,
-                deserialize_path_matches(&message.files_to_include)?,
-                deserialize_path_matches(&message.files_to_exclude)?,
-                false,
-                None, // search opened only don't need search remote
-            )
-        }
-    }
-
     pub fn with_replacement(mut self, new_replacement: String) -> Self {
         match self {
             Self::Text {
@@ -232,19 +204,6 @@ impl SearchQuery {
                 *replacement = Some(new_replacement);
                 self
             }
-        }
-    }
-
-    pub fn to_proto(&self) -> proto::SearchQuery {
-        proto::SearchQuery {
-            query: self.as_str().to_string(),
-            regex: self.is_regex(),
-            whole_word: self.whole_word(),
-            case_sensitive: self.case_sensitive(),
-            include_ignored: self.include_ignored(),
-            files_to_include: self.files_to_include().sources().join(","),
-            files_to_exclude: self.files_to_exclude().sources().join(","),
-            match_full_paths: self.match_full_paths(),
         }
     }
 

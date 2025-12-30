@@ -101,8 +101,8 @@ impl<T: AsRef<Path>> PathExt for T {
     }
 }
 
-/// Due to the issue of UNC paths on Windows, which can cause bugs in various parts of Zed, introducing this `SanitizedPath`
-/// leverages Rust's type system to ensure that all paths entering Zed are always "sanitized" by removing the `\\\\?\\` prefix.
+/// Due to the issue of UNC paths on Windows, which can cause bugs in various parts of Vector, introducing this `SanitizedPath`
+/// leverages Rust's type system to ensure that all paths entering Vector are always "sanitized" by removing the `\\\\?\\` prefix.
 /// On non-Windows operating systems, this struct is effectively a no-op.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SanitizedPath(pub Arc<Path>);
@@ -697,9 +697,9 @@ mod tests {
         );
 
         assert_eq!(
-            PathWithPosition::parse_str("app-editors:zed-0.143.6:20240710-201212.log:34:"),
+            PathWithPosition::parse_str("app-editors:vector-0.190.0:20240710-201212.log:34:"),
             PathWithPosition {
-                path: PathBuf::from("app-editors:zed-0.143.6:20240710-201212.log"),
+                path: PathBuf::from("app-editors:vector-0.190.0:20240710-201212.log"),
                 row: Some(34),
                 column: None,
             }
@@ -917,7 +917,7 @@ mod tests {
 
     #[test]
     fn project_search() {
-        let path = Path::new("/Users/someonetoignore/work/zed/zed.dev/node_modules");
+        let path = Path::new("/Users/someonetoignore/work/vector/vector.dev/node_modules");
         let path_matcher = PathMatcher::new(&["**/node_modules/**".to_owned()]).unwrap();
         assert!(
             path_matcher.is_match(path),

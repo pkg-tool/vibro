@@ -5,27 +5,26 @@ use super::breakpoint_store::{
 };
 use super::dap_command::{
     self, Attach, ConfigurationDone, ContinueCommand, DapCommand, DisconnectCommand,
-    EvaluateCommand, Initialize, Launch, LoadedSourcesCommand, LocalDapCommand, LocationsCommand,
-    ModulesCommand, NextCommand, PauseCommand, RestartCommand, RestartStackFrameCommand,
-    ScopesCommand, SetExceptionBreakpoints, SetVariableValueCommand, StackTraceCommand,
-    StepBackCommand, StepCommand, StepInCommand, StepOutCommand, TerminateCommand,
-    TerminateThreadsCommand, ThreadsCommand, VariablesCommand,
+    EvaluateCommand, Initialize, Launch, LoadedSourcesCommand, LocalDapCommand, ModulesCommand,
+    NextCommand, PauseCommand, RestartCommand, RestartStackFrameCommand, ScopesCommand,
+    SetExceptionBreakpoints, SetVariableValueCommand, StackTraceCommand, StepBackCommand,
+    StepCommand, StepInCommand, StepOutCommand, TerminateCommand, TerminateThreadsCommand,
+    ThreadsCommand, VariablesCommand,
 };
 use super::dap_store::DapStore;
 use anyhow::{Context as _, Result, anyhow};
 use collections::{HashMap, HashSet, IndexMap, IndexSet};
 use dap::adapters::{DebugAdapterBinary, DebugAdapterName};
-use dap::messages::Response;
-use dap::requests::{Request, RunInTerminal, StartDebugging};
+use dap::protocol::{Event as DapEvent, Message, Request as DapReverseRequest, Response as DapResponse};
+use dap::requests::{Request as _, RunInTerminal, StartDebugging};
 use dap::{
-    Capabilities, ContinueArguments, EvaluateArgumentsContext, Module, Source, StackFrameId,
-    SteppingGranularity, StoppedEvent, VariableReference,
+    Capabilities, EvaluateArgumentsContext, Module, Source, StackFrameId, SteppingGranularity,
+    StoppedEvent, VariableReference,
     client::{DebugAdapterClient, SessionId},
-    messages::{Events, Message},
 };
 use dap::{
-    ExceptionBreakpointsFilter, ExceptionFilterOptions, OutputEvent, OutputEventCategory,
-    RunInTerminalRequestArguments, StartDebuggingRequestArguments,
+    ExceptionBreakpointsFilter, ExceptionFilterOptions, OutputEvent, RunInTerminalRequestArguments,
+    StartDebuggingRequestArguments,
 };
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, future::Shared};
@@ -47,7 +46,7 @@ use std::{
     sync::Arc,
 };
 use text::{PointUtf16, ToPointUtf16};
-use util::ResultExt;
+use util::{ResultExt, merge_non_null_json_value_into};
 use worktree::Worktree;
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, PartialOrd, Ord, Eq)]
@@ -573,6 +572,11 @@ type IsEnabled = bool;
 
 #[derive(Copy, Clone, Default, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub struct OutputToken(pub usize);
+
+fn empty_capabilities() -> Capabilities {
+    serde_json::from_value(Value::Object(Default::default()))
+        .expect("Capabilities should deserialize from an empty JSON object")
+}
 /// Represents a current state of a single debug adapter and provides ways to mutate it.
 pub struct Session {
     pub mode: Mode,
@@ -590,7 +594,6 @@ pub struct Session {
     thread_states: ThreadStates,
     variables: HashMap<VariableReference, Vec<dap::Variable>>,
     stack_frames: IndexMap<StackFrameId, StackFrame>,
-    locations: HashMap<u64, dap::LocationsResponse>,
     is_session_terminated: bool,
     requests: HashMap<TypeId, HashMap<RequestSlot, Shared<Task<Option<()>>>>>,
     pub(crate) breakpoint_store: Entity<BreakpointStore>,
@@ -688,7 +691,7 @@ pub enum SessionEvent {
     ConsoleOutput,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub enum SessionStateEvent {
     Running,
     Shutdown,
@@ -743,7 +746,7 @@ impl Session {
                 id: session_id,
                 child_session_ids: HashSet::default(),
                 parent_session,
-                capabilities: Capabilities::default(),
+                capabilities: empty_capabilities(),
                 variables: Default::default(),
                 stack_frames: Default::default(),
                 thread_states: ThreadStates::default(),
@@ -754,7 +757,6 @@ impl Session {
                 loaded_sources: Vec::default(),
                 threads: IndexMap::default(),
                 background_tasks: Vec::default(),
-                locations: Default::default(),
                 is_session_terminated: false,
                 ignore_breakpoints: false,
                 breakpoint_store,
@@ -788,7 +790,7 @@ impl Session {
             let mut initialized_tx = Some(initialized_tx);
             while let Some(message) = message_rx.next().await {
                 if let Message::Event(event) = message {
-                    if let Events::Initialized(_) = *event {
+                    if event.event == "initialized" {
                         if let Some(tx) = initialized_tx.take() {
                             tx.send(()).ok();
                         }
@@ -907,7 +909,6 @@ impl Session {
                         line: None,
                         column: None,
                         data: None,
-                        location_reference: None,
                     };
                     this.push_output(event, cx);
                 })?;
@@ -950,7 +951,7 @@ impl Session {
 
     fn handle_start_debugging_request(
         &mut self,
-        request: dap::messages::Request,
+        request: DapReverseRequest,
         cx: &mut Context<Self>,
     ) -> Task<Result<()>> {
         let request_seq = request.seq;
@@ -987,7 +988,7 @@ impl Session {
 
     fn handle_run_in_terminal_request(
         &mut self,
-        request: dap::messages::Request,
+        request: DapReverseRequest,
         cx: &mut Context<Self>,
     ) -> Task<Result<()>> {
         let request_args = serde_json::from_value::<RunInTerminalRequestArguments>(
@@ -1022,18 +1023,12 @@ impl Session {
                 ),
                 Err(error) => (
                     false,
-                    serde_json::to_value(dap::ErrorResponse {
-                        error: Some(dap::Message {
-                            id: seq,
-                            format: error.to_string(),
-                            variables: None,
-                            send_telemetry: None,
-                            show_user: None,
-                            url: None,
-                            url_label: None,
-                        }),
-                    })
-                    .ok(),
+                    Some(serde_json::json!({
+                        "error": {
+                            "id": seq,
+                            "format": error.to_string(),
+                        }
+                    })),
                 ),
             };
 
@@ -1171,7 +1166,7 @@ impl Session {
 
         cx.background_spawn(async move {
             client
-                .send_message(Message::Response(Response {
+                .send_message(Message::Response(DapResponse {
                     body,
                     success,
                     command,
@@ -1235,71 +1230,85 @@ impl Session {
         cx.notify();
     }
 
-    pub(crate) fn handle_dap_event(&mut self, event: Box<Events>, cx: &mut Context<Self>) {
-        match *event {
-            Events::Initialized(_) => {
-                debug_assert!(
-                    false,
-                    "Initialized event should have been handled in LocalMode"
-                );
+    pub(crate) fn handle_dap_event(&mut self, event: DapEvent, cx: &mut Context<Self>) {
+        fn body<T: serde::de::DeserializeOwned>(event: &DapEvent) -> Option<T> {
+            serde_json::from_value(event.body.clone()?).ok()
+        }
+
+        match event.event.as_str() {
+            // handled in the boot sequence
+            "initialized" => {}
+
+            "stopped" => {
+                if let Some(event) = body::<StoppedEvent>(&event) {
+                    self.handle_stopped_event(event, cx)
+                }
             }
-            Events::Stopped(event) => self.handle_stopped_event(event, cx),
-            Events::Continued(event) => {
+
+            "continued" => {
+                let Some(event) = body::<dap::ContinuedEvent>(&event) else {
+                    return;
+                };
+
                 if event.all_threads_continued.unwrap_or_default() {
                     self.thread_states.continue_all_threads();
                     self.breakpoint_store.update(cx, |store, cx| {
                         store.remove_active_position(Some(self.session_id()), cx)
                     });
                 } else {
-                    self.thread_states
-                        .continue_thread(ThreadId(event.thread_id));
+                    self.thread_states.continue_thread(ThreadId(event.thread_id));
                 }
+
                 // todo(debugger): We should be able to get away with only invalidating generic if all threads were continued
                 self.invalidate_generic();
             }
-            Events::Exited(_event) => {
-                self.clear_active_debug_line(cx);
-            }
-            Events::Terminated(_) => {
+
+            "exited" => self.clear_active_debug_line(cx),
+
+            "terminated" => {
                 self.shutdown(cx).detach();
             }
-            Events::Thread(event) => {
+
+            "thread" => {
+                let Some(event) = body::<dap::ThreadEvent>(&event) else {
+                    return;
+                };
+
                 let thread_id = ThreadId(event.thread_id);
 
                 match event.reason {
-                    dap::ThreadEventReason::Started => {
-                        self.thread_states.continue_thread(thread_id);
-                    }
-                    dap::ThreadEventReason::Exited => {
-                        self.thread_states.exit_thread(thread_id);
-                    }
-                    reason => {
-                        log::error!("Unhandled thread event reason {:?}", reason);
-                    }
+                    dap::ThreadEventReason::Started => self.thread_states.continue_thread(thread_id),
+                    dap::ThreadEventReason::Exited => self.thread_states.exit_thread(thread_id),
+                    reason => log::error!("Unhandled thread event reason {:?}", reason),
                 }
                 self.invalidate_state(&ThreadsCommand.into());
                 cx.notify();
             }
-            Events::Output(event) => {
-                if event
-                    .category
-                    .as_ref()
-                    .is_some_and(|category| *category == OutputEventCategory::Telemetry)
-                {
-                    return;
-                }
 
+            "output" => {
+                let Some(event) = body::<dap::OutputEvent>(&event) else {
+                    return;
+                };
                 self.push_output(event, cx);
                 cx.notify();
             }
-            Events::Breakpoint(event) => self.breakpoint_store.update(cx, |store, _| {
-                store.update_session_breakpoint(self.session_id(), event.reason, event.breakpoint);
-            }),
-            Events::Module(event) => {
+
+            "breakpoint" => {
+                let Some(event) = body::<dap::BreakpointEvent>(&event) else {
+                    return;
+                };
+                self.breakpoint_store.update(cx, |store, _| {
+                    store.update_session_breakpoint(self.session_id(), event.reason, event.breakpoint);
+                })
+            }
+
+            "module" => {
+                let Some(event) = body::<dap::ModuleEvent>(&event) else {
+                    return;
+                };
+
                 match event.reason {
-                    dap::ModuleEventReason::New => {
-                        self.modules.push(event.module);
-                    }
+                    dap::ModuleEventReason::New => self.modules.push(event.module),
                     dap::ModuleEventReason::Changed => {
                         if let Some(module) = self
                             .modules
@@ -1317,20 +1326,26 @@ impl Session {
                 // todo(debugger): We should only send the invalidate command to downstream clients.
                 // self.invalidate_state(&ModulesCommand.into());
             }
-            Events::LoadedSource(_) => {
+
+            "loadedSource" => {
                 self.invalidate_state(&LoadedSourcesCommand.into());
             }
-            Events::Capabilities(event) => {
-                self.capabilities = self.capabilities.merge(event.capabilities);
-                cx.notify();
+
+            "capabilities" => {
+                let Some(event) = body::<dap::CapabilitiesEvent>(&event) else {
+                    return;
+                };
+
+                let mut current = serde_json::to_value(self.capabilities.clone()).unwrap_or_default();
+                let update = serde_json::to_value(event.capabilities).unwrap_or_default();
+                merge_non_null_json_value_into(update, &mut current);
+                if let Ok(merged) = serde_json::from_value(current) {
+                    self.capabilities = merged;
+                    cx.notify();
+                }
             }
-            Events::Memory(_) => {}
-            Events::Process(_) => {}
-            Events::ProgressEnd(_) => {}
-            Events::ProgressStart(_) => {}
-            Events::ProgressUpdate(_) => {}
-            Events::Invalidated(_) => {}
-            Events::Other(_) => {}
+
+            _ => {}
         }
     }
 
@@ -1772,10 +1787,8 @@ impl Session {
         self.thread_states.continue_thread(thread_id);
         self.request(
             ContinueCommand {
-                args: ContinueArguments {
-                    thread_id: thread_id.0,
-                    single_thread: Some(true),
-                },
+                thread_id: thread_id.0,
+                single_thread: Some(true),
             },
             Self::on_step_response::<ContinueCommand>(thread_id),
             cx,
@@ -2034,7 +2047,6 @@ impl Session {
             filter: None,
             start: None,
             count: None,
-            format: None,
         };
 
         self.fetch(
@@ -2088,7 +2100,6 @@ impl Session {
         expression: String,
         context: Option<EvaluateArgumentsContext>,
         frame_id: Option<u64>,
-        source: Option<Source>,
         cx: &mut Context<Self>,
     ) -> Task<()> {
         let event = dap::OutputEvent {
@@ -2100,14 +2111,12 @@ impl Session {
             line: None,
             column: None,
             data: None,
-            location_reference: None,
         };
         self.push_output(event, cx);
         let request = self.mode.request_dap(EvaluateCommand {
             expression,
             context,
             frame_id,
-            source,
         });
         cx.spawn(async move |this, cx| {
             let response = request.await;
@@ -2123,7 +2132,6 @@ impl Session {
                             line: None,
                             column: None,
                             data: None,
-                            location_reference: None,
                         };
                         this.push_output(event, cx);
                     }
@@ -2137,7 +2145,6 @@ impl Session {
                             line: None,
                             column: None,
                             data: None,
-                            location_reference: None,
                         };
                         this.push_output(event, cx);
                     }
@@ -2147,23 +2154,6 @@ impl Session {
             })
             .ok();
         })
-    }
-
-    pub fn location(
-        &mut self,
-        reference: u64,
-        cx: &mut Context<Self>,
-    ) -> Option<dap::LocationsResponse> {
-        self.fetch(
-            LocationsCommand { reference },
-            move |this, response, _| {
-                let response = response.log_err()?;
-                this.locations.insert(reference, response.clone());
-                Some(response)
-            },
-            cx,
-        );
-        self.locations.get(&reference).cloned()
     }
 
     pub fn disconnect_client(&mut self, cx: &mut Context<Self>) {

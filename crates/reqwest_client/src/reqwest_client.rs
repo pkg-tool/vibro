@@ -28,6 +28,7 @@ impl ReqwestClient {
         reqwest::Client::builder()
             .use_rustls_tls()
             .connect_timeout(Duration::from_secs(10))
+            .redirect(redirect::Policy::none())
     }
 
     pub fn new() -> Self {
@@ -224,29 +225,106 @@ impl http_client::HttpClient for ReqwestClient {
     > {
         let (parts, body) = req.into_parts();
 
-        let mut request = self.client.request(parts.method, parts.uri.to_string());
-        request = request.headers(parts.headers);
-        if let Some(redirect_policy) = parts.extensions.get::<RedirectPolicy>() {
-            request = request.redirect_policy(match redirect_policy {
-                RedirectPolicy::NoFollow => redirect::Policy::none(),
-                RedirectPolicy::FollowLimit(limit) => redirect::Policy::limited(*limit as usize),
-                RedirectPolicy::FollowAll => redirect::Policy::limited(100),
-            });
+        let method = parts.method;
+        let mut headers = parts.headers;
+        let redirect_policy = parts
+            .extensions
+            .get::<RedirectPolicy>()
+            .cloned()
+            .unwrap_or(RedirectPolicy::NoFollow);
+
+        enum Body {
+            Empty,
+            Bytes(Bytes),
+            Stream(Pin<Box<dyn futures::AsyncRead + Send + Sync>>),
         }
-        let request = request.body(match body.0 {
-            http_client::Inner::Empty => reqwest::Body::default(),
-            http_client::Inner::Bytes(cursor) => cursor.into_inner().into(),
-            http_client::Inner::AsyncReader(stream) => {
-                reqwest::Body::wrap_stream(StreamReader::new(stream))
-            }
-        });
+
+        let body = match body.0 {
+            http_client::Inner::Empty => Body::Empty,
+            http_client::Inner::Bytes(cursor) => Body::Bytes(cursor.into_inner()),
+            http_client::Inner::AsyncReader(stream) => Body::Stream(stream),
+        };
 
         let handle = self.handle.clone();
+        let client = self.client.clone();
         async move {
-            let mut response = handle
-                .spawn(async { request.send().await })
-                .await?
-                .map_err(redact_error)?;
+            let mut redirects_remaining = match redirect_policy {
+                RedirectPolicy::NoFollow => 0,
+                RedirectPolicy::FollowLimit(limit) => limit as usize,
+                RedirectPolicy::FollowAll => 100,
+            };
+
+            let mut current_url = Url::parse(&parts.uri.to_string()).map_err(|e| {
+                anyhow!(
+                    "invalid url {:?}: {e}",
+                    parts.uri.to_string()
+                )
+            })?;
+
+            let (stream, bytes) = match body {
+                Body::Empty => (None, None),
+                Body::Bytes(bytes) => (None, Some(bytes)),
+                Body::Stream(stream) => (Some(stream), None),
+            };
+
+            let mut response = if let Some(stream) = stream {
+                if redirects_remaining > 0 {
+                    return Err(anyhow!("cannot follow redirects for streaming request bodies"));
+                }
+
+                let request = client
+                    .request(method.clone(), current_url.to_string())
+                    .headers(headers.clone())
+                    .body(reqwest::Body::wrap_stream(StreamReader::new(stream)));
+
+                handle
+                    .spawn(async { request.send().await })
+                    .await?
+                    .map_err(redact_error)?
+            } else {
+                loop {
+                    let mut request = client
+                        .request(method.clone(), current_url.to_string())
+                        .headers(headers.clone());
+
+                    request = match bytes.as_ref() {
+                        Some(bytes) => request.body(bytes.clone()),
+                        None => request.body(reqwest::Body::default()),
+                    };
+
+                    let response = handle
+                        .spawn(async { request.send().await })
+                        .await?
+                        .map_err(redact_error)?;
+
+                    if redirects_remaining == 0 || !response.status().is_redirection() {
+                        break response;
+                    }
+
+                    let location = response
+                        .headers()
+                        .get(http::header::LOCATION)
+                        .and_then(|value| value.to_str().ok())
+                        .ok_or_else(|| anyhow!("missing or invalid Location header"))?;
+
+                    let next_url = match Url::parse(location) {
+                        Ok(url) => url,
+                        Err(_) => current_url.join(location)?,
+                    };
+
+                    let origin_changed = current_url.scheme() != next_url.scheme()
+                        || current_url.host_str() != next_url.host_str()
+                        || current_url.port_or_known_default() != next_url.port_or_known_default();
+
+                    if origin_changed {
+                        headers.remove(http::header::AUTHORIZATION);
+                        headers.remove(http::header::COOKIE);
+                    }
+
+                    current_url = next_url;
+                    redirects_remaining -= 1;
+                }
+            };
 
             let headers = mem::take(response.headers_mut());
             let mut builder = http::Response::builder()

@@ -373,7 +373,7 @@ mod tests {
 
         // Spawn multiples updates before the first update completes,
         // such that in the end, there are no matches. Testing for regression:
-        // https://github.com/zed-industries/zed/issues/861
+        // https://github.com/vector-editor/vector/issues/861
         symbols.update_in(cx, |p, window, cx| {
             p.update_matches("o".to_string(), window, cx);
             p.update_matches("on".to_string(), window, cx);
@@ -433,7 +433,7 @@ mod tests {
             deprecated: None,
             container_name: None,
             location: lsp::Location::new(
-                lsp::Url::from_file_path(path.as_ref()).unwrap(),
+                lsp::url_from_file_path(path.as_ref()).unwrap(),
                 lsp::Range::new(lsp::Position::new(0, 0), lsp::Position::new(0, 0)),
             ),
         }

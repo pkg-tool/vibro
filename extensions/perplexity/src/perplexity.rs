@@ -1,23 +1,23 @@
-use zed::{
+use vector::{
     http_client::HttpMethod,
     http_client::HttpRequest,
     serde_json::{self, json},
 };
-use zed_extension_api::{self as zed, Result, http_client::RedirectPolicy};
+use vector_extension_api::{self as vector, Result, http_client::RedirectPolicy};
 
 struct Perplexity;
 
-impl zed::Extension for Perplexity {
+impl vector::Extension for Perplexity {
     fn new() -> Self {
         Self
     }
 
     fn run_slash_command(
         &self,
-        command: zed::SlashCommand,
+        command: vector::SlashCommand,
         argument: Vec<String>,
-        worktree: Option<&zed::Worktree>,
-    ) -> zed::Result<zed::SlashCommandOutput> {
+        worktree: Option<&vector::Worktree>,
+    ) -> vector::Result<vector::SlashCommandOutput> {
         // Check if the command is 'perplexity'
         if command.name != "perplexity" {
             return Err("Invalid command. Expected 'perplexity'.".into());
@@ -27,7 +27,7 @@ impl zed::Extension for Perplexity {
         // Join arguments with space as the query
         let query = argument.join(" ");
         if query.is_empty() {
-            return Ok(zed::SlashCommandOutput {
+            return Ok(vector::SlashCommandOutput {
                 text: "Error: Query not provided. Please enter a question or topic.".to_string(),
                 sections: vec![],
             });
@@ -61,7 +61,7 @@ impl zed::Extension for Perplexity {
         };
 
         // Make the HTTP request
-        match zed::http_client::fetch_stream(&request) {
+        match vector::http_client::fetch_stream(&request) {
             Ok(stream) => {
                 let mut full_content = String::new();
                 let mut buffer = String::new();
@@ -78,12 +78,12 @@ impl zed::Extension for Perplexity {
                     }
                     buffer.clear();
                 }
-                Ok(zed::SlashCommandOutput {
+                Ok(vector::SlashCommandOutput {
                     text: full_content,
                     sections: vec![],
                 })
             }
-            Err(e) => Ok(zed::SlashCommandOutput {
+            Err(e) => Ok(vector::SlashCommandOutput {
                 text: format!("API request failed. Error: {}. API Key: {}", e, api_key),
                 sections: vec![],
             }),
@@ -92,16 +92,16 @@ impl zed::Extension for Perplexity {
 
     fn complete_slash_command_argument(
         &self,
-        _command: zed::SlashCommand,
+        _: vector::SlashCommand,
         query: Vec<String>,
-    ) -> zed::Result<Vec<zed::SlashCommandArgumentCompletion>> {
-        let suggestions = vec!["How do I develop a Zed extension?"];
+    ) -> vector::Result<Vec<vector::SlashCommandArgumentCompletion>> {
+        let suggestions = vec!["How do I develop a Vector extension?"];
         let query = query.join(" ").to_lowercase();
 
         Ok(suggestions
             .into_iter()
             .filter(|suggestion| suggestion.to_lowercase().contains(&query))
-            .map(|suggestion| zed::SlashCommandArgumentCompletion {
+            .map(|suggestion| vector::SlashCommandArgumentCompletion {
                 label: suggestion.to_string(),
                 new_text: suggestion.to_string(),
                 run_command: true,
@@ -111,9 +111,9 @@ impl zed::Extension for Perplexity {
 
     fn language_server_command(
         &mut self,
-        _language_server_id: &zed_extension_api::LanguageServerId,
-        _worktree: &zed_extension_api::Worktree,
-    ) -> Result<zed_extension_api::Command> {
+        _: &vector_extension_api::LanguageServerId,
+        _: &vector_extension_api::Worktree,
+    ) -> Result<vector_extension_api::Command> {
         Err("Not implemented".into())
     }
 }
@@ -155,4 +155,4 @@ struct Delta {
     content: String,
 }
 
-zed::register_extension!(Perplexity);
+vector::register_extension!(Perplexity);

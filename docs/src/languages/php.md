@@ -1,6 +1,6 @@
 # PHP
 
-PHP support is available through the [PHP extension](https://github.com/zed-extensions/php).
+PHP support is available through the [PHP extension](https://github.com/vector-extensions/php).
 
 - Tree-sitter: https://github.com/tree-sitter/tree-sitter-php
 - Language Servers:
@@ -15,7 +15,7 @@ The PHP extension offers both `phpactor` and `intelephense` language server supp
 
 ## Phpactor
 
-The Zed PHP Extension can install `phpactor` automatically but requires `php` to installed and available in your path:
+The Vector PHP Extension can install `phpactor` automatically but requires `php` to installed and available in your path:
 
 ```sh
 # brew install php            # macOS
@@ -43,6 +43,6 @@ To switch to `intelephense`, add the following to your `settings.json`:
 
 ## PHPDoc
 
-Zed supports syntax highlighting for PHPDoc comments.
+Vector supports syntax highlighting for PHPDoc comments.
 
 - Tree-sitter: [claytonrcarter/tree-sitter-phpdoc](https://github.com/claytonrcarter/tree-sitter-phpdoc)

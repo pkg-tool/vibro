@@ -14,7 +14,6 @@ doctest = false
 
 [dependencies]
 anyhow.workspace = true
-client.workspace = true
 copilot.workspace = true
 editor.workspace = true
 feature_flags.workspace = true
@@ -27,13 +26,11 @@ paths.workspace = true
 regex.workspace = true
 settings.workspace = true
 supermaven.workspace = true
-telemetry.workspace = true
 ui.workspace = true
 workspace-hack.workspace = true
 workspace.workspace = true
-zed_actions.workspace = true
-zed_llm_client.workspace = true
-zeta.workspace = true
+vector_actions.workspace = true
+vector_llm_client.workspace = true
 
 [dev-dependencies]
 copilot = { workspace = true, features = ["test-support"] }

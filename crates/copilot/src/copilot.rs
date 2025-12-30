@@ -1,4 +1,3 @@
-pub mod copilot_chat;
 mod copilot_completion_provider;
 pub mod request;
 mod sign_in;
@@ -13,7 +12,6 @@ use gpui::{
     App, AppContext as _, AsyncApp, Context, Entity, EntityId, EventEmitter, Global, Task,
     WeakEntity, actions,
 };
-use http_client::HttpClient;
 use language::language_settings::CopilotSettings;
 use language::{
     Anchor, Bias, Buffer, BufferSnapshot, Language, PointUtf16, ToPointUtf16,
@@ -56,12 +54,9 @@ actions!(
 pub fn init(
     new_server_id: LanguageServerId,
     fs: Arc<dyn Fs>,
-    http: Arc<dyn HttpClient>,
     node_runtime: NodeRuntime,
     cx: &mut App,
 ) {
-    copilot_chat::init(fs.clone(), http.clone(), cx);
-
     let copilot = cx.new({
         let node_runtime = node_runtime.clone();
         move |cx| Copilot::start(new_server_id, fs, node_runtime, cx)
@@ -508,11 +503,11 @@ impl Copilot {
 
             let editor_info = request::SetEditorInfoParams {
                 editor_info: request::EditorInfo {
-                    name: "zed".into(),
+                    name: "vector".into(),
                     version: env!("CARGO_PKG_VERSION").into(),
                 },
                 editor_plugin_info: request::EditorPluginInfo {
-                    name: "zed-copilot".into(),
+                    name: "vector-copilot".into(),
                     version: "0.0.1".into(),
                 },
             };
@@ -670,7 +665,7 @@ impl Copilot {
                 })
             }
             CopilotServer::Disabled => cx.background_spawn(async {
-                clear_copilot_config_dir().await;
+                clear_copilot_dir().await;
                 anyhow::Ok(())
             }),
             _ => Task::ready(Err(anyhow!("copilot hasn't started yet"))),
@@ -1064,7 +1059,7 @@ fn id_for_language(language: Option<&Arc<Language>>) -> String {
 
 fn uri_for_buffer(buffer: &Entity<Buffer>, cx: &App) -> lsp::Url {
     if let Some(file) = buffer.read(cx).file().and_then(|file| file.as_local()) {
-        lsp::Url::from_file_path(file.abs_path(cx)).unwrap()
+        lsp::url_from_file_path(file.abs_path(cx)).unwrap()
     } else {
         format!("buffer://{}", buffer.entity_id()).parse().unwrap()
     }
@@ -1072,10 +1067,6 @@ fn uri_for_buffer(buffer: &Entity<Buffer>, cx: &App) -> lsp::Url {
 
 async fn clear_copilot_dir() {
     remove_matching(paths::copilot_dir(), |_| true).await
-}
-
-async fn clear_copilot_config_dir() {
-    remove_matching(copilot_chat::copilot_chat_config_dir(), |_| true).await
 }
 
 async fn get_copilot_lsp(fs: Arc<dyn Fs>, node_runtime: NodeRuntime) -> anyhow::Result<PathBuf> {
@@ -1187,7 +1178,7 @@ mod tests {
                 text_document: lsp::TextDocumentIdentifier::new(buffer_1_uri),
             }
         );
-        let buffer_1_uri = lsp::Url::from_file_path(path!("/root/child/buffer-1")).unwrap();
+        let buffer_1_uri = lsp::url_from_file_path(path!("/root/child/buffer-1")).unwrap();
         assert_eq!(
             lsp.receive_notification::<lsp::notification::DidOpenTextDocument>()
                 .await,
@@ -1295,10 +1286,6 @@ mod tests {
         }
 
         fn file_name<'a>(&'a self, _: &'a App) -> &'a std::ffi::OsStr {
-            unimplemented!()
-        }
-
-        fn to_proto(&self, _: &App) -> rpc::proto::File {
             unimplemented!()
         }
 

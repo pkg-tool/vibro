@@ -1,3 +1,4 @@
+pub mod api;
 pub mod extension_builder;
 mod extension_events;
 mod extension_host_proxy;
@@ -157,11 +158,11 @@ pub fn parse_wasm_extension_version(
         if let wasmparser::Payload::CustomSection(s) =
             part.context("error parsing wasm extension")?
         {
-            if s.name() == "zed:api-version" {
+            if s.name() == "vector:api-version" {
                 version = parse_wasm_extension_version_custom_section(s.data());
                 if version.is_none() {
                     bail!(
-                        "extension {} has invalid zed:api-version section: {:?}",
+                        "extension {} has invalid vector:api-version section: {:?}",
                         extension_id,
                         s.data()
                     );
@@ -175,7 +176,7 @@ pub fn parse_wasm_extension_version(
     //
     // By parsing the entirety of the Wasm bytes before we return, we're able to detect this problem
     // earlier as an `Err` rather than as a panic.
-    version.with_context(|| format!("extension {extension_id} has no zed:api-version section"))
+    version.with_context(|| format!("extension {extension_id} has no vector:api-version section"))
 }
 
 fn parse_wasm_extension_version_custom_section(data: &[u8]) -> Option<SemanticVersion> {

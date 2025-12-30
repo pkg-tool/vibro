@@ -7,7 +7,7 @@ use dap::adapters::{
 };
 use extension::{Extension, WorktreeDelegate};
 use gpui::AsyncApp;
-use task::{DebugScenario, ZedDebugConfig};
+use task::{DebugScenario, VectorDebugConfig};
 
 pub(crate) struct ExtensionDapAdapter {
     extension: Arc<dyn Extension>,
@@ -82,7 +82,11 @@ impl DebugAdapter for ExtensionDapAdapter {
             .await
     }
 
-    fn config_from_zed_format(&self, _zed_scenario: ZedDebugConfig) -> Result<DebugScenario> {
-        Err(anyhow::anyhow!("DAP extensions are not implemented yet"))
+    fn config_from_vector_format(&self, scenario: VectorDebugConfig) -> Result<DebugScenario> {
+        Err(anyhow::anyhow!(
+            "DAP extensions are not implemented yet (task: {}, adapter: {})",
+            scenario.label,
+            scenario.adapter
+        ))
     }
 }
