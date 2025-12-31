@@ -253,8 +253,8 @@ craneLib.buildPackage (
 
     meta = {
       description = "High-performance code editor";
-      homepage = "https://vector.dev";
-      changelog = "https://vector.dev/releases/preview";
+      homepage = "https://github.com/pkg-tool/vector/";
+      changelog = "https://github.com/pkg-tool/vector/releases/preview";
       license = lib.licenses.gpl3Only;
       mainProgram = "vector";
       platforms = lib.platforms.linux ++ lib.platforms.darwin;

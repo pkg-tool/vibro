@@ -61,7 +61,7 @@ pub struct KeymapSection {
     /// `Workspace`, the bindings will be active in that context. Boolean expressions like `X && Y`,
     /// `X || Y`, `!X` are also supported. Some more complex logic including checking OS and the
     /// current file extension are also supported - see [the
-    /// documentation](https://vector.dev/docs/key-bindings#contexts) for more details.
+    /// documentation](https://github.com/pkg-tool/vector/tree/master/docs/key-bindings#contexts) for more details.
     #[serde(default)]
     context: String,
     /// This option enables specifying keys based on their position on a QWERTY keyboard, by using

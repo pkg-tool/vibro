@@ -697,14 +697,14 @@
     // The default model to use when creating new threads.
     "default_model": {
       // The provider to use.
-      "provider": "vector.dev",
+      "provider": "github.com/pkg-tool/vector",
       // The model to use.
       "model": "claude-sonnet-4"
     },
     // The model to use when applying edits from the agent.
     "editor_model": {
       // The provider to use.
-      "provider": "vector.dev",
+      "provider": "github.com/pkg-tool/vector",
       // The model to use.
       "model": "claude-sonnet-4"
     },
@@ -725,7 +725,7 @@
       //
       // To set parameters for a specific provider and model:
       // {
-      //   "provider": "vector.dev",
+      //   "provider": "github.com/pkg-tool/vector",
       //   "model": "claude-sonnet-4",
       //   "temperature": 1.0
       // }
@@ -1645,7 +1645,7 @@
   },
   // The server to connect to. If the environment variable
   // VECTOR_SERVER_URL is set, it will override this setting.
-  "server_url": "https://vector.dev",
+  "server_url": "https://github.com/pkg-tool/vector",
   // Settings overrides to use when using Vector Preview.
   // Mostly useful for developers who are managing multiple instances of Vector.
   "preview": {

@@ -25,7 +25,7 @@ pub use crate::repl_sessions_ui::{
 use crate::repl_store::ReplStore;
 pub use crate::session::Session;
 
-pub const KERNEL_DOCS_URL: &str = "https://vector.dev/docs/repl#changing-kernels";
+pub const KERNEL_DOCS_URL: &str = "https://github.com/pkg-tool/vector/tree/master/docs/repl#changing-kernels";
 
 pub fn init(fs: Arc<dyn Fs>, cx: &mut App) {
     set_dispatcher(vector_dispatcher(cx));

@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-# Downloads the latest tarball from https://vector.dev/releases and unpacks it
+# Downloads the latest tarball from https://github.com/pkg-tool/vector/releases and unpacks it
 # into ~/.local/. If you'd prefer to do this manually, instructions are at
 # https://vector.dev/docs/linux.
 

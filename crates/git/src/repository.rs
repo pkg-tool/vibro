@@ -1925,9 +1925,9 @@ fn check_path_to_repo_path_errors(relative_file_path: &Path) -> Result<()> {
 fn checkpoint_author_envs() -> HashMap<String, String> {
     HashMap::from_iter([
         ("GIT_AUTHOR_NAME".to_string(), "Vector".to_string()),
-        ("GIT_AUTHOR_EMAIL".to_string(), "hi@vector.dev".to_string()),
+        ("GIT_AUTHOR_EMAIL".to_string(), "hi@vector.example.com".to_string()),
         ("GIT_COMMITTER_NAME".to_string(), "Vector".to_string()),
-        ("GIT_COMMITTER_EMAIL".to_string(), "hi@vector.dev".to_string()),
+        ("GIT_COMMITTER_EMAIL".to_string(), "hi@vector.example.com".to_string()),
     ])
 }
 

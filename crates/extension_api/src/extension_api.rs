@@ -1,4 +1,4 @@
-//! The Vector Rust Extension API allows you write extensions for [Vector](https://vector.dev/) in Rust.
+//! The Vector Rust Extension API allows you write extensions for [Vector](https://github.com/pkg-tool/vector/) in Rust.
 
 pub mod http_client;
 pub mod process;

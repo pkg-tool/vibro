@@ -40,7 +40,7 @@ impl GitOnboardingModal {
     }
 
     fn view_blog(&mut self, _: &ClickEvent, _: &mut Window, cx: &mut Context<Self>) {
-        cx.open_url("https://vector.dev/docs/git");
+        cx.open_url("https://github.com/pkg-tool/vector/blob/master/docs/git.md");
         cx.notify();
 
         git_onboarding_event!("Blog Link Clicked");

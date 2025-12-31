@@ -38,5 +38,3 @@ VECTOR_DEVELOPMENT_USE_KEYCHAIN=1
 - `CONTRIBUTING.md` (repository root)
 - [Releases](./development/releases.md)
 - [Debugging Crashes](./development/debugging-crashes.md)
-- [Code of Conduct](https://vector.dev/code-of-conduct)
-- [Vector Contributor License](https://vector.dev/cla)

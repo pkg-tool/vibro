@@ -10,7 +10,7 @@ Navigating through the theme list by moving up and down will change the theme in
 
 ## Installing more Themes
 
-More themes are available from the Extensions page, which you can access via the command palette with "vector: Extensions" or the [Vector website](https://vector.dev/extensions).
+More themes are available from the Extensions page, which you can access via the command palette with "vector: Extensions" or the [Vector website](https://zed.dev/extensions).
 
 Many popular themes have been ported to Vector, and you can also browse third-party theme galleries with visible previews.
 

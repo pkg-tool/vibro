@@ -1438,22 +1438,22 @@ mod tests {
         .await;
 
         cx.set_state(indoc! {"
-            Let's test a [complex](https://vector.dev/channel/had-(oops)) caseˇ.
+            Let's test a [complex](https://https://github.com/pkg-tool/vector/channel/had-(oops)) caseˇ.
         "});
 
         let screen_coord = cx.pixel_position(indoc! {"
-            Let's test a [complex](https://vector.dev/channel/had-(ˇoops)) case.
+            Let's test a [complex](https://github.com/pkg-tool/vector/channel/had-(ˇoops)) case.
             "});
 
         cx.simulate_mouse_move(screen_coord, None, Modifiers::secondary_key());
         cx.assert_editor_text_highlights::<HoveredLinkState>(indoc! {"
-            Let's test a [complex](«https://vector.dev/channel/had-(oops)ˇ») case.
+            Let's test a [complex](«https://github.com/pkg-tool/vector/channel/had-(oops)ˇ») case.
         "});
 
         cx.simulate_click(screen_coord, Modifiers::secondary_key());
         assert_eq!(
             cx.opened_url(),
-            Some("https://vector.dev/channel/had-(oops)".into())
+            Some("https://github.com/pkg-tool/vector/channel/had-(oops)".into())
         );
     }
 
@@ -1468,18 +1468,18 @@ mod tests {
         )
         .await;
 
-        cx.set_state(indoc! {"https://vector.dev/releases is a cool ˇwebpage."});
+        cx.set_state(indoc! {"https://github.com/pkg-tool/vector/releases is a cool ˇwebpage."});
 
         let screen_coord =
-            cx.pixel_position(indoc! {"https://vector.dev/relˇeases is a cool webpage."});
+            cx.pixel_position(indoc! {"https://github.com/pkg-tool/vector/relˇeases is a cool webpage."});
 
         cx.simulate_mouse_move(screen_coord, None, Modifiers::secondary_key());
         cx.assert_editor_text_highlights::<HoveredLinkState>(
-            indoc! {"«https://vector.dev/releasesˇ» is a cool webpage."},
+            indoc! {"«https://github.com/pkg-tool/vector/releasesˇ» is a cool webpage."},
         );
 
         cx.simulate_click(screen_coord, Modifiers::secondary_key());
-        assert_eq!(cx.opened_url(), Some("https://vector.dev/releases".into()));
+        assert_eq!(cx.opened_url(), Some("https://github.com/pkg-tool/vector/releases".into()));
     }
 
     #[gpui::test]
@@ -1493,18 +1493,18 @@ mod tests {
         )
         .await;
 
-        cx.set_state(indoc! {"A cool ˇwebpage is https://vector.dev/releases"});
+        cx.set_state(indoc! {"A cool ˇwebpage is https://github.com/pkg-tool/vector/releases"});
 
         let screen_coord =
-            cx.pixel_position(indoc! {"A cool webpage is https://vector.dev/releˇases"});
+            cx.pixel_position(indoc! {"A cool webpage is https://github.com/pkg-tool/vector/releˇases"});
 
         cx.simulate_mouse_move(screen_coord, None, Modifiers::secondary_key());
         cx.assert_editor_text_highlights::<HoveredLinkState>(
-            indoc! {"A cool webpage is «https://vector.dev/releasesˇ»"},
+            indoc! {"A cool webpage is «https://github.com/pkg-tool/vector/releasesˇ»"},
         );
 
         cx.simulate_click(screen_coord, Modifiers::secondary_key());
-        assert_eq!(cx.opened_url(), Some("https://vector.dev/releases".into()));
+        assert_eq!(cx.opened_url(), Some("https://github.com/pkg-tool/vector/releases".into()));
     }
 
     #[gpui::test]

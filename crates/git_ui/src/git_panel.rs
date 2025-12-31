@@ -355,7 +355,6 @@ pub struct GitPanel {
     context_menu: Option<(Entity<ContextMenu>, Point<Pixels>, Subscription)>,
     modal_open: bool,
     show_placeholders: bool,
-    _settings_subscription: Subscription,
 }
 
 const MAX_PANEL_EDITOR_LINES: usize = 6;
@@ -479,14 +478,6 @@ impl GitPanel {
             hide_task: None,
         };
 
-        let mut assistant_enabled = AgentSettings::get_global(cx).enabled;
-        let _settings_subscription = cx.observe_global::<SettingsStore>(move |_, cx| {
-            if assistant_enabled != AgentSettings::get_global(cx).enabled {
-                assistant_enabled = AgentSettings::get_global(cx).enabled;
-                cx.notify();
-            }
-        });
-
         let mut git_panel = Self {
             active_repository,
             commit_editor,
@@ -522,7 +513,6 @@ impl GitPanel {
             entry_count: 0,
             horizontal_scrollbar,
             vertical_scrollbar,
-            _settings_subscription,
         };
         git_panel.schedule_update(false, window, cx);
         git_panel

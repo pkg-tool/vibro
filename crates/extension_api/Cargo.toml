@@ -2,7 +2,7 @@
 name = "vector_extension_api"
 version = "0.6.0"
 description = "APIs for creating Vector extensions in Rust"
-repository = "https://vector.dev"
+repository = "https://github.com/pkg-tool/vector"
 documentation = "https://docs.rs/vector_extension_api"
 keywords = ["vector", "extension"]
 edition.workspace = true

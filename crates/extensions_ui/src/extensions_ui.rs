@@ -1096,13 +1096,13 @@ impl ExtensionsPage {
                 Feature::Git => FeatureUpsell::new(
                     "Vector comes with basic Git support. More Git features are coming in the future.",
                 )
-                .docs_url("https://vector.dev/docs/git"),
+                .docs_url("https://github.com/pkg-tool/vector/blob/master/docs/src/git.md"),
                 Feature::OpenIn => FeatureUpsell::new(
                     "Vector supports linking to a source line on GitHub and others.",
                 )
-                .docs_url("https://vector.dev/docs/git#git-integrations"),
+                .docs_url("https://github.com/pkg-tool/vector/blob/master/docs/src/git.md#git-integrations"),
                 Feature::Vim => FeatureUpsell::new("Vim support is built-in to Vector!")
-                    .docs_url("https://vector.dev/docs/vim")
+                    .docs_url("https://github.com/pkg-tool/vector/blob/master/docs/src/vim.md")
                     .child(CheckboxWithLabel::new(
                         "enable-vim",
                         Label::new("Enable vim mode"),
@@ -1120,22 +1120,22 @@ impl ExtensionsPage {
                         }),
                     )),
                 Feature::LanguageBash => FeatureUpsell::new("Shell support is built-in to Vector!")
-                    .docs_url("https://vector.dev/docs/languages/bash"),
+                    .docs_url("https://github.com/pkg-tool/vector/blob/master/docs/src/languages/bash.md"),
                 Feature::LanguageC => FeatureUpsell::new("C support is built-in to Vector!")
-                    .docs_url("https://vector.dev/docs/languages/c"),
+                    .docs_url("https://github.com/pkg-tool/vector/blob/master/docs/src/languages/c.md"),
                 Feature::LanguageCpp => FeatureUpsell::new("C++ support is built-in to Vector!")
-                    .docs_url("https://vector.dev/docs/languages/cpp"),
+                    .docs_url("https://github.com/pkg-tool/vector/blob/master/docs/src/languages/cpp.md"),
                 Feature::LanguageGo => FeatureUpsell::new("Go support is built-in to Vector!")
-                    .docs_url("https://vector.dev/docs/languages/go"),
+                    .docs_url("https://github.com/pkg-tool/vector/blob/master/docs/src/languages/go.md"),
                 Feature::LanguagePython => FeatureUpsell::new("Python support is built-in to Vector!")
-                    .docs_url("https://vector.dev/docs/languages/python"),
+                    .docs_url("https://github.com/pkg-tool/vector/blob/master/docs/languages/python.md"),
                 Feature::LanguageReact => FeatureUpsell::new("React support is built-in to Vector!")
-                    .docs_url("https://vector.dev/docs/languages/typescript"),
+                    .docs_url("https://github.com/pkg-tool/vector/blob/master/docs/languages/typescript.md"),
                 Feature::LanguageRust => FeatureUpsell::new("Rust support is built-in to Vector!")
-                    .docs_url("https://vector.dev/docs/languages/rust"),
+                    .docs_url("https://github.com/pkg-tool/vector/blob/master/docs/languages/rust.md"),
                 Feature::LanguageTypescript => {
                     FeatureUpsell::new("Typescript support is built-in to Vector!")
-                        .docs_url("https://vector.dev/docs/languages/typescript")
+                        .docs_url("https://github.com/pkg-tool/vector/blob/master/docs/languages/typescript.md")
                 }
             };
 

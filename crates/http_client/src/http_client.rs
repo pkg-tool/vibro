@@ -213,10 +213,8 @@ impl HttpClientWithUrl {
     pub fn build_vector_api_url(&self, path: &str, query: &[(&str, &str)]) -> Result<Url> {
         let base_url = self.base_url();
         let base_api_url = match base_url.as_ref() {
-            "https://vector.dev" => "https://api.vector.dev",
-            "https://staging.vector.dev" => "https://api-staging.vector.dev",
             "http://localhost:3000" => "http://localhost:8080",
-            other => other,
+            _ => "http://localhost:8080",
         };
 
         Ok(Url::parse_with_params(
@@ -229,8 +227,6 @@ impl HttpClientWithUrl {
     pub fn build_vector_llm_url(&self, path: &str, query: &[(&str, &str)]) -> Result<Url> {
         let base_url = self.base_url();
         let base_api_url = match base_url.as_ref() {
-            "https://vector.dev" => "https://llm.vector.dev",
-            "https://staging.vector.dev" => "https://llm-staging.vector.dev",
             "http://localhost:3000" => "http://localhost:8787",
             other => other,
         };
@@ -344,7 +340,7 @@ impl FakeHttpClient {
         F: Fn(Request<AsyncBody>) -> Fut + Send + Sync + 'static,
     {
         Arc::new(HttpClientWithUrl {
-            base_url: Mutex::new("http://test.example".into()),
+            base_url: Mutex::new("http://localhost".into()),
             client: HttpClientWithProxy {
                 client: Arc::new(Self {
                     handler: Box::new(move |req| Box::pin(handler(req))),

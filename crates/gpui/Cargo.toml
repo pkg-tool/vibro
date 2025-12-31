@@ -2,9 +2,9 @@
 name = "gpui"
 version = "0.1.0"
 edition.workspace = true
-authors = ["Vector Team <team@vector.dev>"]
+authors = ["Zed Team <team@zed.dev>"]
 description = "Vector's GPU-accelerated UI framework"
-repository = "https://github.com/vector-editor/vector"
+repository = "https://github.com/zed-editor/zed"
 publish.workspace = true
 license = "Apache-2.0"
 
