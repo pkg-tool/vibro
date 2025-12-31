@@ -18,9 +18,6 @@ test-support = []
 [dependencies]
 anyhow.workspace = true
 bm25 = "2.3.2"
-copilot.workspace = true
-edit_prediction.workspace = true
-language_models.workspace = true
 editor.workspace = true
 feature_flags.workspace = true
 fs.workspace = true
@@ -45,11 +42,10 @@ ui_input.workspace = true
 ui.workspace = true
 util.workspace = true
 workspace.workspace = true
-zed_actions.workspace = true
+vector_actions.workspace = true
 
 [dev-dependencies]
 assets.workspace = true
-client.workspace = true
 futures.workspace = true
 gpui = { workspace = true, features = ["test-support"] }
 language.workspace = true

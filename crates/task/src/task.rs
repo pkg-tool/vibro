@@ -196,7 +196,10 @@ impl FromStr for VariableName {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let without_prefix = s.strip_prefix(VECTOR_VARIABLE_NAME_PREFIX).ok_or(())?;
+        let without_prefix = s
+            .strip_prefix(VECTOR_VARIABLE_NAME_PREFIX)
+            .or_else(|| s.strip_prefix(ZED_VARIABLE_NAME_PREFIX))
+            .ok_or(())?;
         let value = match without_prefix {
             "FILE" => Self::File,
             "FILENAME" => Self::Filename,
@@ -226,24 +229,25 @@ impl FromStr for VariableName {
 
 /// A prefix that all [`VariableName`] variants are prefixed with when used in environment variables and similar template contexts.
 pub const VECTOR_VARIABLE_NAME_PREFIX: &str = "VECTOR_";
+pub const ZED_VARIABLE_NAME_PREFIX: &str = "ZED_";
 const VECTOR_CUSTOM_VARIABLE_NAME_PREFIX: &str = "CUSTOM_";
 
 impl std::fmt::Display for VariableName {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::File => write!(f, "{ZED_VARIABLE_NAME_PREFIX}FILE"),
-            Self::Filename => write!(f, "{ZED_VARIABLE_NAME_PREFIX}FILENAME"),
-            Self::RelativeFile => write!(f, "{ZED_VARIABLE_NAME_PREFIX}RELATIVE_FILE"),
-            Self::RelativeDir => write!(f, "{ZED_VARIABLE_NAME_PREFIX}RELATIVE_DIR"),
-            Self::Dirname => write!(f, "{ZED_VARIABLE_NAME_PREFIX}DIRNAME"),
-            Self::Stem => write!(f, "{ZED_VARIABLE_NAME_PREFIX}STEM"),
-            Self::WorktreeRoot => write!(f, "{ZED_VARIABLE_NAME_PREFIX}WORKTREE_ROOT"),
-            Self::Symbol => write!(f, "{ZED_VARIABLE_NAME_PREFIX}SYMBOL"),
-            Self::Row => write!(f, "{ZED_VARIABLE_NAME_PREFIX}ROW"),
-            Self::Column => write!(f, "{ZED_VARIABLE_NAME_PREFIX}COLUMN"),
-            Self::SelectedText => write!(f, "{ZED_VARIABLE_NAME_PREFIX}SELECTED_TEXT"),
-            Self::RunnableSymbol => write!(f, "{ZED_VARIABLE_NAME_PREFIX}RUNNABLE_SYMBOL"),
-            Self::PickProcessId => write!(f, "{ZED_VARIABLE_NAME_PREFIX}PICK_PID"),
+            Self::File => write!(f, "{VECTOR_VARIABLE_NAME_PREFIX}FILE"),
+            Self::Filename => write!(f, "{VECTOR_VARIABLE_NAME_PREFIX}FILENAME"),
+            Self::RelativeFile => write!(f, "{VECTOR_VARIABLE_NAME_PREFIX}RELATIVE_FILE"),
+            Self::RelativeDir => write!(f, "{VECTOR_VARIABLE_NAME_PREFIX}RELATIVE_DIR"),
+            Self::Dirname => write!(f, "{VECTOR_VARIABLE_NAME_PREFIX}DIRNAME"),
+            Self::Stem => write!(f, "{VECTOR_VARIABLE_NAME_PREFIX}STEM"),
+            Self::WorktreeRoot => write!(f, "{VECTOR_VARIABLE_NAME_PREFIX}WORKTREE_ROOT"),
+            Self::Symbol => write!(f, "{VECTOR_VARIABLE_NAME_PREFIX}SYMBOL"),
+            Self::Row => write!(f, "{VECTOR_VARIABLE_NAME_PREFIX}ROW"),
+            Self::Column => write!(f, "{VECTOR_VARIABLE_NAME_PREFIX}COLUMN"),
+            Self::SelectedText => write!(f, "{VECTOR_VARIABLE_NAME_PREFIX}SELECTED_TEXT"),
+            Self::RunnableSymbol => write!(f, "{VECTOR_VARIABLE_NAME_PREFIX}RUNNABLE_SYMBOL"),
+            Self::PickProcessId => write!(f, "{VECTOR_VARIABLE_NAME_PREFIX}PICK_PID"),
             Self::Custom(s) => write!(
                 f,
                 "{VECTOR_VARIABLE_NAME_PREFIX}{VECTOR_CUSTOM_VARIABLE_NAME_PREFIX}{s}"

@@ -27,11 +27,7 @@ test-support = [
 [dependencies]
 anyhow.workspace = true
 auto_update.workspace = true
-call.workspace = true
-channel.workspace = true
 chrono.workspace = true
-client.workspace = true
-cloud_llm_client.workspace = true
 db.workspace = true
 gpui = { workspace = true, features = ["screen-capture"] }
 notifications.workspace = true
@@ -39,13 +35,14 @@ project.workspace = true
 schemars.workspace = true
 serde.workspace = true
 settings.workspace = true
+telemetry.workspace = true
 smallvec.workspace = true
 story = { workspace = true, optional = true }
 theme.workspace = true
 ui.workspace = true
 util.workspace = true
 workspace.workspace = true
-zed_actions.workspace = true
+vector_actions.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows.workspace = true

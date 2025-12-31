@@ -13,6 +13,7 @@ use language::LanguageName;
 use log::warn;
 use serde_json::{Map, Value};
 use task::TcpArgumentsTemplate;
+use task::VectorDebugConfig;
 use util;
 
 use std::{
@@ -361,7 +362,10 @@ impl DebugAdapter for GoDebugAdapter {
         })
     }
 
-    async fn config_from_zed_format(&self, zed_scenario: ZedDebugConfig) -> Result<DebugScenario> {
+    async fn config_from_zed_format(
+        &self,
+        zed_scenario: VectorDebugConfig,
+    ) -> Result<DebugScenario> {
         let mut args = match &zed_scenario.request {
             dap::DebugRequest::Attach(attach_config) => {
                 json!({

@@ -63,6 +63,7 @@ postage.workspace = true
 prettier.workspace = true
 rand.workspace = true
 regex.workspace = true
+rpc = { workspace = true, features = ["gpui"] }
 schemars.workspace = true
 semver.workspace = true
 serde.workspace = true
@@ -92,7 +93,6 @@ ztracing.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-client = { workspace = true, features = ["test-support"] }
 db = { workspace = true, features = ["test-support"] }
 collections = { workspace = true, features = ["test-support"] }
 context_server = { workspace = true, features = ["test-support"] }

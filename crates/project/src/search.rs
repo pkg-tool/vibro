@@ -4,6 +4,7 @@ use fancy_regex::{Captures, Regex, RegexBuilder};
 use gpui::Entity;
 use itertools::Itertools as _;
 use language::{Buffer, BufferSnapshot, CharKind};
+use rpc::proto;
 use smol::future::yield_now;
 use std::{
     borrow::Cow,

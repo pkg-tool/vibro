@@ -13,6 +13,7 @@ mod language_registry;
 pub mod language_settings;
 mod manifest;
 mod outline;
+pub mod proto;
 mod syntax_map;
 mod task_context;
 mod text_diff;

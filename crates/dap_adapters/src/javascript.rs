@@ -6,6 +6,7 @@ use gpui::AsyncApp;
 use serde_json::Value;
 use std::{path::PathBuf, sync::OnceLock};
 use task::DebugRequest;
+use task::VectorDebugConfig;
 use util::{ResultExt, maybe, shell::ShellKind};
 
 use crate::*;
@@ -187,7 +188,10 @@ impl DebugAdapter for JsDebugAdapter {
         DebugAdapterName(Self::ADAPTER_NAME.into())
     }
 
-    async fn config_from_zed_format(&self, zed_scenario: ZedDebugConfig) -> Result<DebugScenario> {
+    async fn config_from_zed_format(
+        &self,
+        zed_scenario: VectorDebugConfig,
+    ) -> Result<DebugScenario> {
         let mut args = json!({
             "type": "pwa-node",
             "request": match zed_scenario.request {

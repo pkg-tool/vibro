@@ -23,7 +23,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use task::{DebugScenario, TcpArgumentsTemplate, ZedDebugConfig};
+use task::{DebugScenario, TcpArgumentsTemplate, VectorDebugConfig};
 use util::{archive::extract_zip, rel_path::RelPath};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -112,7 +112,29 @@ pub struct TcpArguments {
 }
 
 impl TcpArguments {
-    // Proto conversions were used for remote/collab plumbing and are intentionally removed.
+    pub fn from_proto(proto: proto::TcpHost) -> Result<Self> {
+        let host_str = proto.host.unwrap_or_else(|| Ipv4Addr::LOCALHOST.to_string());
+        let host = host_str
+            .parse::<Ipv4Addr>()
+            .with_context(|| format!("invalid tcp host: {host_str:?}"))?;
+        let port = proto
+            .port
+            .map(|p| p as u16)
+            .context("missing tcp port")?;
+        Ok(Self {
+            host,
+            port,
+            timeout: proto.timeout,
+        })
+    }
+
+    pub fn to_proto(&self) -> proto::TcpHost {
+        proto::TcpHost {
+            port: Some(self.port as u32),
+            host: Some(self.host.to_string()),
+            timeout: self.timeout,
+        }
+    }
 }
 
 /// Represents a debuggable binary/process (what process is going to be debugged and with what arguments).
@@ -163,18 +185,6 @@ pub struct DebugAdapterBinary {
     pub cwd: Option<PathBuf>,
     pub connection: Option<TcpArguments>,
     pub request_args: StartDebuggingRequestArguments,
-}
-
-impl PartialEq for DebugAdapterBinary {
-    fn eq(&self, other: &Self) -> bool {
-        self.command == other.command
-            && self.arguments == other.arguments
-            && self.envs == other.envs
-            && self.cwd == other.cwd
-            && self.connection == other.connection
-            && self.request_args.configuration == other.request_args.configuration
-            && self.request_args.request == other.request_args.request
-    }
 }
 
 impl DebugAdapterBinary {
@@ -326,7 +336,10 @@ pub async fn download_adapter_from_github(
 pub trait DebugAdapter: 'static + Send + Sync {
     fn name(&self) -> DebugAdapterName;
 
-    async fn config_from_zed_format(&self, zed_scenario: ZedDebugConfig) -> Result<DebugScenario>;
+    async fn config_from_zed_format(
+        &self,
+        zed_scenario: VectorDebugConfig,
+    ) -> Result<DebugScenario>;
 
     async fn get_binary(
         &self,
@@ -416,7 +429,10 @@ impl DebugAdapter for FakeAdapter {
         None
     }
 
-    async fn config_from_zed_format(&self, zed_scenario: ZedDebugConfig) -> Result<DebugScenario> {
+    async fn config_from_zed_format(
+        &self,
+        zed_scenario: VectorDebugConfig,
+    ) -> Result<DebugScenario> {
         let config = serde_json::to_value(zed_scenario.request).unwrap();
 
         Ok(DebugScenario {

@@ -26,6 +26,7 @@ use smol::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     process::Child,
 };
+use url::Url as UrlUrl;
 
 use std::{
     collections::BTreeSet,
@@ -904,7 +905,6 @@ impl LanguageServer {
                     }),
                     ..WindowClientCapabilities::default()
                 }),
-                notebook_document: None,
             },
             trace: None,
             workspace_folders: Some(workspace_folders),

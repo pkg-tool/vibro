@@ -16,7 +16,7 @@ use collections::HashMap;
 use dap::{
     Capabilities, DapRegistry, DebugRequest, EvaluateArgumentsContext, StackFrameId,
     adapters::{
-        DapDelegate, DebugAdapterBinary, DebugAdapterName, DebugTaskDefinition,
+        DapDelegate, DebugAdapterBinary, DebugAdapterName, DebugTaskDefinition, TcpArguments,
     },
     client::SessionId,
     inline_value::VariableLookupKind,
@@ -28,23 +28,18 @@ use futures::{
     channel::mpsc::{self, UnboundedSender},
     future::{Shared, join_all},
 };
-use gpui::{App, AppContext, Context, Entity, EventEmitter, SharedString, Task};
+use gpui::{App, AppContext, AsyncApp, Context, Entity, EventEmitter, SharedString, Task};
 use http_client::HttpClient;
 use language::{Buffer, LanguageToolchainStore};
 use node_runtime::NodeRuntime;
 use settings::InlayHintKind;
-
-use remote::RemoteClient;
-use rpc::{
-    AnyProtoClient, TypedEnvelope,
-    proto::{self},
-};
 use serde::{Deserialize, Serialize};
 use settings::{Settings, SettingsLocation, WorktreeId};
 use std::{
     borrow::Borrow,
     collections::BTreeMap,
     ffi::OsStr,
+    net::Ipv4Addr,
     path::{Path, PathBuf},
     sync::{Arc, Once},
 };
@@ -62,12 +57,11 @@ pub enum DapStoreEvent {
         message: Message,
     },
     Notification(String),
+    RemoteHasInitialized,
 }
 
 enum DapStoreMode {
     Local(LocalDapStore),
-    Remote(RemoteDapStore),
-    Collab,
 }
 
 pub struct LocalDapStore {
@@ -77,14 +71,6 @@ pub struct LocalDapStore {
     environment: Entity<ProjectEnvironment>,
     toolchain_store: Arc<dyn LanguageToolchainStore>,
     is_headless: bool,
-}
-
-pub struct RemoteDapStore {
-    remote_client: Entity<RemoteClient>,
-    upstream_client: AnyProtoClient,
-    upstream_project_id: u64,
-    node_runtime: NodeRuntime,
-    http_client: Arc<dyn HttpClient>,
 }
 
 pub struct DapStore {
@@ -122,6 +108,7 @@ impl DapStore {
         });
     }
 
+    #[expect(clippy::too_many_arguments)]
     pub fn new_local(
         http_client: Arc<dyn HttpClient>,
         node_runtime: NodeRuntime,
@@ -143,44 +130,6 @@ impl DapStore {
         });
 
         Self::new(mode, breakpoint_store, worktree_store, fs, cx)
-    }
-
-    pub fn new_remote(
-        project_id: u64,
-        remote_client: Entity<RemoteClient>,
-        breakpoint_store: Entity<BreakpointStore>,
-        worktree_store: Entity<WorktreeStore>,
-        node_runtime: NodeRuntime,
-        http_client: Arc<dyn HttpClient>,
-        fs: Arc<dyn Fs>,
-        cx: &mut Context<Self>,
-    ) -> Self {
-        let mode = DapStoreMode::Remote(RemoteDapStore {
-            upstream_client: remote_client.read(cx).proto_client(),
-            remote_client,
-            upstream_project_id: project_id,
-            node_runtime,
-            http_client,
-        });
-
-        Self::new(mode, breakpoint_store, worktree_store, fs, cx)
-    }
-
-    pub fn new_collab(
-        _project_id: u64,
-        _upstream_client: AnyProtoClient,
-        breakpoint_store: Entity<BreakpointStore>,
-        worktree_store: Entity<WorktreeStore>,
-        fs: Arc<dyn Fs>,
-        cx: &mut Context<Self>,
-    ) -> Self {
-        Self::new(
-            DapStoreMode::Collab,
-            breakpoint_store,
-            worktree_store,
-            fs,
-            cx,
-        )
     }
 
     fn new(
@@ -295,66 +244,7 @@ impl DapStore {
                     Ok(binary)
                 })
             }
-            DapStoreMode::Remote(remote) => {
-                let request = remote
-                    .upstream_client
-                    .request(proto::GetDebugAdapterBinary {
-                        session_id: session_id.to_proto(),
-                        project_id: remote.upstream_project_id,
-                        worktree_id: worktree.read(cx).id().to_proto(),
-                        definition: Some(definition.to_proto()),
-                    });
-                let remote = remote.remote_client.clone();
-
-                cx.spawn(async move |_, cx| {
-                    let response = request.await?;
-                    let binary = DebugAdapterBinary::from_proto(response)?;
-
-                    let port_forwarding;
-                    let connection;
-                    if let Some(c) = binary.connection {
-                        let host = Ipv4Addr::LOCALHOST;
-                        let port;
-                        if remote.read_with(cx, |remote, _cx| remote.shares_network_interface())? {
-                            port = c.port;
-                            port_forwarding = None;
-                        } else {
-                            port = dap::transport::TcpTransport::unused_port(host).await?;
-                            port_forwarding = Some((port, c.host.to_string(), c.port));
-                        }
-                        connection = Some(TcpArguments {
-                            port,
-                            host,
-                            timeout: c.timeout,
-                        })
-                    } else {
-                        port_forwarding = None;
-                        connection = None;
-                    }
-
-                    let command = remote.read_with(cx, |remote, _cx| {
-                        remote.build_command(
-                            binary.command,
-                            &binary.arguments,
-                            &binary.envs,
-                            binary.cwd.map(|path| path.display().to_string()),
-                            port_forwarding,
-                        )
-                    })??;
-
-                    Ok(DebugAdapterBinary {
-                        command: Some(command.program),
-                        arguments: command.args,
-                        envs: command.env,
-                        cwd: None,
-                        connection,
-                        request_args: binary.request_args,
-                    })
-                })
-            }
-
-            Ok(binary)
-        })
+        }
     }
 
     pub fn debug_scenario_for_build_task(
@@ -382,40 +272,41 @@ impl DapStore {
         build_command: SpawnInTerminal,
         cx: &mut Context<Self>,
     ) -> Task<Result<DebugRequest>> {
-        // Pre-resolve args with existing environment.
-        let locators = DapRegistry::global(cx).locators();
-        let locator = locators.get(locator_name);
+        match &self.mode {
+            DapStoreMode::Local(_) => {
+                // Pre-resolve args with existing environment.
+                let locators = DapRegistry::global(cx).locators();
+                let locator = locators.get(locator_name);
 
-        if let Some(locator) = locator.cloned() {
-            cx.background_spawn(async move {
-                let result = locator
-                    .run(build_command.clone())
-                    .await
-                    .log_with_level(log::Level::Error);
-                if let Some(result) = result {
-                    return Ok(result);
+                if let Some(locator) = locator.cloned() {
+                    cx.background_spawn(async move {
+                        let result = locator
+                            .run(build_command.clone())
+                            .await
+                            .log_with_level(log::Level::Error);
+                        if let Some(result) = result {
+                            return Ok(result);
+                        }
+
+                        anyhow::bail!(
+                            "None of the locators for task `{}` completed successfully",
+                            build_command.label
+                        )
+                    })
+                } else {
+                    Task::ready(Err(anyhow!(
+                        "Couldn't find any locator for task `{}`. Specify the `attach` or `launch` arguments in your debug scenario definition",
+                        build_command.label
+                    )))
                 }
-            }
-            DapStoreMode::Remote(remote) => {
-                let request = remote.upstream_client.request(proto::RunDebugLocators {
-                    project_id: remote.upstream_project_id,
-                    build_command: Some(build_command.to_proto()),
-                    locator: locator_name.to_owned(),
-                });
-                cx.background_spawn(async move {
-                    let response = request.await?;
-                    DebugRequest::from_proto(response)
-                })
-            }
-            DapStoreMode::Collab => {
-                Task::ready(Err(anyhow!("Debugging is not yet supported via collab")))
             }
         }
     }
 
-    fn local(&self) -> &LocalDapStore {
+    fn as_local(&self) -> Option<&LocalDapStore> {
         match &self.mode {
-            DapStoreMode::Local(local_dap_store) => local_dap_store,
+            DapStoreMode::Local(local_dap_store) => Some(local_dap_store),
+            _ => None,
         }
     }
 
@@ -436,15 +327,6 @@ impl DapStore {
             });
         }
 
-        let (remote_client, node_runtime, http_client) = match &self.mode {
-            DapStoreMode::Local(_) => (None, None, None),
-            DapStoreMode::Remote(remote_dap_store) => (
-                Some(remote_dap_store.remote_client.clone()),
-                Some(remote_dap_store.node_runtime.clone()),
-                Some(remote_dap_store.http_client.clone()),
-            ),
-            DapStoreMode::Collab => (None, None, None),
-        };
         let session = Session::new(
             self.breakpoint_store.clone(),
             session_id,
@@ -453,9 +335,6 @@ impl DapStore {
             adapter,
             task_context,
             quirks,
-            remote_client,
-            node_runtime,
-            http_client,
             cx,
         );
 
@@ -487,6 +366,7 @@ impl DapStore {
     ) -> Task<Result<()>> {
         let dap_store = cx.weak_entity();
         let console = session.update(cx, |session, cx| session.console_output(cx));
+        let session_id = session.read(cx).session_id();
 
         cx.spawn({
             let session = session.clone();
@@ -548,7 +428,9 @@ impl DapStore {
         console: UnboundedSender<String>,
         cx: &mut App,
     ) -> Arc<dyn DapDelegate> {
-        let local_store = self.local();
+        let Some(local_store) = self.as_local() else {
+            unimplemented!("Starting session on remote side");
+        };
 
         Arc::new(DapAdapterDelegate::new(
             local_store.fs.clone(),
@@ -646,6 +528,7 @@ impl DapStore {
                             session.state.request_dap(EvaluateCommand {
                                 expression: inline_value_location.variable_name.clone(),
                                 frame_id: Some(stack_frame_id),
+                                source: None,
                                 context: Some(EvaluateArgumentsContext::Variables),
                             })
                         }) else {
@@ -734,112 +617,6 @@ impl DapStore {
             }
 
             Ok(())
-        })
-    }
-
-    pub fn shared(
-        &mut self,
-        project_id: u64,
-        downstream_client: AnyProtoClient,
-        _: &mut Context<Self>,
-    ) {
-        self.downstream_client = Some((downstream_client, project_id));
-    }
-
-    pub fn unshared(&mut self, cx: &mut Context<Self>) {
-        self.downstream_client.take();
-
-        cx.notify();
-    }
-
-    async fn handle_run_debug_locator(
-        this: Entity<Self>,
-        envelope: TypedEnvelope<proto::RunDebugLocators>,
-        mut cx: AsyncApp,
-    ) -> Result<proto::DebugRequest> {
-        let task = envelope
-            .payload
-            .build_command
-            .context("missing definition")?;
-        let build_task = SpawnInTerminal::from_proto(task);
-        let locator = envelope.payload.locator;
-        let request = this
-            .update(&mut cx, |this, cx| {
-                this.run_debug_locator(&locator, build_task, cx)
-            })?
-            .await?;
-
-        Ok(request.to_proto())
-    }
-
-    async fn handle_get_debug_adapter_binary(
-        this: Entity<Self>,
-        envelope: TypedEnvelope<proto::GetDebugAdapterBinary>,
-        mut cx: AsyncApp,
-    ) -> Result<proto::DebugAdapterBinary> {
-        let definition = DebugTaskDefinition::from_proto(
-            envelope.payload.definition.context("missing definition")?,
-        )?;
-        let (tx, mut rx) = mpsc::unbounded();
-        let session_id = envelope.payload.session_id;
-        cx.spawn({
-            let this = this.clone();
-            async move |cx| {
-                while let Some(message) = rx.next().await {
-                    this.read_with(cx, |this, _| {
-                        if let Some((downstream, project_id)) = this.downstream_client.clone() {
-                            downstream
-                                .send(proto::LogToDebugConsole {
-                                    project_id,
-                                    session_id,
-                                    message,
-                                })
-                                .ok();
-                        }
-                    })
-                    .ok();
-                }
-            }
-        })
-        .detach();
-
-        let worktree = this
-            .update(&mut cx, |this, cx| {
-                this.worktree_store
-                    .read(cx)
-                    .worktree_for_id(WorktreeId::from_proto(envelope.payload.worktree_id), cx)
-            })?
-            .context("Failed to find worktree with a given ID")?;
-        let binary = this
-            .update(&mut cx, |this, cx| {
-                this.get_debug_adapter_binary(
-                    definition,
-                    SessionId::from_proto(session_id),
-                    &worktree,
-                    tx,
-                    cx,
-                )
-            })?
-            .await?;
-        Ok(binary.to_proto())
-    }
-
-    async fn handle_log_to_debug_console(
-        this: Entity<Self>,
-        envelope: TypedEnvelope<proto::LogToDebugConsole>,
-        mut cx: AsyncApp,
-    ) -> Result<()> {
-        let session_id = SessionId::from_proto(envelope.payload.session_id);
-        this.update(&mut cx, |this, cx| {
-            let Some(session) = this.sessions.get(&session_id) else {
-                return;
-            };
-            session.update(cx, |session, cx| {
-                session
-                    .console_output(cx)
-                    .unbounded_send(envelope.payload.message)
-                    .ok();
-            })
         })
     }
 

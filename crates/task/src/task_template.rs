@@ -10,7 +10,8 @@ use util::{ResultExt, truncate_and_remove_front};
 
 use crate::{
     AttachRequest, ResolvedTask, RevealTarget, Shell, SpawnInTerminal, TaskContext, TaskId,
-    VariableName, ZED_VARIABLE_NAME_PREFIX, serde_helpers::non_empty_string_vec,
+    VariableName, VECTOR_VARIABLE_NAME_PREFIX, ZED_VARIABLE_NAME_PREFIX,
+    serde_helpers::non_empty_string_vec,
 };
 
 /// A template definition of a Vector task to run.
@@ -336,7 +337,9 @@ fn substitute_all_template_variables_in_str<A: AsRef<str>>(
             }
             // Got a task variable hit - use the variable value, ignore default
             return Ok(Some(name.as_ref().to_owned()));
-        } else if variable_name.starts_with(ZED_VARIABLE_NAME_PREFIX) {
+        } else if variable_name.starts_with(VECTOR_VARIABLE_NAME_PREFIX)
+            || variable_name.starts_with(ZED_VARIABLE_NAME_PREFIX)
+        {
             // Unknown ZED variable - use default if available
             if !default.is_empty() {
                 // Strip the colon and return the default value

@@ -271,9 +271,11 @@ trait ImageStoreImpl {
     ) -> Task<Result<()>>;
 
     fn as_local(&self) -> Option<Entity<LocalImageStore>>;
+    #[cfg(feature = "collab")]
     fn as_remote(&self) -> Option<Entity<RemoteImageStore>>;
 }
 
+#[cfg(feature = "collab")]
 struct RemoteImageStore {
     upstream_client: AnyProtoClient,
     project_id: u64,
@@ -283,6 +285,7 @@ struct RemoteImageStore {
     loaded_images: HashMap<ImageId, Entity<ImageItem>>,
 }
 
+#[cfg(feature = "collab")]
 struct LoadingRemoteImage {
     state: proto::ImageState,
     chunks: Vec<Vec<u8>>,
@@ -334,6 +337,7 @@ impl ImageStore {
         }
     }
 
+    #[cfg(feature = "collab")]
     pub fn remote(
         worktree_store: Entity<WorktreeStore>,
         upstream_client: AnyProtoClient,
@@ -421,7 +425,7 @@ impl ImageStore {
         cx.background_spawn(async move {
             Self::wait_for_loading_image(loading_watch)
                 .await
-                .map_err(|e| anyhow::anyhow!("{e}"))
+                .map_err(|e| e.cloned())
         })
     }
 
@@ -476,6 +480,7 @@ impl ImageStore {
         }
     }
 
+    #[cfg(feature = "collab")]
     pub fn handle_create_image_for_peer(
         &mut self,
         envelope: TypedEnvelope<proto::CreateImageForPeer>,
@@ -501,6 +506,7 @@ impl ImageStore {
     }
 }
 
+#[cfg(feature = "collab")]
 impl RemoteImageStore {
     pub fn wait_for_remote_image(
         &mut self,
@@ -674,11 +680,13 @@ impl ImageStoreImpl for Entity<LocalImageStore> {
         Some(self.clone())
     }
 
+    #[cfg(feature = "collab")]
     fn as_remote(&self) -> Option<Entity<RemoteImageStore>> {
         None
     }
 }
 
+#[cfg(feature = "collab")]
 impl ImageStoreImpl for Entity<RemoteImageStore> {
     fn open_image(
         &self,

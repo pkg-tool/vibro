@@ -5,9 +5,8 @@ use gpui::{
 use strum::IntoEnumIterator;
 use theme::all_theme_colors;
 use ui::{
-    AudioStatus, Avatar, AvatarAudioStatusIndicator, AvatarAvailabilityIndicator, ButtonLike,
-    Checkbox, CollaboratorAvailability, ContentGroup, DecoratedIcon, ElevationIndex, Facepile,
-    IconDecoration, Indicator, KeybindingHint, Switch, TintColor, Tooltip, prelude::*,
+    Avatar, ButtonLike, Checkbox, ContentGroup, DecoratedIcon, ElevationIndex, IconDecoration,
+    Indicator, KeybindingHint, Switch, TintColor, Tooltip, prelude::*,
     utils::calculate_contrast_ratio,
 };
 

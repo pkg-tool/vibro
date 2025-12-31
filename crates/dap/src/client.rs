@@ -1,12 +1,13 @@
 use crate::{
     adapters::DebugAdapterBinary,
-    protocol::{Message, Response},
     transport::{IoKind, LogKind, TransportDelegate},
 };
-#[cfg(any(test, feature = "test-support"))]
-use crate::protocol::ErrorResponse;
 use anyhow::Result;
-use dap_types::requests::Request;
+use dap_types::{
+    ErrorResponse,
+    messages::{Events, Message, OtherEvent, Request, Response},
+    requests::Request as DapRequest,
+};
 use futures::channel::oneshot;
 use gpui::AsyncApp;
 use std::{
@@ -95,14 +96,14 @@ impl DebugAdapterClient {
 
     /// Send a request to an adapter and get a response back
     /// Note: This function will block until a response is sent back from the adapter
-    pub async fn request<R: Request>(&self, arguments: R::Arguments) -> Result<R::Response> {
+    pub async fn request<R: DapRequest>(&self, arguments: R::Arguments) -> Result<R::Response> {
         let serialized_arguments = serde_json::to_value(arguments)?;
 
         let (callback_tx, callback_rx) = oneshot::channel::<Result<Response>>();
 
         let sequence_id = self.next_sequence_id();
 
-        let request = crate::protocol::Request {
+        let request = Request {
             seq: sequence_id,
             command: R::COMMAND.to_string(),
             arguments: Some(serialized_arguments),
@@ -224,7 +225,7 @@ impl DebugAdapterClient {
 
     #[cfg(any(test, feature = "test-support"))]
     pub async fn fake_reverse_request<R: dap_types::requests::Request>(&self, args: R::Arguments) {
-        self.send_message(Message::Request(crate::protocol::Request {
+        self.send_message(Message::Request(Request {
             seq: self.sequence_count.load(Ordering::Relaxed),
             command: R::COMMAND.into(),
             arguments: serde_json::to_value(args).ok(),
@@ -247,24 +248,22 @@ impl DebugAdapterClient {
 
     #[cfg(any(test, feature = "test-support"))]
     pub async fn fake_event<T: serde::Serialize>(&self, event: &str, body: T) {
-        self.send_message(Message::Event(crate::protocol::Event {
-            seq: self.sequence_count.load(Ordering::Relaxed),
+        self.send_message(Message::Event(Box::new(Events::Other(OtherEvent {
             event: event.to_string(),
-            body: Some(serde_json::to_value(body).unwrap()),
-        }))
+            body: serde_json::to_value(body).unwrap(),
+        }))))
         .await
         .unwrap();
     }
 
     #[cfg(any(test, feature = "test-support"))]
     pub async fn fake_event_no_body(&self, event: &str) {
-        self.send_message(Message::Event(crate::protocol::Event {
-            seq: self.sequence_count.load(Ordering::Relaxed),
+        self.send_message(Message::Event(Box::new(Events::Other(OtherEvent {
             event: event.to_string(),
-            body: None,
-        }))
-            .await
-            .unwrap();
+            body: serde_json::Value::Object(Default::default()),
+        }))))
+        .await
+        .unwrap();
     }
 }
 

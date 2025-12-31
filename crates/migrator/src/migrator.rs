@@ -171,26 +171,6 @@ pub fn migrate_settings(text: &str) -> Result<Option<String>> {
             &SETTINGS_QUERY_2025_03_29,
         ),
         MigrationType::TreeSitter(
-            migrations::m_2025_04_15::SETTINGS_PATTERNS,
-            &SETTINGS_QUERY_2025_04_15,
-        ),
-        MigrationType::TreeSitter(
-            migrations::m_2025_04_21::SETTINGS_PATTERNS,
-            &SETTINGS_QUERY_2025_04_21,
-        ),
-        MigrationType::TreeSitter(
-            migrations::m_2025_04_23::SETTINGS_PATTERNS,
-            &SETTINGS_QUERY_2025_04_23,
-        ),
-        MigrationType::TreeSitter(
-            migrations::m_2025_05_05::SETTINGS_PATTERNS,
-            &SETTINGS_QUERY_2025_05_05,
-        ),
-        MigrationType::TreeSitter(
-            migrations::m_2025_05_08::SETTINGS_PATTERNS,
-            &SETTINGS_QUERY_2025_05_08,
-        ),
-        MigrationType::TreeSitter(
             migrations::m_2025_05_29::SETTINGS_PATTERNS,
             &SETTINGS_QUERY_2025_05_29,
         ),
@@ -309,26 +289,6 @@ define_query!(
 define_query!(
     SETTINGS_QUERY_2025_03_29,
     migrations::m_2025_03_29::SETTINGS_PATTERNS
-);
-define_query!(
-    SETTINGS_QUERY_2025_04_15,
-    migrations::m_2025_04_15::SETTINGS_PATTERNS
-);
-define_query!(
-    SETTINGS_QUERY_2025_04_21,
-    migrations::m_2025_04_21::SETTINGS_PATTERNS
-);
-define_query!(
-    SETTINGS_QUERY_2025_04_23,
-    migrations::m_2025_04_23::SETTINGS_PATTERNS
-);
-define_query!(
-    SETTINGS_QUERY_2025_05_05,
-    migrations::m_2025_05_05::SETTINGS_PATTERNS
-);
-define_query!(
-    SETTINGS_QUERY_2025_05_08,
-    migrations::m_2025_05_08::SETTINGS_PATTERNS
 );
 define_query!(
     SETTINGS_QUERY_2025_05_29,

@@ -15,7 +15,7 @@ use fs::normalize_path;
 use gpui::{App, Task};
 use language::LanguageName;
 use semver::Version;
-use task::{SpawnInTerminal, ZedDebugConfig};
+use task::{SpawnInTerminal, VectorDebugConfig};
 use util::rel_path::RelPath;
 
 pub use crate::capabilities::*;
@@ -154,7 +154,7 @@ pub trait Extension: Send + Sync + 'static {
         config: serde_json::Value,
     ) -> Result<StartDebuggingRequestArgumentsRequest>;
 
-    async fn dap_config_to_scenario(&self, config: ZedDebugConfig) -> Result<DebugScenario>;
+    async fn dap_config_to_scenario(&self, config: VectorDebugConfig) -> Result<DebugScenario>;
 
     async fn dap_locator_create_scenario(
         &self,

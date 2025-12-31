@@ -171,7 +171,7 @@ impl RenderOnce for ThreadItem {
 
 impl Component for ThreadItem {
     fn scope() -> ComponentScope {
-        ComponentScope::Agent
+        ComponentScope::None
     }
 
     fn preview(_window: &mut Window, cx: &mut App) -> Option<AnyElement> {

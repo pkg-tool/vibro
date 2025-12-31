@@ -33,7 +33,6 @@ paths.workspace = true
 picker.workspace = true
 project.workspace = true
 release_channel.workspace = true
-remote.workspace = true
 semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -45,7 +44,7 @@ ui.workspace = true
 util.workspace = true
 workspace.workspace = true
 worktree.workspace = true
-zed_actions.workspace = true
+vector_actions.workspace = true
 indoc.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]

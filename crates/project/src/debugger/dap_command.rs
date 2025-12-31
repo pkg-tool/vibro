@@ -5,12 +5,16 @@ use base64::Engine;
 use dap::{
     Capabilities, ContinueArguments, ExceptionFilterOptions, InitializeRequestArguments,
     InitializeRequestArgumentsPathFormat, NextArguments, SetVariableResponse, SourceBreakpoint,
-    StepInArguments, StepOutArguments, SteppingGranularity, Variable, VariablesArgumentsFilter,
+    StepInArguments, StepOutArguments, SteppingGranularity, ValueFormat, Variable,
+    VariablesArgumentsFilter,
+    client::SessionId,
     requests::{Continue, Next},
 };
 
+#[cfg(feature = "collab")]
 use rpc::proto;
 use serde_json::Value;
+use util::ResultExt;
 
 pub trait LocalDapCommand: 'static + Send + Sync + std::fmt::Debug {
     type Response: 'static + Send + std::fmt::Debug;
@@ -30,6 +34,7 @@ pub trait LocalDapCommand: 'static + Send + Sync + std::fmt::Debug {
     ) -> Result<Self::Response>;
 }
 
+#[cfg(feature = "collab")]
 pub trait DapCommand: LocalDapCommand {
     type ProtoRequest: 'static + Send;
     type ProtoResponse: 'static + Send;
@@ -73,8 +78,33 @@ impl<T: LocalDapCommand> LocalDapCommand for Arc<T> {
     }
 }
 
+#[cfg(feature = "collab")]
 impl<T: DapCommand> DapCommand for Arc<T> {
-    const CACHEABLE: bool = T::CACHEABLE;
+    type ProtoRequest = T::ProtoRequest;
+    type ProtoResponse = T::ProtoResponse;
+
+    fn client_id_from_proto(request: &Self::ProtoRequest) -> SessionId {
+        T::client_id_from_proto(request)
+    }
+
+    fn from_proto(request: &Self::ProtoRequest) -> Self {
+        Arc::new(T::from_proto(request))
+    }
+
+    fn to_proto(&self, debug_client_id: SessionId, upstream_project_id: u64) -> Self::ProtoRequest {
+        T::to_proto(self, debug_client_id, upstream_project_id)
+    }
+
+    fn response_to_proto(
+        debug_client_id: SessionId,
+        message: Self::Response,
+    ) -> Self::ProtoResponse {
+        T::response_to_proto(debug_client_id, message)
+    }
+
+    fn response_from_proto(&self, message: Self::ProtoResponse) -> Result<Self::Response> {
+        T::response_from_proto(self, message)
+    }
 }
 
 #[derive(Debug, Hash, PartialEq, Eq)]
@@ -82,6 +112,26 @@ pub struct StepCommand {
     pub thread_id: i64,
     pub granularity: Option<SteppingGranularity>,
     pub single_thread: Option<bool>,
+}
+
+impl StepCommand {
+    #[cfg(feature = "collab")]
+    fn from_proto(message: proto::DapNextRequest) -> Self {
+        const LINE: i32 = proto::SteppingGranularity::Line as i32;
+        const INSTRUCTION: i32 = proto::SteppingGranularity::Instruction as i32;
+
+        let granularity = message.granularity.map(|granularity| match granularity {
+            LINE => SteppingGranularity::Line,
+            INSTRUCTION => SteppingGranularity::Instruction,
+            _ => SteppingGranularity::Statement,
+        });
+
+        Self {
+            thread_id: message.thread_id,
+            granularity,
+            single_thread: message.single_thread,
+        }
+    }
 }
 
 #[derive(Debug, Hash, PartialEq, Eq)]
@@ -108,7 +158,46 @@ impl LocalDapCommand for NextCommand {
     }
 }
 
-impl DapCommand for NextCommand {}
+#[cfg(feature = "collab")]
+impl DapCommand for NextCommand {
+    type ProtoRequest = proto::DapNextRequest;
+    type ProtoResponse = proto::Ack;
+
+    fn client_id_from_proto(request: &Self::ProtoRequest) -> SessionId {
+        SessionId::from_proto(request.client_id)
+    }
+
+    fn from_proto(request: &Self::ProtoRequest) -> Self {
+        Self {
+            inner: StepCommand::from_proto(request.clone()),
+        }
+    }
+
+    fn response_to_proto(
+        _debug_client_id: SessionId,
+        _message: Self::Response,
+    ) -> Self::ProtoResponse {
+        proto::Ack {}
+    }
+
+    fn to_proto(
+        &self,
+        debug_client_id: SessionId,
+        upstream_project_id: u64,
+    ) -> proto::DapNextRequest {
+        proto::DapNextRequest {
+            project_id: upstream_project_id,
+            client_id: debug_client_id.to_proto(),
+            thread_id: self.inner.thread_id,
+            single_thread: self.inner.single_thread,
+            granularity: self.inner.granularity.map(|gran| gran.to_proto() as i32),
+        }
+    }
+
+    fn response_from_proto(&self, _message: Self::ProtoResponse) -> Result<Self::Response> {
+        Ok(())
+    }
+}
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub(crate) struct StepInCommand {
@@ -136,7 +225,53 @@ impl LocalDapCommand for StepInCommand {
     }
 }
 
-impl DapCommand for StepInCommand {}
+#[cfg(feature = "collab")]
+impl DapCommand for StepInCommand {
+    type ProtoRequest = proto::DapStepInRequest;
+    type ProtoResponse = proto::Ack;
+
+    fn client_id_from_proto(request: &Self::ProtoRequest) -> SessionId {
+        SessionId::from_proto(request.client_id)
+    }
+
+    fn from_proto(request: &Self::ProtoRequest) -> Self {
+        Self {
+            inner: StepCommand::from_proto(proto::DapNextRequest {
+                project_id: request.project_id,
+                client_id: request.client_id,
+                thread_id: request.thread_id,
+                single_thread: request.single_thread,
+                granularity: request.granularity,
+            }),
+        }
+    }
+
+    fn response_to_proto(
+        _debug_client_id: SessionId,
+        _message: Self::Response,
+    ) -> Self::ProtoResponse {
+        proto::Ack {}
+    }
+
+    fn to_proto(
+        &self,
+        debug_client_id: SessionId,
+        upstream_project_id: u64,
+    ) -> proto::DapStepInRequest {
+        proto::DapStepInRequest {
+            project_id: upstream_project_id,
+            client_id: debug_client_id.to_proto(),
+            thread_id: self.inner.thread_id,
+            single_thread: self.inner.single_thread,
+            granularity: self.inner.granularity.map(|gran| gran.to_proto() as i32),
+            target_id: None,
+        }
+    }
+
+    fn response_from_proto(&self, _message: Self::ProtoResponse) -> Result<Self::Response> {
+        Ok(())
+    }
+}
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub(crate) struct StepOutCommand {
@@ -163,7 +298,52 @@ impl LocalDapCommand for StepOutCommand {
     }
 }
 
-impl DapCommand for StepOutCommand {}
+#[cfg(feature = "collab")]
+impl DapCommand for StepOutCommand {
+    type ProtoRequest = proto::DapStepOutRequest;
+    type ProtoResponse = proto::Ack;
+
+    fn client_id_from_proto(request: &Self::ProtoRequest) -> SessionId {
+        SessionId::from_proto(request.client_id)
+    }
+
+    fn from_proto(request: &Self::ProtoRequest) -> Self {
+        Self {
+            inner: StepCommand::from_proto(proto::DapNextRequest {
+                project_id: request.project_id,
+                client_id: request.client_id,
+                thread_id: request.thread_id,
+                single_thread: request.single_thread,
+                granularity: request.granularity,
+            }),
+        }
+    }
+
+    fn response_to_proto(
+        _debug_client_id: SessionId,
+        _message: Self::Response,
+    ) -> Self::ProtoResponse {
+        proto::Ack {}
+    }
+
+    fn to_proto(
+        &self,
+        debug_client_id: SessionId,
+        upstream_project_id: u64,
+    ) -> proto::DapStepOutRequest {
+        proto::DapStepOutRequest {
+            project_id: upstream_project_id,
+            client_id: debug_client_id.to_proto(),
+            thread_id: self.inner.thread_id,
+            single_thread: self.inner.single_thread,
+            granularity: self.inner.granularity.map(|gran| gran.to_proto() as i32),
+        }
+    }
+
+    fn response_from_proto(&self, _message: Self::ProtoResponse) -> Result<Self::Response> {
+        Ok(())
+    }
+}
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub(crate) struct StepBackCommand {
@@ -193,12 +373,56 @@ impl LocalDapCommand for StepBackCommand {
     }
 }
 
-impl DapCommand for StepBackCommand {}
+#[cfg(feature = "collab")]
+impl DapCommand for StepBackCommand {
+    type ProtoRequest = proto::DapStepBackRequest;
+    type ProtoResponse = proto::Ack;
+
+    fn client_id_from_proto(request: &Self::ProtoRequest) -> SessionId {
+        SessionId::from_proto(request.client_id)
+    }
+
+    fn from_proto(request: &Self::ProtoRequest) -> Self {
+        Self {
+            inner: StepCommand::from_proto(proto::DapNextRequest {
+                project_id: request.project_id,
+                client_id: request.client_id,
+                thread_id: request.thread_id,
+                single_thread: request.single_thread,
+                granularity: request.granularity,
+            }),
+        }
+    }
+
+    fn response_to_proto(
+        _debug_client_id: SessionId,
+        _message: Self::Response,
+    ) -> Self::ProtoResponse {
+        proto::Ack {}
+    }
+
+    fn to_proto(
+        &self,
+        debug_client_id: SessionId,
+        upstream_project_id: u64,
+    ) -> proto::DapStepBackRequest {
+        proto::DapStepBackRequest {
+            project_id: upstream_project_id,
+            client_id: debug_client_id.to_proto(),
+            thread_id: self.inner.thread_id,
+            single_thread: self.inner.single_thread,
+            granularity: self.inner.granularity.map(|gran| gran.to_proto() as i32),
+        }
+    }
+
+    fn response_from_proto(&self, _message: Self::ProtoResponse) -> Result<Self::Response> {
+        Ok(())
+    }
+}
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub(crate) struct ContinueCommand {
-    pub thread_id: u64,
-    pub single_thread: Option<bool>,
+    pub args: ContinueArguments,
 }
 
 impl LocalDapCommand for ContinueCommand {
@@ -206,10 +430,7 @@ impl LocalDapCommand for ContinueCommand {
     type DapRequest = Continue;
 
     fn to_dap(&self) -> <Self::DapRequest as dap::requests::Request>::Arguments {
-        ContinueArguments {
-            thread_id: self.thread_id,
-            single_thread: self.single_thread,
-        }
+        self.args.clone()
     }
 
     fn response_from_dap(
@@ -220,7 +441,53 @@ impl LocalDapCommand for ContinueCommand {
     }
 }
 
-impl DapCommand for ContinueCommand {}
+#[cfg(feature = "collab")]
+impl DapCommand for ContinueCommand {
+    type ProtoRequest = proto::DapContinueRequest;
+    type ProtoResponse = proto::DapContinueResponse;
+
+    fn client_id_from_proto(request: &Self::ProtoRequest) -> SessionId {
+        SessionId::from_proto(request.client_id)
+    }
+
+    fn to_proto(
+        &self,
+        debug_client_id: SessionId,
+        upstream_project_id: u64,
+    ) -> proto::DapContinueRequest {
+        proto::DapContinueRequest {
+            project_id: upstream_project_id,
+            client_id: debug_client_id.to_proto(),
+            thread_id: self.args.thread_id,
+            single_thread: self.args.single_thread,
+        }
+    }
+
+    fn from_proto(request: &Self::ProtoRequest) -> Self {
+        Self {
+            args: ContinueArguments {
+                thread_id: request.thread_id,
+                single_thread: request.single_thread,
+            },
+        }
+    }
+
+    fn response_from_proto(&self, message: Self::ProtoResponse) -> Result<Self::Response> {
+        Ok(Self::Response {
+            all_threads_continued: message.all_threads_continued,
+        })
+    }
+
+    fn response_to_proto(
+        debug_client_id: SessionId,
+        message: Self::Response,
+    ) -> Self::ProtoResponse {
+        proto::DapContinueResponse {
+            client_id: debug_client_id.to_proto(),
+            all_threads_continued: message.all_threads_continued,
+        }
+    }
+}
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub(crate) struct PauseCommand {
@@ -244,7 +511,44 @@ impl LocalDapCommand for PauseCommand {
     }
 }
 
-impl DapCommand for PauseCommand {}
+#[cfg(feature = "collab")]
+impl DapCommand for PauseCommand {
+    type ProtoRequest = proto::DapPauseRequest;
+    type ProtoResponse = proto::Ack;
+
+    fn client_id_from_proto(request: &Self::ProtoRequest) -> SessionId {
+        SessionId::from_proto(request.client_id)
+    }
+
+    fn from_proto(request: &Self::ProtoRequest) -> Self {
+        Self {
+            thread_id: request.thread_id,
+        }
+    }
+
+    fn to_proto(
+        &self,
+        debug_client_id: SessionId,
+        upstream_project_id: u64,
+    ) -> proto::DapPauseRequest {
+        proto::DapPauseRequest {
+            project_id: upstream_project_id,
+            client_id: debug_client_id.to_proto(),
+            thread_id: self.thread_id,
+        }
+    }
+
+    fn response_to_proto(
+        _debug_client_id: SessionId,
+        _message: Self::Response,
+    ) -> Self::ProtoResponse {
+        proto::Ack {}
+    }
+
+    fn response_from_proto(&self, _message: Self::ProtoResponse) -> Result<Self::Response> {
+        Ok(())
+    }
+}
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub(crate) struct DisconnectCommand {
@@ -273,7 +577,48 @@ impl LocalDapCommand for DisconnectCommand {
     }
 }
 
-impl DapCommand for DisconnectCommand {}
+#[cfg(feature = "collab")]
+impl DapCommand for DisconnectCommand {
+    type ProtoRequest = proto::DapDisconnectRequest;
+    type ProtoResponse = proto::Ack;
+
+    fn client_id_from_proto(request: &Self::ProtoRequest) -> SessionId {
+        SessionId::from_proto(request.client_id)
+    }
+
+    fn from_proto(request: &Self::ProtoRequest) -> Self {
+        Self {
+            restart: request.restart,
+            terminate_debuggee: request.terminate_debuggee,
+            suspend_debuggee: request.suspend_debuggee,
+        }
+    }
+
+    fn to_proto(
+        &self,
+        debug_client_id: SessionId,
+        upstream_project_id: u64,
+    ) -> proto::DapDisconnectRequest {
+        proto::DapDisconnectRequest {
+            project_id: upstream_project_id,
+            client_id: debug_client_id.to_proto(),
+            restart: self.restart,
+            terminate_debuggee: self.terminate_debuggee,
+            suspend_debuggee: self.suspend_debuggee,
+        }
+    }
+
+    fn response_to_proto(
+        _debug_client_id: SessionId,
+        _message: Self::Response,
+    ) -> Self::ProtoResponse {
+        proto::Ack {}
+    }
+
+    fn response_from_proto(&self, _message: Self::ProtoResponse) -> Result<Self::Response> {
+        Ok(())
+    }
+}
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub(crate) struct TerminateThreadsCommand {
@@ -304,7 +649,48 @@ impl LocalDapCommand for TerminateThreadsCommand {
     }
 }
 
-impl DapCommand for TerminateThreadsCommand {}
+#[cfg(feature = "collab")]
+impl DapCommand for TerminateThreadsCommand {
+    type ProtoRequest = proto::DapTerminateThreadsRequest;
+    type ProtoResponse = proto::Ack;
+
+    fn client_id_from_proto(request: &Self::ProtoRequest) -> SessionId {
+        SessionId::from_proto(request.client_id)
+    }
+
+    fn from_proto(request: &Self::ProtoRequest) -> Self {
+        let thread_ids = if request.thread_ids.is_empty() {
+            None
+        } else {
+            Some(request.thread_ids.clone())
+        };
+
+        Self { thread_ids }
+    }
+
+    fn to_proto(
+        &self,
+        debug_client_id: SessionId,
+        upstream_project_id: u64,
+    ) -> proto::DapTerminateThreadsRequest {
+        proto::DapTerminateThreadsRequest {
+            project_id: upstream_project_id,
+            client_id: debug_client_id.to_proto(),
+            thread_ids: self.thread_ids.clone().unwrap_or_default(),
+        }
+    }
+
+    fn response_to_proto(
+        _debug_client_id: SessionId,
+        _message: Self::Response,
+    ) -> Self::ProtoResponse {
+        proto::Ack {}
+    }
+
+    fn response_from_proto(&self, _message: Self::ProtoResponse) -> Result<Self::Response> {
+        Ok(())
+    }
+}
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub(crate) struct TerminateCommand {
@@ -332,7 +718,44 @@ impl LocalDapCommand for TerminateCommand {
     }
 }
 
-impl DapCommand for TerminateCommand {}
+#[cfg(feature = "collab")]
+impl DapCommand for TerminateCommand {
+    type ProtoRequest = proto::DapTerminateRequest;
+    type ProtoResponse = proto::Ack;
+
+    fn client_id_from_proto(request: &Self::ProtoRequest) -> SessionId {
+        SessionId::from_proto(request.client_id)
+    }
+
+    fn from_proto(request: &Self::ProtoRequest) -> Self {
+        Self {
+            restart: request.restart,
+        }
+    }
+
+    fn to_proto(
+        &self,
+        debug_client_id: SessionId,
+        upstream_project_id: u64,
+    ) -> proto::DapTerminateRequest {
+        proto::DapTerminateRequest {
+            project_id: upstream_project_id,
+            client_id: debug_client_id.to_proto(),
+            restart: self.restart,
+        }
+    }
+
+    fn response_to_proto(
+        _debug_client_id: SessionId,
+        _message: Self::Response,
+    ) -> Self::ProtoResponse {
+        proto::Ack {}
+    }
+
+    fn response_from_proto(&self, _message: Self::ProtoResponse) -> Result<Self::Response> {
+        Ok(())
+    }
+}
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub(crate) struct RestartCommand {
@@ -361,7 +784,48 @@ impl LocalDapCommand for RestartCommand {
     }
 }
 
-impl DapCommand for RestartCommand {}
+#[cfg(feature = "collab")]
+impl DapCommand for RestartCommand {
+    type ProtoRequest = proto::DapRestartRequest;
+    type ProtoResponse = proto::Ack;
+
+    fn client_id_from_proto(request: &Self::ProtoRequest) -> SessionId {
+        SessionId::from_proto(request.client_id)
+    }
+
+    fn from_proto(request: &Self::ProtoRequest) -> Self {
+        Self {
+            raw: serde_json::from_slice(&request.raw_args)
+                .log_err()
+                .unwrap_or(serde_json::Value::Null),
+        }
+    }
+
+    fn to_proto(
+        &self,
+        debug_client_id: SessionId,
+        upstream_project_id: u64,
+    ) -> proto::DapRestartRequest {
+        let raw_args = serde_json::to_vec(&self.raw).log_err().unwrap_or_default();
+
+        proto::DapRestartRequest {
+            project_id: upstream_project_id,
+            client_id: debug_client_id.to_proto(),
+            raw_args,
+        }
+    }
+
+    fn response_to_proto(
+        _debug_client_id: SessionId,
+        _message: Self::Response,
+    ) -> Self::ProtoResponse {
+        proto::Ack {}
+    }
+
+    fn response_from_proto(&self, _message: Self::ProtoResponse) -> Result<Self::Response> {
+        Ok(())
+    }
+}
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct VariablesCommand {
@@ -369,6 +833,7 @@ pub struct VariablesCommand {
     pub filter: Option<VariablesArgumentsFilter>,
     pub start: Option<u64>,
     pub count: Option<u64>,
+    pub format: Option<ValueFormat>,
 }
 
 impl LocalDapCommand for VariablesCommand {
@@ -382,7 +847,7 @@ impl LocalDapCommand for VariablesCommand {
             filter: self.filter,
             start: self.start,
             count: self.count,
-            format: None,
+            format: self.format.clone(),
         }
     }
 
@@ -394,6 +859,7 @@ impl LocalDapCommand for VariablesCommand {
     }
 }
 
+#[cfg(feature = "collab")]
 impl DapCommand for VariablesCommand {
     type ProtoRequest = proto::VariablesRequest;
     type ProtoResponse = proto::DapVariables;
@@ -467,7 +933,60 @@ impl LocalDapCommand for SetVariableValueCommand {
     }
 }
 
-impl DapCommand for SetVariableValueCommand {}
+#[cfg(feature = "collab")]
+impl DapCommand for SetVariableValueCommand {
+    type ProtoRequest = proto::DapSetVariableValueRequest;
+    type ProtoResponse = proto::DapSetVariableValueResponse;
+
+    fn client_id_from_proto(request: &Self::ProtoRequest) -> SessionId {
+        SessionId::from_proto(request.client_id)
+    }
+
+    fn to_proto(&self, debug_client_id: SessionId, upstream_project_id: u64) -> Self::ProtoRequest {
+        proto::DapSetVariableValueRequest {
+            project_id: upstream_project_id,
+            client_id: debug_client_id.to_proto(),
+            variables_reference: self.variables_reference,
+            value: self.value.clone(),
+            name: self.name.clone(),
+        }
+    }
+
+    fn from_proto(request: &Self::ProtoRequest) -> Self {
+        Self {
+            variables_reference: request.variables_reference,
+            name: request.name.clone(),
+            value: request.value.clone(),
+        }
+    }
+
+    fn response_to_proto(
+        debug_client_id: SessionId,
+        message: Self::Response,
+    ) -> Self::ProtoResponse {
+        proto::DapSetVariableValueResponse {
+            client_id: debug_client_id.to_proto(),
+            value: message.value,
+            variable_type: message.type_,
+            named_variables: message.named_variables,
+            variables_reference: message.variables_reference,
+            indexed_variables: message.indexed_variables,
+            memory_reference: message.memory_reference,
+        }
+    }
+
+    fn response_from_proto(&self, message: Self::ProtoResponse) -> Result<Self::Response> {
+        Ok(SetVariableResponse {
+            value: message.value,
+            type_: message.variable_type,
+            variables_reference: message.variables_reference,
+            named_variables: message.named_variables,
+            indexed_variables: message.indexed_variables,
+            memory_reference: message.memory_reference,
+            value_location_reference: None, // TODO
+        })
+    }
+}
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub(crate) struct RestartStackFrameCommand {
@@ -496,7 +1015,44 @@ impl LocalDapCommand for RestartStackFrameCommand {
     }
 }
 
-impl DapCommand for RestartStackFrameCommand {}
+#[cfg(feature = "collab")]
+impl DapCommand for RestartStackFrameCommand {
+    type ProtoRequest = proto::DapRestartStackFrameRequest;
+    type ProtoResponse = proto::Ack;
+
+    fn client_id_from_proto(request: &Self::ProtoRequest) -> SessionId {
+        SessionId::from_proto(request.client_id)
+    }
+
+    fn from_proto(request: &Self::ProtoRequest) -> Self {
+        Self {
+            stack_frame_id: request.stack_frame_id,
+        }
+    }
+
+    fn to_proto(
+        &self,
+        debug_client_id: SessionId,
+        upstream_project_id: u64,
+    ) -> proto::DapRestartStackFrameRequest {
+        proto::DapRestartStackFrameRequest {
+            project_id: upstream_project_id,
+            client_id: debug_client_id.to_proto(),
+            stack_frame_id: self.stack_frame_id,
+        }
+    }
+
+    fn response_to_proto(
+        _debug_client_id: SessionId,
+        _message: Self::Response,
+    ) -> Self::ProtoResponse {
+        proto::Ack {}
+    }
+
+    fn response_from_proto(&self, _message: Self::ProtoResponse) -> Result<Self::Response> {
+        Ok(())
+    }
+}
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub(crate) struct ModulesCommand;
@@ -525,6 +1081,7 @@ impl LocalDapCommand for ModulesCommand {
     }
 }
 
+#[cfg(feature = "collab")]
 impl DapCommand for ModulesCommand {
     type ProtoRequest = proto::DapModulesRequest;
     type ProtoResponse = proto::DapModulesResponse;
@@ -595,6 +1152,7 @@ impl LocalDapCommand for LoadedSourcesCommand {
     }
 }
 
+#[cfg(feature = "collab")]
 impl DapCommand for LoadedSourcesCommand {
     type ProtoRequest = proto::DapLoadedSourcesRequest;
     type ProtoResponse = proto::DapLoadedSourcesResponse;
@@ -669,6 +1227,7 @@ impl LocalDapCommand for StackTraceCommand {
     }
 }
 
+#[cfg(feature = "collab")]
 impl DapCommand for StackTraceCommand {
     type ProtoRequest = proto::DapStackTraceRequest;
     type ProtoResponse = proto::DapStackTraceResponse;
@@ -737,6 +1296,7 @@ impl LocalDapCommand for ScopesCommand {
     }
 }
 
+#[cfg(feature = "collab")]
 impl DapCommand for ScopesCommand {
     type ProtoRequest = proto::DapScopesRequest;
     type ProtoResponse = proto::DapScopesResponse;
@@ -801,6 +1361,7 @@ impl LocalDapCommand for super::session::CompletionsQuery {
     }
 }
 
+#[cfg(feature = "collab")]
 impl DapCommand for super::session::CompletionsQuery {
     type ProtoRequest = proto::DapCompletionRequest;
     type ProtoResponse = proto::DapCompletionResponse;
@@ -846,11 +1407,12 @@ impl DapCommand for super::session::CompletionsQuery {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub(crate) struct EvaluateCommand {
     pub expression: String,
     pub frame_id: Option<u64>,
     pub context: Option<dap::EvaluateArgumentsContext>,
+    pub source: Option<dap::Source>,
 }
 
 impl LocalDapCommand for EvaluateCommand {
@@ -861,6 +1423,9 @@ impl LocalDapCommand for EvaluateCommand {
             expression: self.expression.clone(),
             frame_id: self.frame_id,
             context: self.context.clone(),
+            source: self.source.clone(),
+            line: None,
+            column: None,
             format: None,
         }
     }
@@ -872,6 +1437,7 @@ impl LocalDapCommand for EvaluateCommand {
         Ok(message)
     }
 }
+#[cfg(feature = "collab")]
 impl DapCommand for EvaluateCommand {
     type ProtoRequest = proto::DapEvaluateRequest;
     type ProtoResponse = proto::DapEvaluateResponse;
@@ -939,7 +1505,7 @@ impl LocalDapCommand for ThreadsCommand {
     const CACHEABLE: bool = true;
 
     fn to_dap(&self) -> <Self::DapRequest as dap::requests::Request>::Arguments {
-        ()
+        dap::ThreadsArgument {}
     }
 
     fn response_from_dap(
@@ -950,6 +1516,7 @@ impl LocalDapCommand for ThreadsCommand {
     }
 }
 
+#[cfg(feature = "collab")]
 impl DapCommand for ThreadsCommand {
     type ProtoRequest = proto::DapThreadsRequest;
     type ProtoResponse = proto::DapThreadsResponse;
@@ -990,8 +1557,8 @@ pub(super) struct Initialize {
 
 fn dap_client_capabilities(adapter_id: String) -> InitializeRequestArguments {
     InitializeRequestArguments {
-        client_id: Some("vector".to_owned()),
-        client_name: Some("Vector".to_owned()),
+        client_id: Some("zed".to_owned()),
+        client_name: Some("Zed".to_owned()),
         adapter_id,
         locale: Some("en-US".to_owned()),
         path_format: Some(InitializeRequestArgumentsPathFormat::Path),
@@ -1097,7 +1664,7 @@ impl LocalDapCommand for Attach {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq)]
 pub(super) struct SetBreakpoints {
     pub(super) source: dap::Source,
     pub(super) breakpoints: Vec<SourceBreakpoint>,
@@ -1311,6 +1878,7 @@ impl LocalDapCommand for LocationsCommand {
     }
 }
 
+#[cfg(feature = "collab")]
 impl DapCommand for LocationsCommand {
     type ProtoRequest = proto::DapLocationsRequest;
     type ProtoResponse = proto::DapLocationsResponse;

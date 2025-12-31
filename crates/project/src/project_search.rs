@@ -14,9 +14,7 @@ use fs::Fs;
 use futures::{SinkExt, StreamExt, select_biased, stream::FuturesOrdered};
 use gpui::{App, AppContext, AsyncApp, Entity, Task};
 use language::{Buffer, BufferSnapshot};
-use parking_lot::Mutex;
 use postage::oneshot;
-use rpc::{AnyProtoClient, proto};
 use smol::{
     channel::{Receiver, Sender, bounded, unbounded},
     future::FutureExt,
@@ -27,7 +25,7 @@ use util::{ResultExt, maybe, paths::compare_rel_paths, rel_path::RelPath};
 use worktree::{Entry, ProjectEntryId, Snapshot, Worktree, WorktreeSettings};
 
 use crate::{
-    Project, ProjectItem, ProjectPath, RemotelyCreatedModels,
+    Project, ProjectItem, ProjectPath,
     buffer_store::BufferStore,
     search::{SearchQuery, SearchResult},
     worktree_store::WorktreeStore,
@@ -46,12 +44,6 @@ enum SearchKind {
     Local {
         fs: Arc<dyn Fs>,
         worktrees: Vec<Entity<Worktree>>,
-    },
-    /// Query remote host for candidates. As of writing, the host runs a local search in "buffers with matches only" mode.
-    Remote {
-        client: AnyProtoClient,
-        remote_id: u64,
-        models: Arc<Mutex<RemotelyCreatedModels>>,
     },
     /// Run search against a known set of candidates. Even when working with a remote host, this won't round-trip to host.
     OpenBuffersOnly,
@@ -102,7 +94,6 @@ enum FindSearchCandidates {
         confirm_contents_will_match_tx: Sender<MatchingEntry>,
         confirm_contents_will_match_rx: Receiver<MatchingEntry>,
     },
-    Remote,
     OpenBuffersOnly,
 }
 
@@ -123,23 +114,6 @@ impl Search {
         }
     }
 
-    pub(crate) fn remote(
-        buffer_store: Entity<BufferStore>,
-        worktree_store: Entity<WorktreeStore>,
-        limit: usize,
-        client_state: (AnyProtoClient, u64, Arc<Mutex<RemotelyCreatedModels>>),
-    ) -> Self {
-        Self {
-            kind: SearchKind::Remote {
-                client: client_state.0,
-                remote_id: client_state.1,
-                models: client_state.2,
-            },
-            buffer_store,
-            worktree_store,
-            limit,
-        }
-    }
     pub(crate) fn open_buffers_only(
         buffer_store: Entity<BufferStore>,
         worktree_store: Entity<WorktreeStore>,
@@ -245,55 +219,6 @@ impl Search {
                                 input_paths_rx,
                             },
                             tasks,
-                        )
-                    }
-                    SearchKind::Remote {
-                        client,
-                        remote_id,
-                        models,
-                    } => {
-                        let request = client.request(proto::FindSearchCandidates {
-                            project_id: remote_id,
-                            query: Some(query.to_proto()),
-                            limit: self.limit as _,
-                        });
-                        let weak_buffer_store = self.buffer_store.downgrade();
-                        let buffer_store = self.buffer_store;
-                        let Ok(guard) = cx.update(|cx| {
-                            Project::retain_remotely_created_models_impl(
-                                &models,
-                                &buffer_store,
-                                &self.worktree_store,
-                                cx,
-                            )
-                        }) else {
-                            return;
-                        };
-
-                        let issue_remote_buffers_request = cx
-                            .spawn(async move |cx| {
-                                let _ = maybe!(async move {
-                                    let response = request.await?;
-                                    for buffer_id in response.buffer_ids {
-                                        let buffer_id = BufferId::new(buffer_id)?;
-                                        let buffer = weak_buffer_store
-                                            .update(cx, |buffer_store, cx| {
-                                                buffer_store.wait_for_remote_buffer(buffer_id, cx)
-                                            })?
-                                            .await?;
-                                        let _ = grab_buffer_snapshot_tx.send(buffer).await;
-                                    }
-
-                                    drop(guard);
-                                    anyhow::Ok(())
-                                })
-                                .await
-                                .log_err();
-                            })
-                            .boxed_local();
-                        (
-                            FindSearchCandidates::Remote,
-                            vec![issue_remote_buffers_request],
                         )
                     }
                 };
@@ -620,9 +545,7 @@ impl Worker {
                 confirm_contents_will_match_tx,
                 Some(fs),
             ),
-            FindSearchCandidates::Remote | FindSearchCandidates::OpenBuffersOnly => {
-                (unbounded().1, unbounded().1, unbounded().0, None)
-            }
+            FindSearchCandidates::OpenBuffersOnly => (unbounded().1, unbounded().1, unbounded().0, None),
         };
         // WorkerA: grabs a request for "find all matches in file/a" <- takes 5 minutes
         // right after: WorkerB: grabs a request for "find all matches in file/b" <- takes 5 seconds

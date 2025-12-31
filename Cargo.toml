@@ -1,22 +1,10 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/acp_tools",
-    "crates/acp_thread",
-    "crates/action_log",
     "crates/activity_indicator",
-    "crates/agent",
-    "crates/agent_servers",
-    "crates/agent_settings",
-    "crates/agent_ui",
-    "crates/agent_ui_v2",
-    "crates/ai_onboarding",
     "crates/anthropic",
     "crates/askpass",
     "crates/assets",
-    "crates/assistant_text_thread",
-    "crates/assistant_slash_command",
-    "crates/assistant_slash_commands",
     "crates/audio",
     "crates/auto_update",
     "crates/auto_update_helper",
@@ -30,16 +18,11 @@ members = [
     "crates/cloud_api_client",
     "crates/cloud_api_types",
     "crates/cloud_llm_client",
-    "crates/collab",
-    "crates/collab_ui",
     "crates/collections",
     "crates/command_palette",
     "crates/command_palette_hooks",
     "crates/component",
-    "crates/component_preview",
     "crates/context_server",
-    "crates/copilot",
-    "crates/crashes",
     "crates/credentials_provider",
     "crates/dap",
     "crates/dap_adapters",
@@ -51,12 +34,8 @@ members = [
     "crates/denoise",
     "crates/diagnostics",
     "crates/docs_preprocessor",
-    "crates/edit_prediction",
     "crates/edit_prediction_types",
-    "crates/edit_prediction_ui",
-    "crates/edit_prediction_context",
     "crates/editor",
-    "crates/eval",
     "crates/eval_utils",
     "crates/explorer_command_injector",
     "crates/extension",
@@ -91,15 +70,11 @@ members = [
     "crates/keymap_editor",
     "crates/language",
     "crates/language_extension",
-    "crates/language_model",
-    "crates/language_models",
     "crates/language_onboarding",
     "crates/language_selector",
     "crates/language_tools",
     "crates/languages",
     "crates/line_ending_selector",
-    "crates/livekit_api",
-    "crates/livekit_client",
     "crates/lmstudio",
     "crates/lsp",
     "crates/markdown",
@@ -124,8 +99,8 @@ members = [
     "crates/paths",
     "crates/picker",
     "crates/prettier",
+    "crates/proto",
     "crates/project",
-    "crates/project_benchmarks",
     "crates/project_panel",
     "crates/project_symbols",
     "crates/prompt_store",
@@ -134,10 +109,9 @@ members = [
     "crates/refineable/derive_refineable",
     "crates/release_channel",
     "crates/scheduler",
-    "crates/remote",
-    "crates/remote_server",
     "crates/repl",
     "crates/reqwest_client",
+    "crates/rpc",
     "crates/rich_text",
     "crates/rope",
     "crates/schema_generator",
@@ -159,14 +133,14 @@ members = [
     "crates/sum_tree",
     "crates/supermaven",
     "crates/supermaven_api",
-    "crates/codestral",
     "crates/svg_preview",
-    "crates/system_specs",
     "crates/tab_switcher",
     "crates/task",
     "crates/tasks_ui",
     "crates/terminal",
     "crates/terminal_view",
+    "crates/telemetry",
+    "crates/telemetry_events",
     "crates/text",
     "crates/theme",
     "crates/theme_extension",
@@ -187,15 +161,13 @@ members = [
     "crates/which_key",
     "crates/watch",
     "crates/web_search",
-    "crates/web_search_providers",
     "crates/workspace",
     "crates/worktree",
     "crates/worktree_benchmarks",
     "crates/x_ai",
-    "crates/zed",
-    "crates/zed_actions",
     "crates/zed_env_vars",
-    "crates/edit_prediction_cli",
+    "crates/vector",
+    "crates/vector_actions",
     "crates/zeta_prompt",
     "crates/zlog",
     "crates/zlog_settings",
@@ -232,21 +204,10 @@ edition = "2024"
 #
 
 acp_tools = { path = "crates/acp_tools" }
-acp_thread = { path = "crates/acp_thread" }
-action_log = { path = "crates/action_log" }
-agent = { path = "crates/agent" }
 activity_indicator = { path = "crates/activity_indicator" }
-agent_ui = { path = "crates/agent_ui" }
-agent_ui_v2 = { path = "crates/agent_ui_v2" }
-agent_settings = { path = "crates/agent_settings" }
-agent_servers = { path = "crates/agent_servers" }
-ai_onboarding = { path = "crates/ai_onboarding" }
 anthropic = { path = "crates/anthropic" }
 askpass = { path = "crates/askpass" }
 assets = { path = "crates/assets" }
-assistant_text_thread = { path = "crates/assistant_text_thread" }
-assistant_slash_command = { path = "crates/assistant_slash_command" }
-assistant_slash_commands = { path = "crates/assistant_slash_commands" }
 audio = { path = "crates/audio" }
 auto_update = { path = "crates/auto_update" }
 auto_update_ui = { path = "crates/auto_update_ui" }
@@ -259,15 +220,11 @@ clock = { path = "crates/clock" }
 cloud_api_client = { path = "crates/cloud_api_client" }
 cloud_api_types = { path = "crates/cloud_api_types" }
 cloud_llm_client = { path = "crates/cloud_llm_client" }
-collab_ui = { path = "crates/collab_ui" }
 collections = { path = "crates/collections", version = "0.1.0" }
 command_palette = { path = "crates/command_palette" }
 command_palette_hooks = { path = "crates/command_palette_hooks" }
 component = { path = "crates/component" }
-component_preview  = { path = "crates/component_preview" }
 context_server = { path = "crates/context_server" }
-copilot = { path = "crates/copilot" }
-crashes = { path = "crates/crashes" }
 credentials_provider = { path = "crates/credentials_provider" }
 crossbeam = "0.8.4"
 dap = { path = "crates/dap" }
@@ -304,8 +261,6 @@ http_client_tls = { path = "crates/http_client_tls" }
 icons = { path = "crates/icons" }
 image_viewer = { path = "crates/image_viewer" }
 edit_prediction_types = { path = "crates/edit_prediction_types" }
-edit_prediction_ui = { path = "crates/edit_prediction_ui" }
-edit_prediction_context = { path = "crates/edit_prediction_context" }
 inspector_ui = { path = "crates/inspector_ui" }
 install_cli = { path = "crates/install_cli" }
 journal = { path = "crates/journal" }
@@ -313,15 +268,11 @@ json_schema_store = { path = "crates/json_schema_store" }
 keymap_editor = { path = "crates/keymap_editor" }
 language = { path = "crates/language" }
 language_extension = { path = "crates/language_extension" }
-language_model = { path = "crates/language_model" }
-language_models = { path = "crates/language_models" }
 language_onboarding = { path = "crates/language_onboarding" }
 language_selector = { path = "crates/language_selector" }
 language_tools = { path = "crates/language_tools" }
 languages = { path = "crates/languages" }
 line_ending_selector = { path = "crates/line_ending_selector" }
-livekit_api = { path = "crates/livekit_api" }
-livekit_client = { path = "crates/livekit_client" }
 lmstudio = { path = "crates/lmstudio" }
 lsp = { path = "crates/lsp" }
 markdown = { path = "crates/markdown" }
@@ -348,6 +299,7 @@ paths = { path = "crates/paths" }
 perf = { path = "tooling/perf" }
 picker = { path = "crates/picker" }
 prettier = { path = "crates/prettier" }
+proto = { path = "crates/proto" }
 settings_profile_selector = { path = "crates/settings_profile_selector" }
 project = { path = "crates/project" }
 project_panel = { path = "crates/project_panel" }
@@ -358,6 +310,7 @@ refineable = { path = "crates/refineable" }
 release_channel = { path = "crates/release_channel" }
 repl = { path = "crates/repl" }
 reqwest_client = { path = "crates/reqwest_client" }
+rpc = { path = "crates/rpc" }
 rodio = { git = "https://github.com/RustAudio/rodio", rev ="e2074c6c2acf07b57cf717e076bdda7a9ac6e70b", features = ["wav", "playback", "wav_output", "recording"] }
 rope = { path = "crates/rope" }
 search = { path = "crates/search" }
@@ -376,13 +329,13 @@ streaming_diff = { path = "crates/streaming_diff" }
 sum_tree = { path = "crates/sum_tree" }
 supermaven = { path = "crates/supermaven" }
 supermaven_api = { path = "crates/supermaven_api" }
-codestral = { path = "crates/codestral" }
-system_specs = { path = "crates/system_specs" }
 tab_switcher = { path = "crates/tab_switcher" }
 task = { path = "crates/task" }
 tasks_ui = { path = "crates/tasks_ui" }
 terminal = { path = "crates/terminal" }
 terminal_view = { path = "crates/terminal_view" }
+telemetry = { path = "crates/telemetry" }
+telemetry_events = { path = "crates/telemetry_events" }
 text = { path = "crates/text" }
 theme = { path = "crates/theme" }
 theme_extension = { path = "crates/theme_extension" }
@@ -403,14 +356,12 @@ which_key = { path = "crates/which_key" }
 
 watch = { path = "crates/watch" }
 web_search = { path = "crates/web_search" }
-web_search_providers = { path = "crates/web_search_providers" }
 workspace = { path = "crates/workspace" }
 worktree = { path = "crates/worktree" }
 x_ai = { path = "crates/x_ai" }
-zed = { path = "crates/zed" }
-zed_actions = { path = "crates/zed_actions" }
+vector = { path = "crates/vector" }
+vector_actions = { path = "crates/vector_actions" }
 zed_env_vars = { path = "crates/zed_env_vars" }
-edit_prediction = { path = "crates/edit_prediction" }
 zeta_prompt = { path = "crates/zeta_prompt" }
 zlog = { path = "crates/zlog" }
 zlog_settings = { path = "crates/zlog_settings" }
@@ -797,7 +748,6 @@ feature_flags = { codegen-units = 1 }
 file_icons = { codegen-units = 1 }
 fsevent = { codegen-units = 1 }
 image_viewer = { codegen-units = 1 }
-edit_prediction_ui = { codegen-units = 1 }
 install_cli = { codegen-units = 1 }
 journal = { codegen-units = 1 }
 json_schema_store = { codegen-units = 1 }

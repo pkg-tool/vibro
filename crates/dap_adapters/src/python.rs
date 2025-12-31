@@ -20,6 +20,7 @@ use std::{
     ffi::OsStr,
     path::{Path, PathBuf},
 };
+use task::VectorDebugConfig;
 use util::command::new_smol_command;
 use util::{ResultExt, paths::PathStyle, rel_path::RelPath};
 
@@ -428,7 +429,10 @@ impl DebugAdapter for PythonDebugAdapter {
         Some(SharedString::new_static("Python").into())
     }
 
-    async fn config_from_zed_format(&self, zed_scenario: ZedDebugConfig) -> Result<DebugScenario> {
+    async fn config_from_zed_format(
+        &self,
+        zed_scenario: VectorDebugConfig,
+    ) -> Result<DebugScenario> {
         let mut args = json!({
             "request": match zed_scenario.request {
                 DebugRequest::Launch(_) => "launch",

@@ -89,7 +89,10 @@ impl DebugAdapter for CodeLldbDebugAdapter {
         DebugAdapterName(Self::ADAPTER_NAME.into())
     }
 
-    async fn config_from_zed_format(&self, zed_scenario: ZedDebugConfig) -> Result<DebugScenario> {
+    async fn config_from_zed_format(
+        &self,
+        zed_scenario: VectorDebugConfig,
+    ) -> Result<DebugScenario> {
         let mut configuration = json!({
             "request": match zed_scenario.request {
                 DebugRequest::Launch(_) => "launch",

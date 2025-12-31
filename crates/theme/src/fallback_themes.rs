@@ -55,6 +55,10 @@ pub(crate) fn apply_theme_color_defaults(
     }
 }
 
+pub(crate) fn vector_default_dark() -> Theme {
+    zed_default_dark()
+}
+
 pub(crate) fn zed_default_dark() -> Theme {
     let bg = hsla(215. / 360., 12. / 100., 15. / 100., 1.);
     let editor = hsla(220. / 360., 12. / 100., 18. / 100., 1.);

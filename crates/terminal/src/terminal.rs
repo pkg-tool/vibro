@@ -349,7 +349,7 @@ impl TerminalBuilder {
         let mut term = Term::new(
             config.clone(),
             &TerminalBounds::default(),
-            ZedListener(events_tx),
+            AlacrittyListener(events_tx),
         );
 
         if let AlternateScroll::Off = alternate_scroll {
@@ -557,7 +557,7 @@ impl TerminalBuilder {
             let mut term = Term::new(
                 config.clone(),
                 &TerminalBounds::default(),
-                ZedListener(events_tx.clone()),
+                AlacrittyListener(events_tx.clone()),
             );
 
             //Alacritty defaults to alternate scrolling being on, so we just need to turn it off.
@@ -572,7 +572,7 @@ impl TerminalBuilder {
             //And connect them together
             let event_loop = EventLoop::new(
                 term.clone(),
-                ZedListener(events_tx),
+                AlacrittyListener(events_tx),
                 pty,
                 pty_options.drain_on_exit,
                 false,
@@ -822,7 +822,7 @@ enum TerminalType {
 pub struct Terminal {
     terminal_type: TerminalType,
     completion_tx: Option<Sender<Option<ExitStatus>>>,
-    term: Arc<FairMutex<Term<ZedListener>>>,
+    term: Arc<FairMutex<Term<AlacrittyListener>>>,
     term_config: Config,
     events: VecDeque<InternalEvent>,
     /// This is only used for mouse mode cell change detection

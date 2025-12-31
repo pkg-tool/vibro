@@ -1,8 +1,18 @@
 use std::{ops::Range, sync::Arc};
 
-use client::EditPredictionUsage;
 use gpui::{App, Context, Entity, SharedString};
 use language::{Anchor, Buffer, OffsetRangeExt};
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct EditPredictionUsage {
+    over_limit: bool,
+}
+
+impl EditPredictionUsage {
+    pub fn over_limit(&self) -> bool {
+        self.over_limit
+    }
+}
 
 // TODO: Find a better home for `Direction`.
 //

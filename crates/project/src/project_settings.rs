@@ -96,7 +96,7 @@ pub struct SessionSettings {
 pub struct NodeBinarySettings {
     /// The path to the Node binary.
     pub path: Option<String>,
-    /// The path to the npm binary Vector should use (defaults to `.path/../npm`).
+    /// The path to the npm binary Zed should use (defaults to `.path/../npm`).
     pub npm_path: Option<String>,
     /// If enabled, Zed will download its own copy of Node.
     pub ignore_system_version: bool,
@@ -608,6 +608,7 @@ impl Settings for ProjectSettings {
 
 pub enum SettingsObserverMode {
     Local(Arc<dyn Fs>),
+    Remote,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -621,6 +622,9 @@ impl EventEmitter<SettingsObserverEvent> for SettingsObserver {}
 
 pub struct SettingsObserver {
     mode: SettingsObserverMode,
+    downstream_client: Option<AnyProtoClient>,
+    worktree_store: Entity<WorktreeStore>,
+    project_id: u64,
     task_store: Entity<TaskStore>,
     pending_local_settings:
         HashMap<PathTrust, BTreeMap<(WorktreeId, Arc<RelPath>), Option<String>>>,
@@ -630,10 +634,10 @@ pub struct SettingsObserver {
     _global_debug_config_watcher: Task<()>,
 }
 
-/// SettingsObserver observes changes to `.vector/{settings, task}.json` files in local worktrees
+/// SettingsObserver observers changes to .zed/{settings, task}.json files in local worktrees
 /// (or the equivalent protobuf messages from upstream) and updates local settings
 /// and sends notifications downstream.
-/// In ssh mode it also monitors `~/.config/vector/{settings, task}.json` and sends the content
+/// In ssh mode it also monitors ~/.config/zed/{settings, task}.json and sends the content
 /// upstream.
 impl SettingsObserver {
     pub fn init(client: &AnyProtoClient) {
@@ -699,6 +703,7 @@ impl SettingsObserver {
             });
 
         Self {
+            worktree_store,
             task_store,
             mode: SettingsObserverMode::Local(fs.clone()),
             downstream_client: None,
@@ -896,7 +901,9 @@ impl SettingsObserver {
         changes: &UpdatedEntriesSet,
         cx: &mut Context<Self>,
     ) {
-        let SettingsObserverMode::Local(fs) = &self.mode;
+        let SettingsObserverMode::Local(fs) = &self.mode else {
+            return;
+        };
 
         let mut settings_contents = Vec::new();
         for (path, _, change) in changes.iter() {
@@ -986,12 +993,12 @@ impl SettingsObserver {
                                     let zed_tasks = TaskTemplates::try_from(vscode_tasks)
                                         .with_context(|| {
                                             format!(
-                                        "converting VSCode tasks into Vector ones, file {abs_path:?}"
+                                        "converting VSCode tasks into Zed ones, file {abs_path:?}"
                                     )
                                         })?;
                                     serde_json::to_string(&zed_tasks).with_context(|| {
                                         format!(
-                                            "serializing Vector tasks into JSON, file {abs_path:?}"
+                                            "serializing Zed tasks into JSON, file {abs_path:?}"
                                         )
                                     })
                                 } else if abs_path.ends_with(local_vscode_launch_file_relative_path().as_std_path()) {
@@ -1003,12 +1010,12 @@ impl SettingsObserver {
                                     let zed_tasks = DebugTaskFile::try_from(vscode_tasks)
                                         .with_context(|| {
                                             format!(
-                                        "converting VSCode debug tasks into Vector ones, file {abs_path:?}"
+                                        "converting VSCode debug tasks into Zed ones, file {abs_path:?}"
                                     )
                                         })?;
                                     serde_json::to_string(&zed_tasks).with_context(|| {
                                         format!(
-                                            "serializing Vector tasks into JSON, file {abs_path:?}"
+                                            "serializing Zed tasks into JSON, file {abs_path:?}"
                                         )
                                     })
                                 } else {
@@ -1052,6 +1059,7 @@ impl SettingsObserver {
         cx: &mut Context<Self>,
     ) {
         let worktree_id = worktree.read(cx).id();
+        let remote_worktree_id = worktree.read(cx).id();
         let task_store = self.task_store.clone();
         let can_trust_worktree = OnceCell::new();
         for (directory, kind, file_content) in settings_contents {

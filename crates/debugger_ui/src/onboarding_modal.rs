@@ -6,15 +6,6 @@ use workspace::{ModalView, Workspace};
 
 use crate::DebugPanel;
 
-macro_rules! debugger_onboarding_event {
-    ($name:expr) => {
-        telemetry::event!($name, source = "Debugger Onboarding");
-    };
-    ($name:expr, $($key:ident $(= $value:expr)?),+ $(,)?) => {
-        telemetry::event!($name, source = "Debugger Onboarding", $($key $(= $value)?),+);
-    };
-}
-
 pub struct DebuggerOnboardingModal {
     focus_handle: FocusHandle,
     workspace: Entity<Workspace>,
@@ -35,15 +26,11 @@ impl DebuggerOnboardingModal {
         });
 
         cx.emit(DismissEvent);
-
-        debugger_onboarding_event!("Open Panel Clicked");
     }
 
     fn view_blog(&mut self, _: &ClickEvent, _: &mut Window, cx: &mut Context<Self>) {
         cx.open_url("https://zed.dev/blog/debugger");
         cx.notify();
-
-        debugger_onboarding_event!("Blog Link Clicked");
     }
 
     fn cancel(&mut self, _: &menu::Cancel, _: &mut Window, cx: &mut Context<Self>) {

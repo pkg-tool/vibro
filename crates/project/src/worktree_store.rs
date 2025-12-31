@@ -8,7 +8,7 @@ use collections::HashMap;
 use fs::{Fs, copy_recursive};
 use futures::{FutureExt, future::Shared};
 use gpui::{
-    App, AppContext as _, Context, Entity, EntityId, EventEmitter, Task, WeakEntity,
+    App, AppContext as _, AsyncApp, Context, Entity, EntityId, EventEmitter, Task, WeakEntity,
 };
 use rpc::{
     AnyProtoClient, ErrorExt, TypedEnvelope,
@@ -40,6 +40,7 @@ enum WorktreeStoreState {
 
 pub struct WorktreeStore {
     next_entry_id: Arc<AtomicUsize>,
+    downstream_client: Option<(AnyProtoClient, u64)>,
     retain_worktrees: bool,
     worktrees: Vec<WorktreeHandle>,
     worktrees_reordered: bool,
@@ -65,10 +66,20 @@ pub enum WorktreeStoreEvent {
 impl EventEmitter<WorktreeStoreEvent> for WorktreeStore {}
 
 impl WorktreeStore {
+    #[cfg(feature = "collab")]
+    pub fn init(client: &AnyProtoClient) {
+        client.add_entity_request_handler(Self::handle_create_project_entry);
+        client.add_entity_request_handler(Self::handle_copy_project_entry);
+        client.add_entity_request_handler(Self::handle_delete_project_entry);
+        client.add_entity_request_handler(Self::handle_expand_project_entry);
+        client.add_entity_request_handler(Self::handle_expand_all_for_project_entry);
+    }
+
     pub fn local(retain_worktrees: bool, fs: Arc<dyn Fs>) -> Self {
         Self {
             next_entry_id: Default::default(),
             loading_worktrees: Default::default(),
+            downstream_client: None,
             worktrees: Vec::new(),
             worktrees_reordered: false,
             scanning_enabled: true,
@@ -77,6 +88,7 @@ impl WorktreeStore {
         }
     }
 
+    #[cfg(feature = "collab")]
     pub fn remote(
         retain_worktrees: bool,
         upstream_client: AnyProtoClient,
@@ -254,33 +266,8 @@ impl WorktreeStore {
                         .await
                 })
             }
-            WorktreeStoreState::Remote {
-                upstream_client,
-                upstream_project_id,
-                ..
-            } => {
-                let response = upstream_client.request(proto::CopyProjectEntry {
-                    project_id: *upstream_project_id,
-                    entry_id: entry_id.to_proto(),
-                    new_path: new_project_path.path.to_proto(),
-                    new_worktree_id: new_project_path.worktree_id.to_proto(),
-                });
-                cx.spawn(async move |_, cx| {
-                    let response = response.await?;
-                    match response.entry {
-                        Some(entry) => new_worktree
-                            .update(cx, |worktree, cx| {
-                                worktree.as_remote_mut().unwrap().insert_entry(
-                                    entry,
-                                    response.worktree_scan_id as usize,
-                                    cx,
-                                )
-                            })?
-                            .await
-                            .map(Some),
-                        None => Ok(None),
-                    }
-                })
+            WorktreeStoreState::Remote { .. } => {
+                Task::ready(Err(anyhow!("remote worktrees are not supported")))
             }
         }
     }
@@ -409,38 +396,8 @@ impl WorktreeStore {
                         }))
                 })
             }
-            WorktreeStoreState::Remote {
-                upstream_client,
-                upstream_project_id,
-                ..
-            } => {
-                let response = upstream_client.request(proto::RenameProjectEntry {
-                    project_id: *upstream_project_id,
-                    entry_id: entry_id.to_proto(),
-                    new_path: new_project_path.path.to_proto(),
-                    new_worktree_id: new_project_path.worktree_id.to_proto(),
-                });
-                cx.spawn(async move |_, cx| {
-                    let response = response.await?;
-                    match response.entry {
-                        Some(entry) => new_worktree
-                            .update(cx, |worktree, cx| {
-                                worktree.as_remote_mut().unwrap().insert_entry(
-                                    entry,
-                                    response.worktree_scan_id as usize,
-                                    cx,
-                                )
-                            })?
-                            .await
-                            .map(CreatedEntry::Included),
-                        None => {
-                            let abs_path = new_worktree.read_with(cx, |worktree, _| {
-                                worktree.absolutize(&new_project_path.path)
-                            })?;
-                            Ok(CreatedEntry::Excluded { abs_path })
-                        }
-                    }
-                })
+            WorktreeStoreState::Remote { .. } => {
+                Task::ready(Err(anyhow!("remote worktrees are not supported")))
             }
         }
     }
@@ -453,20 +410,11 @@ impl WorktreeStore {
         let abs_path: Arc<SanitizedPath> = SanitizedPath::new_arc(&abs_path);
         if !self.loading_worktrees.contains_key(&abs_path) {
             let task = match &self.state {
-                WorktreeStoreState::Remote {
-                    upstream_client,
-                    path_style,
-                    ..
-                } => {
-                    if upstream_client.is_via_collab() {
-                        Task::ready(Err(Arc::new(anyhow!("cannot create worktrees via collab"))))
-                    } else {
-                        let abs_path = RemotePathBuf::new(abs_path.to_string(), *path_style);
-                        self.create_remote_worktree(upstream_client.clone(), abs_path, visible, cx)
-                    }
-                }
                 WorktreeStoreState::Local { fs } => {
                     self.create_local_worktree(fs.clone(), abs_path.clone(), visible, cx)
+                }
+                WorktreeStoreState::Remote { .. } => {
+                    Task::ready(Err(Arc::new(anyhow!("remote worktrees are not supported"))))
                 }
             };
 
@@ -480,75 +428,8 @@ impl WorktreeStore {
                 .ok();
             match result {
                 Ok(worktree) => Ok(worktree),
-                Err(err) => Err(anyhow!(err.to_string())),
+                Err(err) => Err((*err).cloned()),
             }
-        })
-    }
-
-    fn create_remote_worktree(
-        &mut self,
-        client: AnyProtoClient,
-        abs_path: RemotePathBuf,
-        visible: bool,
-        cx: &mut Context<Self>,
-    ) -> Task<Result<Entity<Worktree>, Arc<anyhow::Error>>> {
-        let path_style = abs_path.path_style();
-        let mut abs_path = abs_path.to_string();
-        // If we start with `/~` that means the ssh path was something like `ssh://user@host/~/home-dir-folder/`
-        // in which case want to strip the leading the `/`.
-        // On the host-side, the `~` will get expanded.
-        // That's what git does too: https://github.com/libgit2/libgit2/issues/3345#issuecomment-127050850
-        if abs_path.starts_with("/~") {
-            abs_path = abs_path[1..].to_string();
-        }
-        if abs_path.is_empty() {
-            abs_path = "~/".to_string();
-        }
-
-        cx.spawn(async move |this, cx| {
-            let this = this.upgrade().context("Dropped worktree store")?;
-
-            let path = RemotePathBuf::new(abs_path, path_style);
-            let response = client
-                .request(proto::AddWorktree {
-                    project_id: REMOTE_SERVER_PROJECT_ID,
-                    path: path.to_proto(),
-                    visible,
-                })
-                .await?;
-
-            if let Some(existing_worktree) = this.read_with(cx, |this, cx| {
-                this.worktree_for_id(WorktreeId::from_proto(response.worktree_id), cx)
-            })? {
-                return Ok(existing_worktree);
-            }
-
-            let root_path_buf = PathBuf::from(response.canonicalized_path.clone());
-            let root_name = root_path_buf
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or(root_path_buf.to_string_lossy().into_owned());
-
-            let worktree = cx.update(|cx| {
-                Worktree::remote(
-                    REMOTE_SERVER_PROJECT_ID,
-                    ReplicaId::REMOTE_SERVER,
-                    proto::WorktreeMetadata {
-                        id: response.worktree_id,
-                        root_name,
-                        visible,
-                        abs_path: response.canonicalized_path,
-                    },
-                    client,
-                    path_style,
-                    cx,
-                )
-            })?;
-
-            this.update(cx, |this, cx| {
-                this.add(&worktree, cx);
-            })?;
-            Ok(worktree)
         })
     }
 
@@ -612,6 +493,7 @@ impl WorktreeStore {
         }
 
         cx.emit(WorktreeStoreEvent::WorktreeAdded(worktree.clone()));
+        self.send_project_updates(cx);
 
         let handle_id = worktree.entity_id();
         cx.subscribe(worktree, |_, worktree, event, cx| {
@@ -635,7 +517,7 @@ impl WorktreeStore {
             }
         })
         .detach();
-        cx.observe_release(worktree, move |_, worktree, cx| {
+        cx.observe_release(worktree, move |this, worktree, cx| {
             cx.emit(WorktreeStoreEvent::WorktreeReleased(
                 handle_id,
                 worktree.id(),
@@ -644,6 +526,7 @@ impl WorktreeStore {
                 handle_id,
                 worktree.id(),
             ));
+            this.send_project_updates(cx);
         })
         .detach();
     }
@@ -664,6 +547,7 @@ impl WorktreeStore {
                 false
             }
         });
+        self.send_project_updates(cx);
     }
 
     pub fn set_worktrees_reordered(&mut self, worktrees_reordered: bool) {
@@ -681,6 +565,7 @@ impl WorktreeStore {
         }
     }
 
+    #[cfg(feature = "collab")]
     pub fn set_worktrees_from_proto(
         &mut self,
         worktrees: Vec<proto::WorktreeMetadata>,
@@ -775,6 +660,7 @@ impl WorktreeStore {
         Ok(())
     }
 
+    #[cfg(feature = "collab")]
     pub fn disconnected_from_host(&mut self, cx: &mut App) {
         for worktree in &self.worktrees {
             if let Some(worktree) = worktree.upgrade() {
@@ -787,6 +673,7 @@ impl WorktreeStore {
         }
     }
 
+    #[cfg(feature = "collab")]
     pub fn send_project_updates(&mut self, cx: &mut Context<Self>) {
         let Some((downstream_client, project_id)) = self.downstream_client.clone() else {
             return;
@@ -841,6 +728,10 @@ impl WorktreeStore {
         .detach_and_log_err(cx);
     }
 
+    #[cfg(not(feature = "collab"))]
+    pub fn send_project_updates(&mut self, _cx: &mut Context<Self>) {}
+
+    #[cfg(feature = "collab")]
     pub fn worktree_metadata_protos(&self, cx: &App) -> Vec<proto::WorktreeMetadata> {
         self.worktrees()
             .map(|worktree| {
@@ -855,6 +746,7 @@ impl WorktreeStore {
             .collect()
     }
 
+    #[cfg(feature = "collab")]
     pub fn shared(
         &mut self,
         remote_id: u64,
@@ -878,6 +770,7 @@ impl WorktreeStore {
         self.send_project_updates(cx);
     }
 
+    #[cfg(feature = "collab")]
     pub fn unshared(&mut self, cx: &mut Context<Self>) {
         self.retain_worktrees = false;
         self.downstream_client.take();
@@ -896,6 +789,7 @@ impl WorktreeStore {
         }
     }
 
+    #[cfg(feature = "collab")]
     pub async fn handle_create_project_entry(
         this: Entity<Self>,
         envelope: TypedEnvelope<proto::CreateProjectEntry>,
@@ -909,6 +803,7 @@ impl WorktreeStore {
         Worktree::handle_create_entry(worktree, envelope.payload, cx).await
     }
 
+    #[cfg(feature = "collab")]
     pub async fn handle_copy_project_entry(
         this: Entity<Self>,
         envelope: TypedEnvelope<proto::CopyProjectEntry>,
@@ -947,6 +842,7 @@ impl WorktreeStore {
         })
     }
 
+    #[cfg(feature = "collab")]
     pub async fn handle_delete_project_entry(
         this: Entity<Self>,
         envelope: TypedEnvelope<proto::DeleteProjectEntry>,
@@ -969,6 +865,7 @@ impl WorktreeStore {
         Worktree::handle_delete_entry(worktree, envelope.payload, cx).await
     }
 
+    #[cfg(feature = "collab")]
     pub async fn handle_rename_project_entry(
         this: Entity<Self>,
         request: proto::RenameProjectEntry,
@@ -1010,6 +907,16 @@ impl WorktreeStore {
         })
     }
 
+    #[cfg(not(feature = "collab"))]
+    pub async fn handle_rename_project_entry(
+        _this: Entity<Self>,
+        _request: proto::RenameProjectEntry,
+        _cx: AsyncApp,
+    ) -> Result<proto::ProjectEntryResponse> {
+        bail!("remote rename is not supported");
+    }
+
+    #[cfg(feature = "collab")]
     pub async fn handle_expand_project_entry(
         this: Entity<Self>,
         envelope: TypedEnvelope<proto::ExpandProjectEntry>,
@@ -1022,6 +929,7 @@ impl WorktreeStore {
         Worktree::handle_expand_entry(worktree, envelope.payload, cx).await
     }
 
+    #[cfg(feature = "collab")]
     pub async fn handle_expand_all_for_project_entry(
         this: Entity<Self>,
         envelope: TypedEnvelope<proto::ExpandAllForProjectEntry>,

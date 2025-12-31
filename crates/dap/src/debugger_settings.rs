@@ -6,7 +6,7 @@ pub struct DebuggerSettings {
     /// Determines the stepping granularity.
     ///
     /// Default: line
-    pub stepping_granularity: SteppingGranularitySetting,
+    pub stepping_granularity: SteppingGranularity,
     /// Whether the breakpoints should be reused across Vector sessions.
     ///
     /// Default: true

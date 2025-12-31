@@ -4,10 +4,12 @@ use crate::{
     worktree_store::{WorktreeStore, WorktreeStoreEvent},
 };
 use anyhow::{Context as _, Result, anyhow};
+#[cfg(feature = "collab")]
+use client::Client;
 use collections::{HashMap, HashSet, hash_map};
 use futures::{Future, FutureExt as _, channel::oneshot, future::Shared};
 use gpui::{
-    App, AppContext as _, Context, Entity, EventEmitter, Subscription, Task, WeakEntity,
+    App, AppContext as _, AsyncApp, Context, Entity, EventEmitter, Subscription, Task, WeakEntity,
 };
 use language::{
     Buffer, BufferEvent, Capability, DiskState, File as _, Language, Operation,
@@ -28,11 +30,11 @@ use worktree::{File, PathChange, ProjectEntryId, Worktree, WorktreeId};
 
 /// A set of open buffers.
 pub struct BufferStore {
-    state: LocalBufferStore,
+    state: BufferStoreState,
     #[allow(clippy::type_complexity)]
     loading_buffers: HashMap<ProjectPath, Shared<Task<Result<Entity<Buffer>, Arc<anyhow::Error>>>>>,
     worktree_store: Entity<WorktreeStore>,
-    opened_buffers: HashMap<BufferId, WeakEntity<Buffer>>,
+    opened_buffers: HashMap<BufferId, OpenBuffer>,
     path_to_buffer_id: HashMap<ProjectPath, BufferId>,
     downstream_client: Option<(AnyProtoClient, u64)>,
     shared_buffers: HashMap<proto::PeerId, HashMap<BufferId, SharedBuffer>>,
@@ -47,9 +49,11 @@ struct SharedBuffer {
 
 enum BufferStoreState {
     Local(LocalBufferStore),
+    #[cfg(feature = "collab")]
     Remote(RemoteBufferStore),
 }
 
+#[cfg(feature = "collab")]
 struct RemoteBufferStore {
     shared_with_me: HashSet<Entity<Buffer>>,
     upstream_client: AnyProtoClient,
@@ -66,12 +70,18 @@ struct LocalBufferStore {
     _subscription: Subscription,
 }
 
+enum OpenBuffer {
+    Complete { buffer: WeakEntity<Buffer> },
+    Operations(Vec<Operation>),
+}
+
 pub enum BufferStoreEvent {
     BufferAdded(Entity<Buffer>),
     BufferOpened {
         buffer: Entity<Buffer>,
         project_path: ProjectPath,
     },
+    SharedBufferClosed(proto::PeerId, BufferId),
     BufferDropped(BufferId),
     BufferChangedFilePath {
         buffer: Entity<Buffer>,
@@ -93,7 +103,9 @@ impl PartialEq for ProjectTransaction {
 
 impl EventEmitter<BufferStoreEvent> for BufferStore {}
 
+#[cfg(feature = "collab")]
 impl RemoteBufferStore {
+    #[cfg(feature = "collab")]
     pub fn wait_for_remote_buffer(
         &mut self,
         id: BufferId,
@@ -372,6 +384,7 @@ impl LocalBufferStore {
         let encoding = buffer.encoding();
         let has_bom = buffer.has_bom();
         let version = buffer.version();
+        let buffer_id = buffer.remote_id();
         let file = buffer.file().cloned();
         if file
             .as_ref()
@@ -444,9 +457,8 @@ impl LocalBufferStore {
         };
 
         let buffer_id = this
-            .state
-            .local_buffer_ids_by_entry_id
-            .get(&entry_id)
+            .as_local_mut()
+            .and_then(|local| local.local_buffer_ids_by_entry_id.get(&entry_id))
             .copied()
             .or_else(|| this.path_to_buffer_id.get(&project_path).copied())?;
 
@@ -462,7 +474,8 @@ impl LocalBufferStore {
             buffer
         } else {
             this.path_to_buffer_id.remove(&project_path);
-            this.state.local_buffer_ids_by_entry_id.remove(&entry_id);
+            let this = this.as_local_mut()?;
+            this.local_buffer_ids_by_entry_id.remove(&entry_id);
             return None;
         };
 
@@ -523,12 +536,13 @@ impl LocalBufferStore {
                     old_file: buffer.file().cloned(),
                 });
             }
+            let local = this.as_local_mut()?;
             if new_file.entry_id != old_file.entry_id {
                 if let Some(entry_id) = old_file.entry_id {
-                    this.state.local_buffer_ids_by_entry_id.remove(&entry_id);
+                    local.local_buffer_ids_by_entry_id.remove(&entry_id);
                 }
                 if let Some(entry_id) = new_file.entry_id {
-                    this.state
+                    local
                         .local_buffer_ids_by_entry_id
                         .insert(entry_id, buffer_id);
                 }
@@ -628,9 +642,9 @@ impl LocalBufferStore {
                         },
                         buffer_id,
                     );
+                    let this = this.as_local_mut().unwrap();
                     if let Some(entry_id) = file.entry_id {
-                        this.state
-                            .local_buffer_ids_by_entry_id
+                        this.local_buffer_ids_by_entry_id
                             .insert(entry_id, buffer_id);
                     }
                 }
@@ -688,15 +702,25 @@ impl LocalBufferStore {
 }
 
 impl BufferStore {
+    #[cfg(feature = "collab")]
+    pub fn init(client: &AnyProtoClient) {
+        client.add_entity_message_handler(Self::handle_buffer_reloaded);
+        client.add_entity_message_handler(Self::handle_buffer_saved);
+        client.add_entity_message_handler(Self::handle_update_buffer_file);
+        client.add_entity_request_handler(Self::handle_save_buffer);
+        client.add_entity_request_handler(Self::handle_reload_buffers);
+    }
+
     /// Creates a buffer store, optionally retaining its buffers.
     pub fn local(worktree_store: Entity<WorktreeStore>, cx: &mut Context<Self>) -> Self {
         Self {
-            state: LocalBufferStore {
+            state: BufferStoreState::Local(LocalBufferStore {
                 local_buffer_ids_by_entry_id: Default::default(),
                 worktree_store: worktree_store.clone(),
                 _subscription: cx.subscribe(&worktree_store, |this, _, event, cx| {
                     if let WorktreeStoreEvent::WorktreeAdded(worktree) = event {
-                        this.state.subscribe_to_worktree(worktree, cx);
+                        let this = this.as_local_mut().unwrap();
+                        this.subscribe_to_worktree(worktree, cx);
                     }
                 }),
             }),
@@ -710,6 +734,7 @@ impl BufferStore {
         }
     }
 
+    #[cfg(feature = "collab")]
     pub fn remote(
         worktree_store: Entity<WorktreeStore>,
         upstream_client: AnyProtoClient,
@@ -732,6 +757,29 @@ impl BufferStore {
             shared_buffers: Default::default(),
             non_searchable_buffers: Default::default(),
             worktree_store,
+        }
+    }
+
+    fn as_local_mut(&mut self) -> Option<&mut LocalBufferStore> {
+        match &mut self.state {
+            BufferStoreState::Local(state) => Some(state),
+            _ => None,
+        }
+    }
+
+    #[cfg(feature = "collab")]
+    fn as_remote_mut(&mut self) -> Option<&mut RemoteBufferStore> {
+        match &mut self.state {
+            BufferStoreState::Remote(state) => Some(state),
+            _ => None,
+        }
+    }
+
+    #[cfg(feature = "collab")]
+    fn as_remote(&self) -> Option<&RemoteBufferStore> {
+        match &self.state {
+            BufferStoreState::Remote(state) => Some(state),
+            _ => None,
         }
     }
 
@@ -760,7 +808,11 @@ impl BufferStore {
                 else {
                     return Task::ready(Err(anyhow!("no such worktree")));
                 };
-                let load_buffer = self.state.open_buffer(path, worktree, cx);
+                let load_buffer = match &self.state {
+                    BufferStoreState::Local(this) => this.open_buffer(path, worktree, cx),
+                    #[cfg(feature = "collab")]
+                    BufferStoreState::Remote(this) => this.open_buffer(path, worktree, cx),
+                };
 
                 entry
                     .insert(
@@ -804,6 +856,7 @@ impl BufferStore {
     ) -> Task<Result<Entity<Buffer>>> {
         match &self.state {
             BufferStoreState::Local(this) => this.create_buffer(project_searchable, cx),
+            #[cfg(feature = "collab")]
             BufferStoreState::Remote(this) => this.create_buffer(project_searchable, cx),
         }
     }
@@ -815,6 +868,7 @@ impl BufferStore {
     ) -> Task<Result<()>> {
         match &mut self.state {
             BufferStoreState::Local(this) => this.save_buffer(buffer, cx),
+            #[cfg(feature = "collab")]
             BufferStoreState::Remote(this) => this.save_remote_buffer(buffer, None, cx),
         }
     }
@@ -826,7 +880,13 @@ impl BufferStore {
         cx: &mut Context<Self>,
     ) -> Task<Result<()>> {
         let old_file = buffer.read(cx).file().cloned();
-        let task = self.state.save_buffer_as(buffer.clone(), path, cx);
+        let task = match &self.state {
+            BufferStoreState::Local(this) => this.save_buffer_as(buffer.clone(), path, cx),
+            #[cfg(feature = "collab")]
+            BufferStoreState::Remote(this) => {
+                this.save_remote_buffer(buffer.clone(), Some(path.to_proto()), cx)
+            }
+        };
         cx.spawn(async move |this, cx| {
             task.await?;
             this.update(cx, |this, cx| {
@@ -865,19 +925,27 @@ impl BufferStore {
             })
             .detach()
         });
-
+        let _expect_path_to_exist;
         match self.opened_buffers.entry(remote_id) {
             hash_map::Entry::Vacant(entry) => {
-                entry.insert(buffer_entity.downgrade());
+                entry.insert(open_buffer);
+                _expect_path_to_exist = false;
             }
             hash_map::Entry::Occupied(mut entry) => {
-                if entry.get().upgrade().is_some() {
-                    debug_panic!("buffer {remote_id} was already registered");
-                    anyhow::bail!("buffer {remote_id} was already registered");
+                if let OpenBuffer::Operations(operations) = entry.get_mut() {
+                    buffer_entity.update(cx, |b, cx| b.apply_ops(operations.drain(..), cx));
+                } else if entry.get().upgrade().is_some() {
+                    if is_remote {
+                        return Ok(());
+                    } else {
+                        debug_panic!("buffer {remote_id} was already registered");
+                        anyhow::bail!("buffer {remote_id} was already registered");
+                    }
                 }
-                entry.insert(buffer_entity.downgrade());
+                entry.insert(open_buffer);
+                _expect_path_to_exist = true;
             }
-        };
+        }
 
         if let Some(path) = path {
             self.path_to_buffer_id.insert(path, remote_id);
@@ -934,23 +1002,87 @@ impl BufferStore {
             .with_context(|| format!("unknown buffer id {buffer_id}"))
     }
 
+    #[cfg(feature = "collab")]
+    pub fn get_possibly_incomplete(&self, buffer_id: BufferId) -> Option<Entity<Buffer>> {
+        self.get(buffer_id).or_else(|| {
+            self.as_remote()
+                .and_then(|remote| remote.loading_remote_buffers_by_id.get(&buffer_id).cloned())
+        })
+    }
+
+    #[cfg(feature = "collab")]
+    pub fn buffer_version_info(&self, cx: &App) -> (Vec<proto::BufferVersion>, Vec<BufferId>) {
+        let buffers = self
+            .buffers()
+            .map(|buffer| {
+                let buffer = buffer.read(cx);
+                proto::BufferVersion {
+                    id: buffer.remote_id().into(),
+                    version: language::proto::serialize_version(&buffer.version),
+                }
+            })
+            .collect();
+        let incomplete_buffer_ids = self
+            .as_remote()
+            .map(|remote| remote.incomplete_buffer_ids())
+            .unwrap_or_default();
+        (buffers, incomplete_buffer_ids)
+    }
+
+    #[cfg(feature = "collab")]
+    pub fn disconnected_from_host(&mut self, cx: &mut App) {
+        for open_buffer in self.opened_buffers.values_mut() {
+            if let Some(buffer) = open_buffer.upgrade() {
+                buffer.update(cx, |buffer, _| buffer.give_up_waiting());
+            }
+        }
+
+        for buffer in self.buffers() {
+            buffer.update(cx, |buffer, cx| {
+                buffer.set_capability(Capability::ReadOnly, cx)
+            });
+        }
+
+        if let Some(remote) = self.as_remote_mut() {
+            // Wake up all futures currently waiting on a buffer to get opened,
+            // to give them a chance to fail now that we've disconnected.
+            remote.remote_buffer_listeners.clear()
+        }
+    }
+
+    #[cfg(feature = "collab")]
+    pub fn shared(&mut self, remote_id: u64, downstream_client: AnyProtoClient, _cx: &mut App) {
+        self.downstream_client = Some((downstream_client, remote_id));
+    }
+
+    #[cfg(feature = "collab")]
+    pub fn unshared(&mut self, _cx: &mut Context<Self>) {
+        self.downstream_client.take();
+        self.forget_shared_buffers();
+    }
+
+    pub fn discard_incomplete(&mut self) {
+        self.opened_buffers
+            .retain(|_, buffer| !matches!(buffer, OpenBuffer::Operations(_)));
+    }
+
     fn buffer_changed_file(&mut self, buffer: Entity<Buffer>, cx: &mut App) -> Option<()> {
         let file = File::from_dyn(buffer.read(cx).file())?;
 
         let remote_id = buffer.read(cx).remote_id();
         if let Some(entry_id) = file.entry_id {
-            if self
-                .state
-                .local_buffer_ids_by_entry_id
-                .contains_key(&entry_id)
-            {
-                return None;
+            if let Some(local) = self.as_local_mut() {
+                match local.local_buffer_ids_by_entry_id.get(&entry_id) {
+                    Some(_) => {
+                        return None;
+                    }
+                    None => {
+                        local
+                            .local_buffer_ids_by_entry_id
+                            .insert(entry_id, remote_id);
+                    }
+                }
             }
-
-            self.state
-                .local_buffer_ids_by_entry_id
-                .insert(entry_id, remote_id);
-
             self.path_to_buffer_id.insert(
                 ProjectPath {
                     worktree_id: file.worktree_id(cx),
@@ -974,25 +1106,30 @@ impl BufferStore {
                 self.buffer_changed_file(buffer, cx);
             }
             BufferEvent::Reloaded => {
-                let Some((downstream_client, project_id)) = self.downstream_client.as_ref() else {
-                    return;
-                };
-                let buffer = buffer.read(cx);
-                downstream_client
-                    .send(proto::BufferReloaded {
-                        project_id: *project_id,
-                        buffer_id: buffer.remote_id().to_proto(),
-                        version: serialize_version(&buffer.version()),
-                        mtime: buffer.saved_mtime().map(|t| t.into()),
-                        line_ending: serialize_line_ending(buffer.line_ending()) as i32,
-                    })
-                    .log_err();
+                #[cfg(feature = "collab")]
+                {
+                    let Some((downstream_client, project_id)) = self.downstream_client.as_ref()
+                    else {
+                        return;
+                    };
+                    let buffer = buffer.read(cx);
+                    downstream_client
+                        .send(proto::BufferReloaded {
+                            project_id: *project_id,
+                            buffer_id: buffer.remote_id().to_proto(),
+                            version: serialize_version(&buffer.version()),
+                            mtime: buffer.saved_mtime().map(|t| t.into()),
+                            line_ending: serialize_line_ending(buffer.line_ending()) as i32,
+                        })
+                        .log_err();
+                }
             }
             BufferEvent::LanguageChanged(_) => {}
             _ => {}
         }
     }
 
+    #[cfg(feature = "collab")]
     pub async fn handle_update_buffer(
         this: Entity<Self>,
         envelope: TypedEnvelope<proto::UpdateBuffer>,
@@ -1038,6 +1175,7 @@ impl BufferStore {
         debug_panic!("tried to register shared lsp handle, but buffer was not shared")
     }
 
+    #[cfg(feature = "collab")]
     pub fn handle_synchronize_buffers(
         &mut self,
         envelope: TypedEnvelope<proto::SynchronizeBuffers>,
@@ -1126,6 +1264,7 @@ impl BufferStore {
         Ok(response)
     }
 
+    #[cfg(feature = "collab")]
     pub fn handle_create_buffer_for_peer(
         &mut self,
         envelope: TypedEnvelope<proto::CreateBufferForPeer>,
@@ -1146,6 +1285,7 @@ impl BufferStore {
         Ok(())
     }
 
+    #[cfg(feature = "collab")]
     pub async fn handle_update_buffer_file(
         this: Entity<Self>,
         envelope: TypedEnvelope<proto::UpdateBufferFile>,
@@ -1192,6 +1332,7 @@ impl BufferStore {
         })?
     }
 
+    #[cfg(feature = "collab")]
     pub async fn handle_save_buffer(
         this: Entity<Self>,
         envelope: TypedEnvelope<proto::SaveBuffer>,
@@ -1234,6 +1375,7 @@ impl BufferStore {
         })
     }
 
+    #[cfg(feature = "collab")]
     pub async fn handle_close_buffer(
         this: Entity<Self>,
         envelope: TypedEnvelope<proto::CloseBuffer>,
@@ -1259,6 +1401,7 @@ impl BufferStore {
         })
     }
 
+    #[cfg(feature = "collab")]
     pub async fn handle_buffer_saved(
         this: Entity<Self>,
         envelope: TypedEnvelope<proto::BufferSaved>,
@@ -1287,6 +1430,7 @@ impl BufferStore {
         })
     }
 
+    #[cfg(feature = "collab")]
     pub async fn handle_buffer_reloaded(
         this: Entity<Self>,
         envelope: TypedEnvelope<proto::BufferReloaded>,
@@ -1329,7 +1473,120 @@ impl BufferStore {
         if buffers.is_empty() {
             return Task::ready(Ok(ProjectTransaction::default()));
         }
-        self.state.reload_buffers(buffers, push_to_history, cx)
+        match &self.state {
+            BufferStoreState::Local(this) => this.reload_buffers(buffers, push_to_history, cx),
+            #[cfg(feature = "collab")]
+            BufferStoreState::Remote(this) => this.reload_buffers(buffers, push_to_history, cx),
+        }
+    }
+
+    #[cfg(feature = "collab")]
+    async fn handle_reload_buffers(
+        this: Entity<Self>,
+        envelope: TypedEnvelope<proto::ReloadBuffers>,
+        mut cx: AsyncApp,
+    ) -> Result<proto::ReloadBuffersResponse> {
+        let sender_id = envelope.original_sender_id().unwrap_or_default();
+        let reload = this.update(&mut cx, |this, cx| {
+            let mut buffers = HashSet::default();
+            for buffer_id in &envelope.payload.buffer_ids {
+                let buffer_id = BufferId::new(*buffer_id)?;
+                buffers.insert(this.get_existing(buffer_id)?);
+            }
+            anyhow::Ok(this.reload_buffers(buffers, false, cx))
+        })??;
+
+        let project_transaction = reload.await?;
+        let project_transaction = this.update(&mut cx, |this, cx| {
+            this.serialize_project_transaction_for_peer(project_transaction, sender_id, cx)
+        })?;
+        Ok(proto::ReloadBuffersResponse {
+            transaction: Some(project_transaction),
+        })
+    }
+
+    #[cfg(feature = "collab")]
+    pub fn create_buffer_for_peer(
+        &mut self,
+        buffer: &Entity<Buffer>,
+        peer_id: proto::PeerId,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<()>> {
+        let buffer_id = buffer.read(cx).remote_id();
+        let shared_buffers = self.shared_buffers.entry(peer_id).or_default();
+        if shared_buffers.contains_key(&buffer_id) {
+            return Task::ready(Ok(()));
+        }
+        shared_buffers.insert(
+            buffer_id,
+            SharedBuffer {
+                buffer: buffer.clone(),
+                lsp_handle: None,
+            },
+        );
+
+        let Some((client, project_id)) = self.downstream_client.clone() else {
+            return Task::ready(Ok(()));
+        };
+
+        cx.spawn(async move |this, cx| {
+            let Some(buffer) = this.read_with(cx, |this, _| this.get(buffer_id))? else {
+                return anyhow::Ok(());
+            };
+
+            let operations = buffer.update(cx, |b, cx| b.serialize_ops(None, cx))?;
+            let operations = operations.await;
+            let state = buffer.update(cx, |buffer, cx| buffer.to_proto(cx))?;
+
+            let initial_state = proto::CreateBufferForPeer {
+                project_id,
+                peer_id: Some(peer_id),
+                variant: Some(proto::create_buffer_for_peer::Variant::State(state)),
+            };
+
+            if client.send(initial_state).log_err().is_some() {
+                let client = client.clone();
+                cx.background_spawn(async move {
+                    let mut chunks = split_operations(operations).peekable();
+                    while let Some(chunk) = chunks.next() {
+                        let is_last = chunks.peek().is_none();
+                        client.send(proto::CreateBufferForPeer {
+                            project_id,
+                            peer_id: Some(peer_id),
+                            variant: Some(proto::create_buffer_for_peer::Variant::Chunk(
+                                proto::BufferChunk {
+                                    buffer_id: buffer_id.into(),
+                                    operations: chunk,
+                                    is_last,
+                                },
+                            )),
+                        })?;
+                    }
+                    anyhow::Ok(())
+                })
+                .await
+                .log_err();
+            }
+            Ok(())
+        })
+    }
+
+    pub fn forget_shared_buffers(&mut self) {
+        self.shared_buffers.clear();
+    }
+
+    pub fn forget_shared_buffers_for(&mut self, peer_id: &proto::PeerId) {
+        self.shared_buffers.remove(peer_id);
+    }
+
+    pub fn update_peer_id(&mut self, old_peer_id: &proto::PeerId, new_peer_id: proto::PeerId) {
+        if let Some(buffers) = self.shared_buffers.remove(old_peer_id) {
+            self.shared_buffers.insert(new_peer_id, buffers);
+        }
+    }
+
+    pub fn has_shared_buffers(&self) -> bool {
+        !self.shared_buffers.is_empty()
     }
 
     pub fn create_local_buffer(
@@ -1358,15 +1615,119 @@ impl BufferStore {
                 },
                 buffer_id,
             );
+            let this = self
+                .as_local_mut()
+                .expect("local-only method called in a non-local context");
             if let Some(entry_id) = file.entry_id {
-                self.state
-                    .local_buffer_ids_by_entry_id
+                this.local_buffer_ids_by_entry_id
                     .insert(entry_id, buffer_id);
             }
         }
         buffer
     }
 
+    #[cfg(feature = "collab")]
+    pub fn deserialize_project_transaction(
+        &mut self,
+        message: proto::ProjectTransaction,
+        push_to_history: bool,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<ProjectTransaction>> {
+        if let Some(this) = self.as_remote_mut() {
+            this.deserialize_project_transaction(message, push_to_history, cx)
+        } else {
+            debug_panic!("not a remote buffer store");
+            Task::ready(Err(anyhow!("not a remote buffer store")))
+        }
+    }
+
+    #[cfg(not(feature = "collab"))]
+    pub fn deserialize_project_transaction(
+        &mut self,
+        _message: proto::ProjectTransaction,
+        _push_to_history: bool,
+        _cx: &mut Context<Self>,
+    ) -> Task<Result<ProjectTransaction>> {
+        Task::ready(Err(anyhow!("remote project transactions are not supported")))
+    }
+
+    pub fn wait_for_remote_buffer(
+        &mut self,
+        id: BufferId,
+        cx: &mut Context<BufferStore>,
+    ) -> Task<Result<Entity<Buffer>>> {
+        #[cfg(feature = "collab")]
+        {
+            if let Some(this) = self.as_remote_mut() {
+                this.wait_for_remote_buffer(id, cx)
+            } else {
+                debug_panic!("not a remote buffer store");
+                Task::ready(Err(anyhow!("not a remote buffer store")))
+            }
+        }
+
+        #[cfg(not(feature = "collab"))]
+        {
+            let _ = (id, cx);
+            Task::ready(Err(anyhow!("remote buffers are not supported")))
+        }
+    }
+
+    #[cfg(feature = "collab")]
+    pub fn serialize_project_transaction_for_peer(
+        &mut self,
+        project_transaction: ProjectTransaction,
+        peer_id: proto::PeerId,
+        cx: &mut Context<Self>,
+    ) -> proto::ProjectTransaction {
+        let mut serialized_transaction = proto::ProjectTransaction {
+            buffer_ids: Default::default(),
+            transactions: Default::default(),
+        };
+        for (buffer, transaction) in project_transaction.0 {
+            self.create_buffer_for_peer(&buffer, peer_id, cx)
+                .detach_and_log_err(cx);
+            serialized_transaction
+                .buffer_ids
+                .push(buffer.read(cx).remote_id().into());
+            serialized_transaction
+                .transactions
+                .push(language::proto::serialize_transaction(&transaction));
+        }
+        serialized_transaction
+    }
+
+    #[cfg(not(feature = "collab"))]
+    pub fn create_buffer_for_peer(
+        &mut self,
+        _buffer: &Entity<Buffer>,
+        _peer_id: proto::PeerId,
+        _cx: &mut Context<Self>,
+    ) -> Task<Result<()>> {
+        Task::ready(Ok(()))
+    }
+
+    #[cfg(not(feature = "collab"))]
+    pub fn serialize_project_transaction_for_peer(
+        &mut self,
+        _project_transaction: ProjectTransaction,
+        _peer_id: proto::PeerId,
+        _cx: &mut Context<Self>,
+    ) -> proto::ProjectTransaction {
+        proto::ProjectTransaction {
+            buffer_ids: Default::default(),
+            transactions: Default::default(),
+        }
+    }
+}
+
+impl OpenBuffer {
+    fn upgrade(&self) -> Option<Entity<Buffer>> {
+        match self {
+            OpenBuffer::Complete { buffer, .. } => buffer.upgrade(),
+            OpenBuffer::Operations(_) => None,
+        }
+    }
 }
 
 fn is_not_found_error(error: &anyhow::Error) -> bool {

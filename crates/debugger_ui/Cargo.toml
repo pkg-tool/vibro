@@ -29,7 +29,6 @@ test-support = [
 alacritty_terminal.workspace = true
 anyhow.workspace = true
 bitflags.workspace = true
-client.workspace = true
 collections.workspace = true
 command_palette_hooks.workspace = true
 dap.workspace = true
@@ -64,7 +63,6 @@ settings.workspace = true
 sysinfo.workspace = true
 task.workspace = true
 tasks_ui.workspace = true
-telemetry.workspace = true
 terminal_view.workspace = true
 text.workspace = true
 theme.workspace = true
@@ -75,7 +73,7 @@ ui_input.workspace = true
 unindent = { workspace = true, optional = true }
 util.workspace = true
 workspace.workspace = true
-zed_actions.workspace = true
+vector_actions.workspace = true
 
 [dev-dependencies]
 dap = { workspace = true, features = ["test-support"] }

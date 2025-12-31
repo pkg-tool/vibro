@@ -74,6 +74,7 @@ smol.workspace = true
 snippet.workspace = true
 sum_tree.workspace = true
 task.workspace = true
+telemetry.workspace = true
 text.workspace = true
 time.workspace = true
 theme.workspace = true
@@ -93,7 +94,7 @@ util.workspace = true
 uuid.workspace = true
 vim_mode_setting.workspace = true
 workspace.workspace = true
-zed_actions.workspace = true
+vector_actions.workspace = true
 zlog.workspace = true
 
 [dev-dependencies]
