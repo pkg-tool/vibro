@@ -875,7 +875,7 @@ impl Motion {
             | WindowBottom
             | WindowMiddle
             | WindowTop
-            | ZedSearchResult { .. } => true,
+            | SearchResult { .. } => true,
         }
     }
 

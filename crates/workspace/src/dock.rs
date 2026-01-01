@@ -2,7 +2,6 @@ use crate::persistence::model::DockData;
 use crate::{DraggedDock, Event, ModalLayer, Pane};
 use crate::{Workspace, status_bar::StatusItemView};
 use anyhow::Context as _;
-use client::proto;
 
 use gpui::{
     Action, AnyView, App, Axis, Context, Corner, Entity, EntityId, EventEmitter, FocusHandle,
@@ -24,8 +23,6 @@ pub enum PanelEvent {
     Activate,
     Close,
 }
-
-pub use proto::PanelId;
 
 pub struct MinimizePane;
 pub struct ClosePane;
@@ -435,12 +432,6 @@ impl Dock {
         self.panel_entries
             .iter()
             .position(|entry| entry.panel.persistent_name() == ui_name)
-    }
-
-    pub fn panel_index_for_proto_id(&self, panel_id: PanelId) -> Option<usize> {
-        self.panel_entries
-            .iter()
-            .position(|entry| entry.panel.remote_id() == Some(panel_id))
     }
 
     pub fn panel_for_id(&self, panel_id: EntityId) -> Option<&Arc<dyn PanelHandle>> {

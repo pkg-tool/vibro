@@ -343,6 +343,7 @@ impl Console {
                     expression,
                     Some(dap::EvaluateArgumentsContext::Repl),
                     self.stack_frame_list.read(cx).opened_stack_frame_id(),
+                    None,
                     cx,
                 )
                 .detach();

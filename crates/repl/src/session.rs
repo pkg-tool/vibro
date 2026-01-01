@@ -2,7 +2,7 @@ use crate::components::KernelListItem;
 use crate::kernels::RemoteRunningKernel;
 use crate::setup_editor_session_actions;
 use crate::{
-    kernels::{Kernel, KernelSpecification, NativeRunningKernel},
+    kernels::{Kernel, KernelSpecification, KernelStatus, NativeRunningKernel},
     outputs::{ExecutionStatus, ExecutionView},
 };
 use anyhow::Context as _;
@@ -235,6 +235,7 @@ impl Session {
             .and_then(|editor| editor.read(cx).working_directory(cx))
             .unwrap_or_else(temp_dir);
 
+        let kernel_language = self.kernel_specification.language().to_string();
         telemetry::event!(
             "Kernel Status Changed",
             kernel_language,

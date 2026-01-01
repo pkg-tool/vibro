@@ -83,7 +83,7 @@ pub struct StackFrameList {
     _refresh_task: Task<()>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum StackFrameEntry {
     Normal(dap::StackFrame),
     /// Used to indicate that the frame is artificial and is a visual label or separator
@@ -557,7 +557,10 @@ impl StackFrameList {
 
         let should_deemphasize = matches!(
             stack_frame.presentation_hint,
-            Some(dap::StackFramePresentationHint::Subtle)
+            Some(
+                dap::StackFramePresentationHint::Subtle
+                    | dap::StackFramePresentationHint::Deemphasize
+            )
         );
         h_flex()
             .rounded_md()

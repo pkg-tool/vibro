@@ -9,6 +9,7 @@ use std::{
     sync::{Arc, atomic::Ordering::SeqCst},
     time::{Duration, Instant},
 };
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use anyhow::{Context as _, Result, anyhow};
 use derive_more::{Deref, DerefMut};
@@ -55,6 +56,15 @@ mod test_context;
 
 /// The duration for which futures returned from [Context::on_app_quit] can run before the application fully quits.
 pub const SHUTDOWN_TIMEOUT: Duration = Duration::from_millis(100);
+
+static ALLOW_HTTP_URLS: AtomicBool = AtomicBool::new(true);
+
+/// Controls whether [`App::open_url`] is allowed to open `http://` and `https://` URLs.
+///
+/// Default: `true`.
+pub fn set_allow_http_urls(allow: bool) {
+    ALLOW_HTTP_URLS.store(allow, Ordering::Relaxed);
+}
 
 /// Temporary(?) wrapper around [`RefCell<App>`] to help us debug any double borrows.
 /// Strongly consider removing after stabilization.
@@ -1143,6 +1153,12 @@ impl App {
 
     /// Directs the platform's default browser to open the given URL.
     pub fn open_url(&self, url: &str) {
+        if !ALLOW_HTTP_URLS.load(Ordering::Relaxed)
+            && (url.starts_with("http://") || url.starts_with("https://"))
+        {
+            log::warn!("Blocked open_url: {}", url);
+            return;
+        }
         self.platform.open_url(url);
     }
 

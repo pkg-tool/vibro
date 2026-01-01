@@ -3,12 +3,11 @@ use std::{path::PathBuf, sync::OnceLock};
 use anyhow::{Context as _, Result};
 use async_trait::async_trait;
 use collections::HashMap;
-use dap::adapters::{DebugTaskDefinition, latest_github_release};
+use dap::adapters::DebugTaskDefinition;
 use futures::StreamExt;
 use gpui::AsyncApp;
 use serde_json::Value;
 use task::{DebugRequest, DebugScenario, VectorDebugConfig};
-use util::fs::remove_matching;
 
 use crate::*;
 
@@ -45,42 +44,6 @@ impl CodeLldbDebugAdapter {
         })
     }
 
-    async fn fetch_latest_adapter_version(
-        &self,
-        delegate: &Arc<dyn DapDelegate>,
-    ) -> Result<AdapterVersion> {
-        let release =
-            latest_github_release("vadimcn/codelldb", true, false, delegate.http_client()).await?;
-
-        let arch = match std::env::consts::ARCH {
-            "aarch64" => "arm64",
-            "x86_64" => "x64",
-            unsupported => {
-                anyhow::bail!("unsupported architecture {unsupported}");
-            }
-        };
-        let platform = match std::env::consts::OS {
-            "macos" => "darwin",
-            "linux" => "linux",
-            "windows" => "win32",
-            unsupported => {
-                anyhow::bail!("unsupported operating system {unsupported}");
-            }
-        };
-        let asset_name = format!("codelldb-{platform}-{arch}.vsix");
-        let ret = AdapterVersion {
-            tag_name: release.tag_name,
-            url: release
-                .assets
-                .iter()
-                .find(|asset| asset.name == asset_name)
-                .with_context(|| format!("no asset found matching {asset_name:?}"))?
-                .browser_download_url
-                .clone(),
-        };
-
-        Ok(ret)
-    }
 }
 
 #[async_trait(?Send)]
@@ -341,41 +304,21 @@ impl DebugAdapter for CodeLldbDebugAdapter {
             .or(self.path_to_codelldb.get().cloned());
 
         if command.is_none() {
-            delegate.output_to_console(format!("Checking latest version of {}...", self.name()));
             let adapter_path = paths::debug_adapters_dir().join(&Self::ADAPTER_NAME);
-            let version_path = match self.fetch_latest_adapter_version(delegate).await {
-                Ok(version) => {
-                    adapters::download_adapter_from_github(
-                        self.name(),
-                        version.clone(),
-                        adapters::DownloadedFileType::Vsix,
-                        delegate.as_ref(),
-                    )
-                    .await?;
-                    let version_path =
-                        adapter_path.join(format!("{}_{}", Self::ADAPTER_NAME, version.tag_name));
-                    remove_matching(&adapter_path, |entry| entry != version_path).await;
-                    version_path
-                }
-                Err(e) => {
-                    delegate.output_to_console("Unable to fetch latest version".to_string());
-                    log::error!("Error fetching latest version of {}: {}", self.name(), e);
-                    delegate.output_to_console(format!(
-                        "Searching for adapters in: {}",
-                        adapter_path.display()
-                    ));
-                    let mut paths = delegate
-                        .fs()
-                        .read_dir(&adapter_path)
-                        .await
-                        .context("No cached adapter directory")?;
-                    paths
-                        .next()
-                        .await
-                        .context("No cached adapter found")?
-                        .context("No cached adapter found")?
-                }
-            };
+            delegate.output_to_console(format!(
+                "Debug adapter downloads are disabled (offline mode). Searching for adapters in: {}",
+                adapter_path.display()
+            ));
+            let mut paths = delegate
+                .fs()
+                .read_dir(&adapter_path)
+                .await
+                .context("No cached adapter directory")?;
+            let version_path = paths
+                .next()
+                .await
+                .context("No cached adapter found")?
+                .context("No cached adapter found")?;
             let adapter_dir = version_path.join("extension").join("adapter");
             let path = adapter_dir.join("codelldb").to_string_lossy().into_owned();
             self.path_to_codelldb.set(path.clone()).ok();

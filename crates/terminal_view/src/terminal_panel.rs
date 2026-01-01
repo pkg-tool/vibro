@@ -38,8 +38,6 @@ use workspace::{
 };
 
 use anyhow::{Result, anyhow};
-use zed_actions::assistant::InlineAssist;
-
 const TERMINAL_PANEL_KEY: &str = "TerminalPanel";
 
 actions!(
@@ -142,7 +140,7 @@ impl TerminalPanel {
                                         // context menu will be gone the moment we spawn the modal.
                                         .action(
                                             "Spawn Task",
-                                            zed_actions::Spawn::modal().boxed_clone(),
+                                            vector_actions::Spawn::modal().boxed_clone(),
                                         )
                                 });
 
@@ -521,24 +519,8 @@ impl TerminalPanel {
         };
 
         let project = workspace.read(cx).project().read(cx);
-
-        if project.is_via_collab() {
-            return Task::ready(Err(anyhow!("cannot spawn tasks as a guest")));
-        }
-
-        let remote_client = project.remote_client();
         let is_windows = project.path_style(cx).is_windows();
-        let remote_shell = remote_client
-            .as_ref()
-            .and_then(|remote_client| remote_client.read(cx).shell());
-
-        let shell = if let Some(remote_shell) = remote_shell
-            && task.shell == Shell::System
-        {
-            Shell::Program(remote_shell)
-        } else {
-            task.shell.clone()
-        };
+        let shell = task.shell.clone();
 
         let builder = ShellBuilder::new(&shell, is_windows);
         let command_label = builder.command_label(task.command.as_deref().unwrap_or(""));
@@ -1322,10 +1304,10 @@ impl Render for FailedToSpawnTerminal {
             .menu(move |window, cx| {
                 Some(ContextMenu::build(window, cx, |context_menu, _, _| {
                     context_menu
-                        .action("Open Settings", zed_actions::OpenSettings.boxed_clone())
+                        .action("Open Settings", vector_actions::OpenSettings.boxed_clone())
                         .action(
                             "Edit settings.json",
-                            zed_actions::OpenSettingsFile.boxed_clone(),
+                            vector_actions::OpenSettingsFile.boxed_clone(),
                         )
                 }))
             })
@@ -1359,7 +1341,7 @@ impl Render for FailedToSpawnTerminal {
                         ButtonLike::new("open-settings-ui")
                             .child(Label::new("Edit Settings").size(LabelSize::Small))
                             .on_click(|_, window, cx| {
-                                window.dispatch_action(zed_actions::OpenSettings.boxed_clone(), cx);
+                                window.dispatch_action(vector_actions::OpenSettings.boxed_clone(), cx);
                             }),
                         popover_menu.into_any_element(),
                     )),
@@ -1396,19 +1378,15 @@ impl Render for TerminalPanel {
         let registrar = registrar.into_div();
         self.workspace
             .update(cx, |workspace, cx| {
-                registrar.size_full().child(self.center.render(
-                    workspace.zoomed_item(),
-                    &workspace::PaneRenderContext {
-                        follower_states: &HashMap::default(),
-                        active_call: workspace.active_call(),
-                        active_pane: &self.active_pane,
-                        app_state: workspace.app_state(),
-                        project: workspace.project(),
-                        workspace: &workspace.weak_handle(),
-                    },
-                    window,
-                    cx,
-                ))
+                let workspace_handle = workspace.weak_handle();
+                let decorator = workspace::pane_group::ActivePaneDecorator::new(
+                    &self.active_pane,
+                    &workspace_handle,
+                );
+                registrar.size_full().child(
+                    self.center
+                        .render(workspace.zoomed_item(), &decorator, window, cx),
+                )
             })
             .ok()
             .map(|div| {
@@ -1721,24 +1699,6 @@ impl workspace::TerminalProvider for TerminalProvider {
                 Err(e) => Some(Err(e)),
             }
         })
-    }
-}
-
-struct InlineAssistTabBarButton {
-    focus_handle: FocusHandle,
-}
-
-impl Render for InlineAssistTabBarButton {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let focus_handle = self.focus_handle.clone();
-        IconButton::new("terminal_inline_assistant", IconName::ZedAssistant)
-            .icon_size(IconSize::Small)
-            .on_click(cx.listener(|_, _, window, cx| {
-                window.dispatch_action(InlineAssist::default().boxed_clone(), cx);
-            }))
-            .tooltip(move |_window, cx| {
-                Tooltip::for_action_in("Inline Assist", &InlineAssist::default(), &focus_handle, cx)
-            })
     }
 }
 

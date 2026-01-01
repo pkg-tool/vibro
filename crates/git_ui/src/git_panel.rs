@@ -4,14 +4,13 @@ use crate::commit_tooltip::CommitTooltip;
 use crate::commit_view::CommitView;
 use crate::project_diff::{self, Diff, ProjectDiff};
 use crate::remote_output::{self, RemoteAction, SuccessMessage};
-use crate::{branch_picker, picker_prompt, render_remote_button};
+use crate::{branch_picker, picker_prompt};
 use crate::{
     file_history_view::FileHistoryView, git_panel_settings::GitPanelSettings, git_status_icon,
     repository_selector::RepositorySelector,
 };
 use anyhow::Context as _;
 use askpass::AskPassDelegate;
-use cloud_llm_client::CompletionIntent;
 use collections::{BTreeMap, HashMap, HashSet};
 use db::kvp::KEY_VALUE_STORE;
 use editor::RewrapOptions;
@@ -30,8 +29,8 @@ use git::stash::GitStash;
 use git::status::StageStatus;
 use git::{Amend, Signoff, ToggleStaged, repository::RepoPath, status::FileStatus};
 use git::{
-    ExpandCommitEditor, GitHostingProviderRegistry, RestoreTrackedFiles, StageAll, StashAll,
-    StashApply, StashPop, TrashUntrackedFiles, UnstageAll,
+    ExpandCommitEditor, RestoreTrackedFiles, StageAll, StashAll, StashApply, StashPop,
+    TrashUntrackedFiles, UnstageAll,
 };
 use gpui::{
     Action, AsyncApp, AsyncWindowContext, Bounds, ClickEvent, Corner, DismissEvent, Entity,
@@ -41,10 +40,6 @@ use gpui::{
 };
 use itertools::Itertools;
 use language::{Buffer, File};
-use language_model::{
-    ConfiguredModel, LanguageModelRegistry, LanguageModelRequest, LanguageModelRequestMessage,
-    Role, ZED_CLOUD_PROVIDER_ID,
-};
 use menu;
 use multi_buffer::ExcerptInfo;
 use notifications::status_toast::{StatusToast, ToastIcon};
@@ -57,7 +52,6 @@ use project::{
     git_store::{GitStoreEvent, Repository, RepositoryEvent, RepositoryId, pending_op},
     project_settings::{GitPathStyle, ProjectSettings},
 };
-use prompt_store::{BuiltInPrompt, PromptId, PromptStore, RULES_FILE_NAMES};
 use serde::{Deserialize, Serialize};
 use settings::{Settings, SettingsStore, StatusStyle};
 use std::future::Future;
@@ -169,7 +163,7 @@ fn git_panel_context_menu(
                 StashAll.boxed_clone(),
             )
             .action_disabled_when(!state.has_stash_items, "Stash Pop", StashPop.boxed_clone())
-            .action("View Stash", zed_actions::git::ViewStash.boxed_clone())
+            .action("View Stash", vector_actions::git::ViewStash.boxed_clone())
             .separator()
             .action("Open Diff", project_diff::Diff.boxed_clone())
             .separator()
@@ -692,7 +686,7 @@ impl GitPanel {
             // Once the active git repo is set, this buffer will be replaced.
             let temporary_buffer = cx.new(|cx| Buffer::local("", cx));
             let commit_editor = cx.new(|cx| {
-                commit_message_editor(temporary_buffer, None, project.clone(), true, window, cx)
+                commit_message_editor(temporary_buffer, None, true, window, cx)
             });
 
             commit_editor.update(cx, |editor, cx| {
@@ -701,14 +695,7 @@ impl GitPanel {
 
             let scroll_handle = UniformListScrollHandle::new();
 
-            let mut was_ai_enabled = AgentSettings::get_global(cx).enabled(cx);
-            let _settings_subscription = cx.observe_global::<SettingsStore>(move |_, cx| {
-                let is_ai_enabled = AgentSettings::get_global(cx).enabled(cx);
-                if was_ai_enabled != is_ai_enabled {
-                    was_ai_enabled = is_ai_enabled;
-                    cx.notify();
-                }
-            });
+            let _settings_subscription = cx.observe_global::<SettingsStore>(|_, _| {});
 
             cx.subscribe_in(
                 &git_store,
@@ -2422,6 +2409,7 @@ impl GitPanel {
         Some(format!("{} {}", action_text, file_name))
     }
 
+    #[cfg(any())]
     fn generate_commit_message_action(
         &mut self,
         _: &git::GenerateCommitMessage,
@@ -2521,6 +2509,7 @@ impl GitPanel {
         compressed
     }
 
+    #[cfg(any())]
     async fn load_project_rules(
         project: &Entity<Project>,
         repo_work_dir: &Arc<Path>,
@@ -2571,6 +2560,7 @@ impl GitPanel {
         }
     }
 
+    #[cfg(any())]
     async fn load_commit_message_prompt(
         is_using_legacy_zed_pro: bool,
         cx: &mut AsyncApp,
@@ -2598,6 +2588,7 @@ impl GitPanel {
     }
 
     /// Generates a commit message using an LLM.
+    #[cfg(any())]
     pub fn generate_commit_message(&mut self, cx: &mut Context<Self>) {
         if !self.can_commit() || !AgentSettings::get_global(cx).enabled(cx) {
             return;
@@ -3156,48 +3147,10 @@ impl GitPanel {
     }
 
     fn potential_co_authors(&self, cx: &App) -> Vec<(String, String)> {
-        let mut new_co_authors = Vec::new();
-        let project = self.project.read(cx);
-
-        let Some(room) = self
-            .workspace
-            .upgrade()
-            .and_then(|workspace| workspace.read(cx).active_call()?.read(cx).room().cloned())
-        else {
-            return Vec::default();
-        };
-
-        let room = room.read(cx);
-
-        for (peer_id, collaborator) in project.collaborators() {
-            if collaborator.is_host {
-                continue;
-            }
-
-            let Some(participant) = room.remote_participant_for_peer_id(*peer_id) else {
-                continue;
-            };
-            if !participant.can_write() {
-                continue;
-            }
-            if let Some(email) = &collaborator.committer_email {
-                let name = collaborator
-                    .committer_name
-                    .clone()
-                    .or_else(|| participant.user.name.clone())
-                    .unwrap_or_else(|| participant.user.github_login.clone().to_string());
-                new_co_authors.push((name.clone(), email.clone()))
-            }
-        }
-        if !project.is_local()
-            && !project.is_read_only(cx)
-            && let Some(local_committer) = self.local_committer(room, cx)
-        {
-            new_co_authors.push(local_committer);
-        }
-        new_co_authors
+        Vec::new()
     }
 
+    #[cfg(any())]
     fn local_committer(&self, room: &call::Room, cx: &App) -> Option<(String, String)> {
         let user = room.local_participant_user(cx)?;
         let committer = self.local_committer.as_ref()?;
@@ -3823,59 +3776,9 @@ impl GitPanel {
 
     pub(crate) fn render_generate_commit_message_button(
         &self,
-        cx: &Context<Self>,
+        _cx: &Context<Self>,
     ) -> Option<AnyElement> {
-        if !agent_settings::AgentSettings::get_global(cx).enabled(cx)
-            || LanguageModelRegistry::read_global(cx)
-                .commit_message_model()
-                .is_none()
-        {
-            return None;
-        }
-
-        if self.generate_commit_message_task.is_some() {
-            return Some(
-                h_flex()
-                    .gap_1()
-                    .child(
-                        Icon::new(IconName::ArrowCircle)
-                            .size(IconSize::XSmall)
-                            .color(Color::Info)
-                            .with_rotate_animation(2),
-                    )
-                    .child(
-                        Label::new("Generating Commit...")
-                            .size(LabelSize::Small)
-                            .color(Color::Muted),
-                    )
-                    .into_any_element(),
-            );
-        }
-
-        let can_commit = self.can_commit();
-        let editor_focus_handle = self.commit_editor.focus_handle(cx);
-        Some(
-            IconButton::new("generate-commit-message", IconName::AiEdit)
-                .shape(ui::IconButtonShape::Square)
-                .icon_color(Color::Muted)
-                .tooltip(move |_window, cx| {
-                    if can_commit {
-                        Tooltip::for_action_in(
-                            "Generate Commit Message",
-                            &git::GenerateCommitMessage,
-                            &editor_focus_handle,
-                            cx,
-                        )
-                    } else {
-                        Tooltip::simple("No changes to commit", cx)
-                    }
-                })
-                .disabled(!can_commit)
-                .on_click(cx.listener(move |this, _event, _window, cx| {
-                    this.generate_commit_message(cx);
-                }))
-                .into_any_element(),
-        )
+        None
     }
 
     pub(crate) fn render_co_authors(&self, cx: &Context<Self>) -> Option<AnyElement> {
@@ -4099,26 +4002,7 @@ impl GitPanel {
     }
 
     pub(crate) fn render_remote_button(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let branch = self.active_repository.as_ref()?.read(cx).branch.clone();
-        if !self.can_push_and_pull(cx) {
-            return None;
-        }
-        Some(
-            h_flex()
-                .gap_1()
-                .flex_shrink_0()
-                .when_some(branch, |this, branch| {
-                    let focus_handle = Some(self.focus_handle(cx));
-
-                    this.children(render_remote_button(
-                        "remote-button",
-                        &branch,
-                        focus_handle,
-                        true,
-                    ))
-                })
-                .into_any_element(),
-        )
+        None
     }
 
     pub fn render_footer(
@@ -5200,7 +5084,7 @@ impl GitPanel {
     }
 
     fn has_write_access(&self, cx: &App) -> bool {
-        !self.project.read(cx).is_read_only()
+        !self.project.read(cx).is_read_only(cx)
     }
 
     pub fn amend_pending(&self) -> bool {
@@ -5336,20 +5220,8 @@ impl Render for GitPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let project = self.project.read(cx);
         let has_entries = !self.entries.is_empty();
-        let room = self
-            .workspace
-            .upgrade()
-            .and_then(|workspace| workspace.read(cx).active_call()?.read(cx).room().cloned());
 
         let has_write_access = self.has_write_access(cx);
-
-        let has_co_authors = room.is_some_and(|room| {
-            self.load_local_committer(cx);
-            let room = room.read(cx);
-            room.remote_participants()
-                .values()
-                .any(|remote_participant| remote_participant.can_write())
-        });
 
         v_flex()
             .id("git_panel")
@@ -5369,7 +5241,6 @@ impl Render for GitPanel {
                     .on_action(cx.listener(Self::revert_selected))
                     .on_action(cx.listener(Self::add_to_gitignore))
                     .on_action(cx.listener(Self::clean_all))
-                    .on_action(cx.listener(Self::generate_commit_message_action))
                     .on_action(cx.listener(Self::stash_all))
                     .on_action(cx.listener(Self::stash_pop))
             })
@@ -5390,9 +5261,6 @@ impl Render for GitPanel {
             .on_action(cx.listener(Self::focus_changes_list))
             .on_action(cx.listener(Self::focus_editor))
             .on_action(cx.listener(Self::expand_commit_editor))
-            .when(has_write_access && has_co_authors, |git_panel| {
-                git_panel.on_action(cx.listener(Self::toggle_fill_co_authors))
-            })
             .on_action(cx.listener(Self::toggle_sort_by_path))
             .on_action(cx.listener(Self::toggle_tree_view))
             .size_full()
@@ -5543,9 +5411,6 @@ impl GitPanelMessageTooltip {
                     )
                 })?;
                 let details = details.await?;
-                let provider_registry = cx
-                    .update(|_, app| GitHostingProviderRegistry::default_global(app))
-                    .ok();
 
                 let commit_details = crate::commit_tooltip::CommitDetails {
                     sha: details.sha.clone(),
@@ -5556,7 +5421,7 @@ impl GitPanelMessageTooltip {
                         details.sha.to_string(),
                         details.message.to_string(),
                         remote_url.as_deref(),
-                        provider_registry,
+                        None,
                     )),
                 };
 

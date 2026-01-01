@@ -88,7 +88,7 @@ impl Render for OutlineView {
             .w(rems(34.))
             .on_action(cx.listener(
                 |_this: &mut OutlineView,
-                 _: &zed_actions::outline::ToggleOutline,
+                 _: &vector_actions::outline::ToggleOutline,
                  _window: &mut Window,
                  cx: &mut Context<OutlineView>| {
                     // When outline::Toggle is triggered while the outline is open, dismiss it

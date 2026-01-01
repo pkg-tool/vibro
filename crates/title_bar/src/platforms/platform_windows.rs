@@ -1,4 +1,4 @@
-use gpui::{Hsla, Rgba, WindowControlArea, prelude::*};
+use gpui::{Rgba, WindowAppearance, prelude::*};
 
 use ui::prelude::*;
 
@@ -34,6 +34,28 @@ impl WindowsWindowControls {
 
 impl RenderOnce for WindowsWindowControls {
     fn render(self, window: &mut Window, _: &mut App) -> impl IntoElement {
+        let close_button_hover_color = Rgba {
+            r: 232.0 / 255.0,
+            g: 17.0 / 255.0,
+            b: 32.0 / 255.0,
+            a: 1.0,
+        };
+
+        let button_hover_color = match window.appearance() {
+            WindowAppearance::Light | WindowAppearance::VibrantLight => Rgba {
+                r: 0.1,
+                g: 0.1,
+                b: 0.1,
+                a: 0.2,
+            },
+            WindowAppearance::Dark | WindowAppearance::VibrantDark => Rgba {
+                r: 0.9,
+                g: 0.9,
+                b: 0.9,
+                a: 0.1,
+            },
+        };
+
         div()
             .id("windows-window-controls")
             .font_family(Self::get_font())
@@ -43,95 +65,84 @@ impl RenderOnce for WindowsWindowControls {
             .content_stretch()
             .max_h(self.button_height)
             .min_h(self.button_height)
-            .child(WindowsCaptionButton::Minimize)
-            .map(|this| {
-                this.child(if window.is_maximized() {
-                    WindowsCaptionButton::Restore
+            .child(WindowsCaptionButton::new(
+                "minimize",
+                WindowsCaptionButtonIcon::Minimize,
+                button_hover_color,
+            ))
+            .child(WindowsCaptionButton::new(
+                "maximize-or-restore",
+                if window.is_maximized() {
+                    WindowsCaptionButtonIcon::Restore
                 } else {
-                    WindowsCaptionButton::Maximize
-                })
-            })
-            .child(WindowsCaptionButton::Close)
+                    WindowsCaptionButtonIcon::Maximize
+                },
+                button_hover_color,
+            ))
+            .child(WindowsCaptionButton::new(
+                "close",
+                WindowsCaptionButtonIcon::Close,
+                close_button_hover_color,
+            ))
     }
 }
 
-#[derive(IntoElement)]
-enum WindowsCaptionButton {
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+enum WindowsCaptionButtonIcon {
     Minimize,
     Restore,
     Maximize,
     Close,
 }
 
+#[derive(IntoElement)]
+struct WindowsCaptionButton {
+    id: ElementId,
+    icon: WindowsCaptionButtonIcon,
+    hover_background_color: Rgba,
+}
+
 impl WindowsCaptionButton {
-    #[inline]
-    fn id(&self) -> &'static str {
-        match self {
-            Self::Minimize => "minimize",
-            Self::Restore => "restore",
-            Self::Maximize => "maximize",
-            Self::Close => "close",
-        }
-    }
-
-    #[inline]
-    fn icon(&self) -> &'static str {
-        match self {
-            Self::Minimize => "\u{e921}",
-            Self::Restore => "\u{e923}",
-            Self::Maximize => "\u{e922}",
-            Self::Close => "\u{e8bb}",
-        }
-    }
-
-    #[inline]
-    fn control_area(&self) -> WindowControlArea {
-        match self {
-            Self::Close => WindowControlArea::Close,
-            Self::Maximize | Self::Restore => WindowControlArea::Max,
-            Self::Minimize => WindowControlArea::Min,
+    pub fn new(
+        id: impl Into<ElementId>,
+        icon: WindowsCaptionButtonIcon,
+        hover_background_color: Rgba,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            icon,
+            hover_background_color,
         }
     }
 }
 
 impl RenderOnce for WindowsCaptionButton {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
-        let (hover_bg, hover_fg, active_bg, active_fg) = match self {
-            Self::Close => {
-                let color: Hsla = Rgba {
-                    r: 232.0 / 255.0,
-                    g: 17.0 / 255.0,
-                    b: 32.0 / 255.0,
-                    a: 1.0,
-                }
-                .into();
-
-                (
-                    color,
-                    gpui::white(),
-                    color.opacity(0.8),
-                    gpui::white().opacity(0.8),
-                )
-            }
-            _ => (
-                cx.theme().colors().ghost_element_hover,
-                cx.theme().colors().text,
-                cx.theme().colors().ghost_element_active,
-                cx.theme().colors().text,
-            ),
-        };
+    fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
+        // todo(windows) report this width to the Windows platform API
+        // NOTE: this is intentionally hard coded. An option to use the 'native' size
+        //       could be added when the width is reported to the Windows platform API
+        //       as this could change between future Windows versions.
+        let width = px(36.);
 
         h_flex()
-            .id(self.id())
+            .id(self.id)
             .justify_center()
             .content_center()
-            .occlude()
-            .w(px(36.))
+            .w(width)
             .h_full()
             .text_size(px(10.0))
-            .hover(|style| style.bg(hover_bg).text_color(hover_fg))
-            .active(|style| style.bg(active_bg).text_color(active_fg))
-            .window_control_area(self.control_area())
-            .child(self.icon())
+            .hover(|style| style.bg(self.hover_background_color))
+            .active(|style| {
+                let mut active_color = self.hover_background_color;
+                active_color.a *= 0.2;
+
+                style.bg(active_color)
+            })
+            .child(match self.icon {
+                WindowsCaptionButtonIcon::Minimize => "\u{e921}",
+                WindowsCaptionButtonIcon::Restore => "\u{e923}",
+                WindowsCaptionButtonIcon::Maximize => "\u{e922}",
+                WindowsCaptionButtonIcon::Close => "\u{e8bb}",
+            })
     }
 }

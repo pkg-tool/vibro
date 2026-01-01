@@ -311,16 +311,6 @@ impl Member {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct PaneRenderContext<'a> {
-    pub project: &'a Entity<Project>,
-    pub follower_states: &'a HashMap<CollaboratorId, FollowerState>,
-    pub active_call: Option<&'a Entity<ActiveCall>>,
-    pub active_pane: &'a Entity<Pane>,
-    pub app_state: &'a Arc<AppState>,
-    pub workspace: &'a WeakEntity<Workspace>,
-}
-
 #[derive(Default)]
 pub struct LeaderDecoration {
     border: Option<Hsla>,

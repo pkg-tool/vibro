@@ -24,7 +24,7 @@ use postage::{sink::Sink, stream::Stream};
 use settings::Settings;
 use ui::{HighlightedLabel, KeyBinding, ListItem, ListItemSpacing, prelude::*};
 use util::ResultExt;
-use workspace::{AppState, ModalView, Workspace, WorkspaceSettings};
+use workspace::{ModalView, Workspace, WorkspaceSettings};
 use vector_actions::{OpenVectorUrl, command_palette::Toggle};
 
 pub fn init(cx: &mut App) {
@@ -365,21 +365,6 @@ impl CommandPaletteDelegate {
     }
 }
 
-fn is_vector_url_candidate(input: &str, cx: &App) -> bool {
-    if input.starts_with("vector://") {
-        return true;
-    }
-
-    let Some(app_state) = AppState::try_global(cx).and_then(|state| state.upgrade()) else {
-        return false;
-    };
-
-    input
-        .strip_prefix(&app_state.http_client.base_url())
-        .and_then(|rest| rest.strip_prefix('/'))
-        .is_some()
-}
-
 impl PickerDelegate for CommandPaletteDelegate {
     type ListItem = ListItem;
 
@@ -454,7 +439,7 @@ impl PickerDelegate for CommandPaletteDelegate {
         let (mut tx, mut rx) = postage::dispatch::channel(1);
 
         let query_str = query.as_str();
-        let is_zed_link = parse_zed_link(query_str, cx).is_some();
+        let is_vector_link = query_str.starts_with("vector://") || query_str.starts_with("zed://");
 
         let task = cx.background_spawn({
             let mut commands = self.all_commands.clone();
@@ -487,10 +472,10 @@ impl PickerDelegate for CommandPaletteDelegate {
                 )
                 .await;
 
-                let intercept_result = if is_zed_link {
+                let intercept_result = if is_vector_link {
                     CommandInterceptResult {
                         results: vec![CommandInterceptItem {
-                            action: OpenZedUrl {
+                            action: OpenVectorUrl {
                                 url: query_for_link.clone(),
                             }
                             .boxed_clone(),
@@ -566,7 +551,7 @@ impl PickerDelegate for CommandPaletteDelegate {
                 return;
             };
             let action_name = selected_command.action.name();
-            let open_keymap = Box::new(zed_actions::ChangeKeybinding {
+            let open_keymap = Box::new(vector_actions::ChangeKeybinding {
                 action: action_name.to_string(),
             });
             window.dispatch_action(open_keymap, cx);

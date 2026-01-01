@@ -134,7 +134,7 @@ impl DapEntry {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 struct ListEntry {
     entry: DapEntry,
     path: EntryPath,

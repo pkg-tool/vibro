@@ -10,6 +10,14 @@
 
 Вывод: cherry-pick “по одному коммиту” практически нереалистичен — нужен перенос уровня “обновить базу до `main` и снова применить offline‑патчи”.
 
+## Статус выполнения (ветка `port/offline-main`)
+
+- `crates/vector/src/main.rs`: строгий оффлайн рантайм — `BlockedHttpClient`, отключён авто‑download Node (`allow_binary_download = false`), удалены init‑вызовы AI/telemetry/auto_update/remote.
+- `crates/gpui/src/app.rs`: `gpui::set_allow_http_urls(false)` блокирует `http(s)` для всех `cx.open_url(...)` (ссылки в UI/markdown/terminal больше не открывают веб).
+- `crates/project/src/lsp_store.rs`: отключены автоскачивания language servers (LSP) — только PATH/ручная установка.
+- `crates/dap_adapters/src/*`: отключены автоскачивания debug adapters — только PATH/ручная установка.
+- `crates/project/src/prettier_store.rs`: отключён авто‑install default Prettier/плагинов (npm) — только ручная установка.
+
 ## Рекомендуемая стратегия переноса (практичный вариант)
 
 1) Делать работу в отдельной ветке (например `port/main-into-master-offline`).
@@ -124,4 +132,3 @@
 - `acp_thread` / `acp_tools` — нужно понять назначение (похоже на AI/agent протокол)
 - `proto` — нужно проверить, что не для сетевого протокола
 - `zed*` / `ztracing*` — потребует адаптации под брендинг/инфру
-

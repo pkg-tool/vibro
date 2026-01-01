@@ -78,7 +78,7 @@ pub fn init(languages: Arc<LanguageRegistry>, fs: Arc<dyn Fs>, node: NodeRuntime
         ("rust", tree_sitter_rust::LANGUAGE.into()),
         ("tsx", tree_sitter_typescript::LANGUAGE_TSX.into()),
         ("typescript", tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into()),
-        ("yaml", tree_sitter_yaml::language()),
+        ("yaml", tree_sitter_yaml::LANGUAGE.into()),
         ("gitcommit", tree_sitter_gitcommit::language()),
     ]);
 

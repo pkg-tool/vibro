@@ -1225,6 +1225,10 @@ impl ToolchainLister for PythonToolchainProvider {
     ) -> ToolchainList {
         let env = project_env.unwrap_or_default();
         let environment = EnvironmentApi::from_env(&env);
+        let mut toolchains = Vec::new();
+        if let Some(worktree_venv) = find_worktree_virtual_env(&worktree_root) {
+            toolchains.push(worktree_venv);
+        }
         let locators = pet::locators::create_locators(
             Arc::new(pet_conda::Conda::from(&environment)),
             Arc::new(pet_poetry::Poetry::from(&environment)),

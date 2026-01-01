@@ -1,7 +1,6 @@
 use crate::stdout_is_a_pty;
 use backtrace::{self, Backtrace};
 use chrono::Utc;
-use gpui::SemanticVersion;
 use release_channel::{AppCommitSha, RELEASE_CHANNEL, ReleaseChannel};
 use std::{
     env,
@@ -83,12 +82,10 @@ mod system_info {
             let mut info = unsafe { std::mem::zeroed() };
             let status = unsafe { windows::Wdk::System::SystemServices::RtlGetVersion(&mut info) };
             if status.is_ok() {
-                gpui::SemanticVersion::new(
-                    info.dwMajorVersion as _,
-                    info.dwMinorVersion as _,
-                    info.dwBuildNumber as _,
+                format!(
+                    "{}.{}.{}",
+                    info.dwMajorVersion, info.dwMinorVersion, info.dwBuildNumber
                 )
-                .to_string()
             } else {
                 "unknown".to_string()
             }
@@ -119,7 +116,7 @@ struct PanicReport {
 }
 
 pub fn init_panic_hook(
-    app_version: SemanticVersion,
+    app_version: String,
     app_commit_sha: Option<AppCommitSha>,
 ) {
     let is_pty = stdout_is_a_pty();
@@ -199,7 +196,7 @@ pub fn init_panic_hook(
                 file: location.file().into(),
                 line: location.line(),
             }),
-            app_version: app_version.to_string(),
+            app_version: app_version.clone(),
             app_commit_sha: app_commit_sha.as_ref().map(|sha| sha.full()),
             release_channel: RELEASE_CHANNEL.dev_name().into(),
             target: env!("TARGET").to_owned(),

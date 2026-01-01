@@ -48,7 +48,7 @@ use settings::Settings;
 use stack_frame_list::StackFrameList;
 use task::{
     BuildTaskDefinition, DebugScenario, Shell, ShellBuilder, SpawnInTerminal, TaskContext,
-    ZedDebugConfig, substitute_variables_in_str,
+    VectorDebugConfig, substitute_variables_in_str,
 };
 use terminal_view::TerminalView;
 use ui::{
@@ -646,8 +646,8 @@ impl RunningState {
                     .for_each(|value| Self::substitute_variables_in_config(value, context));
             }
             serde_json::Value::String(s) => {
-                // Some built-in Vector tasks wrap their arguments in quotes as they might contain spaces.
-                if s.starts_with("\"$VECTOR_") && s.ends_with('"') {
+                // Some built-in zed tasks wrap their arguments in quotes as they might contain spaces.
+                if s.starts_with("\"$ZED_") && s.ends_with('"') {
                     *s = s[1..s.len() - 1].to_string();
                 }
                 if let Some(substituted) = substitute_variables_in_str(s, context) {
@@ -708,8 +708,8 @@ impl RunningState {
                     .for_each(|value| Self::relativize_paths(None, value, context));
             }
             serde_json::Value::String(s) if key == Some("program") || key == Some("cwd") => {
-                // Some built-in Vector tasks wrap their arguments in quotes as they might contain spaces.
-                if s.starts_with("\"$VECTOR_") && s.ends_with('"') {
+                // Some built-in zed tasks wrap their arguments in quotes as they might contain spaces.
+                if s.starts_with("\"$ZED_") && s.ends_with('"') {
                     *s = s[1..s.len() - 1].to_string();
                 }
                 resolve_path(s);
@@ -976,11 +976,7 @@ impl RunningState {
         let weak_project = project.downgrade();
         let weak_workspace = workspace.downgrade();
         let is_windows = project.read(cx).path_style(cx).is_windows();
-        let remote_shell = project
-            .read(cx)
-            .remote_client()
-            .as_ref()
-            .and_then(|remote| remote.read(cx).shell());
+        let remote_shell: Option<String> = None;
 
         cx.spawn_in(window, async move |this, cx| {
             let DebugScenario {
@@ -1158,7 +1154,7 @@ impl RunningState {
                     })?
                     .await?;
 
-                let scenario_definition = VectorDebugConfig {
+                let vector_config = VectorDebugConfig {
                     label: label.clone(),
                     adapter: adapter.clone(),
                     request,
@@ -1167,7 +1163,8 @@ impl RunningState {
 
                 let scenario = dap_registry
                     .adapter(&adapter)
-                    .with_context(|| anyhow!("{}: is not a valid adapter name", &adapter))?.config_from_zed_format(zed_config)
+                    .with_context(|| anyhow!("{}: is not a valid adapter name", &adapter))?
+                    .config_from_zed_format(vector_config)
                     .await?;
                 config = scenario.config;
                 util::merge_non_null_json_value_into(extra_config, &mut config);
@@ -1177,7 +1174,7 @@ impl RunningState {
                 let Err(e) = request_type else {
                     unreachable!();
                 };
-                anyhow::bail!("Vector cannot determine how to run this debug scenario. `build` field was not provided and Debug Adapter won't accept provided configuration because: {e}");
+                anyhow::bail!("Zed cannot determine how to run this debug scenario. `build` field was not provided and Debug Adapter won't accept provided configuration because: {e}");
             };
 
             Ok(DebugTaskDefinition {
@@ -1635,7 +1632,7 @@ impl RunningState {
             return;
         };
 
-        let granularity = DebuggerSettings::get_global(cx).stepping_granularity.to_dap();
+        let granularity = DebuggerSettings::get_global(cx).stepping_granularity;
 
         self.session().update(cx, |state, cx| {
             state.step_over(thread_id, granularity, cx);
@@ -1647,7 +1644,7 @@ impl RunningState {
             return;
         };
 
-        let granularity = DebuggerSettings::get_global(cx).stepping_granularity.to_dap();
+        let granularity = DebuggerSettings::get_global(cx).stepping_granularity;
 
         self.session().update(cx, |state, cx| {
             state.step_in(thread_id, granularity, cx);
@@ -1659,7 +1656,7 @@ impl RunningState {
             return;
         };
 
-        let granularity = DebuggerSettings::get_global(cx).stepping_granularity.to_dap();
+        let granularity = DebuggerSettings::get_global(cx).stepping_granularity;
 
         self.session().update(cx, |state, cx| {
             state.step_out(thread_id, granularity, cx);
@@ -1671,7 +1668,7 @@ impl RunningState {
             return;
         };
 
-        let granularity = DebuggerSettings::get_global(cx).stepping_granularity.to_dap();
+        let granularity = DebuggerSettings::get_global(cx).stepping_granularity;
 
         self.session().update(cx, |state, cx| {
             state.step_back(thread_id, granularity, cx);

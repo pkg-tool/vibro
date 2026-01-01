@@ -42,7 +42,7 @@ use workspace::{
     Item, Pane, Workspace,
     dock::{DockPosition, Panel, PanelEvent},
 };
-use zed_actions::ToggleFocus;
+use vector_actions::ToggleFocus;
 
 pub struct DebuggerHistoryFeatureFlag;
 
@@ -638,7 +638,7 @@ impl DebugPanel {
             IconButton::new("debug-edit-debug-json", IconName::Code)
                 .icon_size(IconSize::Small)
                 .on_click(|_, window, cx| {
-                    window.dispatch_action(zed_actions::OpenProjectDebugTasks.boxed_clone(), cx);
+                    window.dispatch_action(vector_actions::OpenProjectDebugTasks.boxed_clone(), cx);
                 })
                 .tooltip(Tooltip::text("Edit debug.json"))
         };
@@ -1183,7 +1183,7 @@ impl DebugPanel {
                             .read(cx)
                             .project_path_for_absolute_path(path, cx)
                             .context(
-                                "Couldn't get project path for .vector/debug.json in active worktree",
+                                "Couldn't get project path for .zed/debug.json in active worktree",
                             )
                     })??;
 
@@ -1574,10 +1574,6 @@ impl Panel for DebugPanel {
         self.size = size.unwrap_or(px(300.));
     }
 
-    fn remote_id() -> Option<proto::PanelId> {
-        Some(proto::PanelId::DebugPanel)
-    }
-
     fn icon(&self, _window: &Window, cx: &App) -> Option<IconName> {
         DebuggerSettings::get_global(cx)
             .button
@@ -1836,18 +1832,10 @@ impl Render for DebugPanel {
                                 .icon_position(IconPosition::Start)
                                 .on_click(|_, window, cx| {
                                     window.dispatch_action(
-                                        zed_actions::OpenProjectDebugTasks.boxed_clone(),
+                                        vector_actions::OpenProjectDebugTasks.boxed_clone(),
                                         cx,
                                     );
                                 }),
-                        )
-                        .child(
-                            Button::new("open-debugger-docs", "Debugger Docs")
-                                .icon(IconName::Book)
-                                .icon_size(IconSize::Small)
-                                .icon_color(Color::Muted)
-                                .icon_position(IconPosition::Start)
-                                .on_click(|_, _, cx| cx.open_url("https://zed.dev/docs/debugger")),
                         )
                         .child(
                             Button::new(
@@ -1860,9 +1848,9 @@ impl Render for DebugPanel {
                             .icon_position(IconPosition::Start)
                             .on_click(|_, window, cx| {
                                 window.dispatch_action(
-                                    zed_actions::Extensions {
+                                    vector_actions::Extensions {
                                         category_filter: Some(
-                                            zed_actions::ExtensionCategoryFilter::DebugAdapters,
+                                            vector_actions::ExtensionCategoryFilter::DebugAdapters,
                                         ),
                                         id: None,
                                     }

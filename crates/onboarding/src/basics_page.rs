@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use client::TelemetrySettings;
 use fs::Fs;
 use gpui::{Action, App, IntoElement};
 use project::project_settings::ProjectSettings;
@@ -227,6 +226,7 @@ fn render_theme_section(tab_index: &mut isize, cx: &mut App) -> impl IntoElement
     }
 }
 
+#[cfg(any())]
 fn render_telemetry_section(tab_index: &mut isize, cx: &App) -> impl IntoElement {
     let fs = <dyn Fs>::global(cx);
 
@@ -525,6 +525,4 @@ pub(crate) fn render_basics_page(cx: &mut App) -> impl IntoElement {
         .child(render_import_settings_section(&mut tab_index, cx))
         .child(render_vim_mode_switch(&mut tab_index, cx))
         .child(render_worktree_auto_trust_switch(&mut tab_index, cx))
-        .child(Divider::horizontal().color(ui::DividerColor::BorderVariant))
-        .child(render_telemetry_section(&mut tab_index, cx))
 }

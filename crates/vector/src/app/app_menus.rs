@@ -1,28 +1,28 @@
-use collab_ui::collab_panel;
 use gpui::{App, Menu, MenuItem, OsAction};
 use release_channel::ReleaseChannel;
 use terminal_view::terminal_panel;
-use zed_actions::{ToggleFocus as ToggleDebugPanel, dev};
+use vector_actions::ToggleFocus as ToggleDebugPanel;
+use vector_actions::dev;
 
 pub fn app_menus(cx: &mut App) -> Vec<Menu> {
-    use zed_actions::Quit;
+    use vector_actions::Quit;
 
     let mut view_items = vec![
         MenuItem::action(
             "Zoom In",
-            zed_actions::IncreaseBufferFontSize { persist: false },
+            vector_actions::IncreaseBufferFontSize { persist: false },
         ),
         MenuItem::action(
             "Zoom Out",
-            zed_actions::DecreaseBufferFontSize { persist: false },
+            vector_actions::DecreaseBufferFontSize { persist: false },
         ),
         MenuItem::action(
             "Reset Zoom",
-            zed_actions::ResetBufferFontSize { persist: false },
+            vector_actions::ResetBufferFontSize { persist: false },
         ),
         MenuItem::action(
             "Reset All Zoom",
-            zed_actions::ResetAllZoom { persist: false },
+            vector_actions::ResetAllZoom { persist: false },
         ),
         MenuItem::separator(),
         MenuItem::action("Toggle Left Dock", workspace::ToggleLeftDock),
@@ -39,9 +39,8 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
             ],
         }),
         MenuItem::separator(),
-        MenuItem::action("Project Panel", zed_actions::project_panel::ToggleFocus),
+        MenuItem::action("Project Panel", vector_actions::project_panel::ToggleFocus),
         MenuItem::action("Outline Panel", outline_panel::ToggleFocus),
-        MenuItem::action("Collab Panel", collab_panel::ToggleFocus),
         MenuItem::action("Terminal Panel", terminal_panel::ToggleFocus),
         MenuItem::action("Debugger Panel", ToggleDebugPanel),
         MenuItem::separator(),
@@ -61,23 +60,25 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
         Menu {
             name: "Vector".into(),
             items: vec![
-                MenuItem::action("About Zed", zed_actions::About),
-                MenuItem::action("Check for Updates", auto_update::Check),
+                MenuItem::action("About Vector", vector_actions::About),
                 MenuItem::separator(),
                 MenuItem::submenu(Menu {
                     name: "Settings".into(),
                     items: vec![
-                        MenuItem::action("Open Settings", zed_actions::OpenSettings),
+                        MenuItem::action("Open Settings", vector_actions::OpenSettings),
                         MenuItem::action("Open Settings File", super::OpenSettingsFile),
-                        MenuItem::action("Open Project Settings", zed_actions::OpenProjectSettings),
+                        MenuItem::action(
+                            "Open Project Settings",
+                            vector_actions::OpenProjectSettings,
+                        ),
                         MenuItem::action(
                             "Open Project Settings File",
                             super::OpenProjectSettingsFile,
                         ),
                         MenuItem::action("Open Default Settings", super::OpenDefaultSettings),
                         MenuItem::separator(),
-                        MenuItem::action("Open Keymap", zed_actions::OpenKeymap),
-                        MenuItem::action("Open Keymap File", zed_actions::OpenKeymapFile),
+                        MenuItem::action("Open Keymap", vector_actions::OpenKeymap),
+                        MenuItem::action("Open Keymap File", vector_actions::OpenKeymapFile),
                         MenuItem::action(
                             "Open Default Key Bindings",
                             vector_actions::OpenDefaultKeymap,
@@ -89,7 +90,7 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
                         ),
                         MenuItem::action(
                             "Select Icon Theme...",
-                            zed_actions::icon_theme_selector::Toggle::default(),
+                            vector_actions::icon_theme_selector::Toggle::default(),
                         ),
                     ],
                 }),
@@ -97,7 +98,7 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
                 #[cfg(target_os = "macos")]
                 MenuItem::os_submenu("Services", gpui::SystemMenuType::Services),
                 MenuItem::separator(),
-                MenuItem::action("Extensions", zed_actions::Extensions::default()),
+                MenuItem::action("Extensions", vector_actions::Extensions::default()),
                 #[cfg(not(target_os = "windows"))]
                 MenuItem::action("Install CLI", install_cli::InstallCliBinary),
                 MenuItem::separator(),
@@ -129,15 +130,8 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
                 ),
                 MenuItem::action(
                     "Open Recent...",
-                    zed_actions::OpenRecent {
+                    vector_actions::OpenRecent {
                         create_new_window: false,
-                    },
-                ),
-                MenuItem::action(
-                    "Open Remote...",
-                    zed_actions::OpenRemote {
-                        create_new_window: false,
-                        from_existing_connection: false,
                     },
                 ),
                 MenuItem::separator(),
@@ -264,14 +258,14 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
             items: vec![
                 MenuItem::action(
                     "Spawn Task",
-                    zed_actions::Spawn::ViaModal {
+                    vector_actions::Spawn::ViaModal {
                         reveal_target: None,
                     },
                 ),
                 MenuItem::action("Start Debugger", debugger_ui::Start),
                 MenuItem::separator(),
-                MenuItem::action("Edit tasks.json...", crate::zed::OpenProjectTasks),
-                MenuItem::action("Edit debug.json...", zed_actions::OpenProjectDebugTasks),
+                MenuItem::action("Edit tasks.json...", super::OpenProjectTasks),
+                MenuItem::action("Edit debug.json...", vector_actions::OpenProjectDebugTasks),
                 MenuItem::separator(),
                 MenuItem::action("Continue", debugger_ui::Continue),
                 MenuItem::action("Step Over", debugger_ui::StepOver),
@@ -294,37 +288,8 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
         Menu {
             name: "Help".into(),
             items: vec![
-                MenuItem::action(
-                    "View Release Notes Locally",
-                    auto_update_ui::ViewReleaseNotesLocally,
-                ),
-                MenuItem::action("View Telemetry", zed_actions::OpenTelemetryLog),
-                MenuItem::action("View Dependency Licenses", zed_actions::OpenLicenses),
+                MenuItem::action("View Dependency Licenses", vector_actions::OpenLicenses),
                 MenuItem::action("Show Welcome", onboarding::ShowWelcome),
-                MenuItem::separator(),
-                MenuItem::action("File Bug Report...", zed_actions::feedback::FileBugReport),
-                MenuItem::action("Request Feature...", zed_actions::feedback::RequestFeature),
-                MenuItem::action("Email Us...", zed_actions::feedback::EmailZed),
-                MenuItem::separator(),
-                MenuItem::action(
-                    "Documentation",
-                    super::OpenBrowser {
-                        url: "https://zed.dev/docs".into(),
-                    },
-                ),
-                MenuItem::action("Zed Repository", feedback::OpenZedRepo),
-                MenuItem::action(
-                    "Zed Twitter",
-                    super::OpenBrowser {
-                        url: "https://twitter.com/zeddotdev".into(),
-                    },
-                ),
-                MenuItem::action(
-                    "Join the Team",
-                    super::OpenBrowser {
-                        url: "https://zed.dev/jobs".into(),
-                    },
-                ),
             ],
         },
     ]

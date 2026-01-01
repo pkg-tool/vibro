@@ -791,10 +791,6 @@ impl Item for ProjectDiff {
         }
     }
 
-    fn telemetry_event_text(&self) -> Option<&'static str> {
-        Some("Project Diff Opened")
-    }
-
     fn as_searchable(&self, _: &Entity<Self>, cx: &App) -> Option<Box<dyn SearchableItemHandle>> {
         // TODO(split-diff) SplitEditor should be searchable
         Some(Box::new(self.editor.read(cx).primary_editor().clone()))

@@ -78,7 +78,6 @@ use aho_corasick::{AhoCorasick, AhoCorasickBuilder, BuildError};
 use anyhow::{Context as _, Result, anyhow, bail};
 use blink_manager::BlinkManager;
 use buffer_diff::DiffHunkStatus;
-use client::{Collaborator, ParticipantIndex, parse_zed_link};
 use clock::ReplicaId;
 use code_context_menus::{
     AvailableCodeAction, CodeActionContents, CodeActionsItem, CodeActionsMenu, CodeContextMenu,
@@ -203,7 +202,7 @@ use util::{RangeExt, ResultExt, TryFutureExt, maybe, post_inc};
 use workspace::{
     Item as WorkspaceItem, ItemId, ItemNavHistory, OpenInTerminal, OpenTerminal,
     RestoreOnStartupBehavior, SERIALIZATION_THROTTLE_TIME, SplitDirection, TabBarSettings, Toast,
-    ViewId, Workspace, WorkspaceId, WorkspaceSettings,
+    Workspace, WorkspaceId, WorkspaceSettings,
     item::{ItemBufferKind, ItemHandle, PreviewTabsSettings, SaveOptions},
     notifications::{DetachAndPromptErr, NotificationId, NotifyTaskExt},
     searchable::SearchEvent,
@@ -1304,6 +1303,7 @@ struct CharacterDimensions {
     line_height: Pixels,
 }
 
+#[cfg(any())]
 #[derive(Debug)]
 pub struct RemoteSelection {
     pub replica_id: ReplicaId,
@@ -3257,7 +3257,7 @@ impl Editor {
 
         let selection_anchors = self.selections.disjoint_anchors_arc();
 
-        if self.focus_handle.is_focused(window) && self.leader_id.is_none() {
+        if self.focus_handle.is_focused(window) {
             self.buffer.update(cx, |buffer, cx| {
                 buffer.set_active_selections(
                     &selection_anchors,
@@ -9462,7 +9462,7 @@ impl Editor {
                 el.bg(status_colors.error_background)
                     .border_color(status_colors.error.opacity(0.6))
                     .pl_2()
-                    .child(Icon::new(IconName::VectorPredictError).color(Color::Error))
+                    .child(Icon::new(IconName::XCircle).color(Color::Error))
                     .cursor_default()
                     .hoverable_tooltip(move |_window, cx| {
                         cx.new(|_| MissingEditPredictionKeybindingTooltip).into()
@@ -9620,9 +9620,9 @@ impl Editor {
                                     use text::ToPoint as _;
                                     if target.text_anchor.to_point(snapshot).row > cursor_point.row
                                     {
-                                        Icon::new(IconName::VectorPredictDown)
+                                        Icon::new(IconName::ArrowDown)
                                     } else {
-                                        Icon::new(IconName::VectorPredictUp)
+                                        Icon::new(IconName::ArrowUp)
                                     }
                                 }
                                 EditPrediction::MoveOutside { .. } => {
@@ -17185,8 +17185,8 @@ impl Editor {
 
             if let Some(url) = url {
                 cx.update(|window, cx| {
-                    if parse_zed_link(&url, cx).is_some() {
-                        window.dispatch_action(Box::new(zed_actions::OpenZedUrl { url }), cx);
+                    if url.starts_with("vector://") || url.starts_with("zed://") {
+                        window.dispatch_action(Box::new(vector_actions::OpenVectorUrl { url }), cx);
                     } else {
                         cx.open_url(&url);
                     }
@@ -17346,9 +17346,11 @@ impl Editor {
                 match first_url_or_file {
                     Some(Either::Left(url)) => {
                         cx.update(|window, cx| {
-                            if parse_zed_link(&url, cx).is_some() {
-                                window
-                                    .dispatch_action(Box::new(zed_actions::OpenZedUrl { url }), cx);
+                            if url.starts_with("vector://") || url.starts_with("zed://") {
+                                window.dispatch_action(
+                                    Box::new(vector_actions::OpenVectorUrl { url }),
+                                    cx,
+                                );
                             } else {
                                 cx.open_url(&url);
                             }
@@ -21915,15 +21917,6 @@ impl Editor {
 
                 cx.emit(EditorEvent::BufferEdited);
                 cx.emit(SearchEvent::MatchesInvalidated);
-
-                let Some(project) = &self.project else { return };
-                let (telemetry, is_via_ssh) = {
-                    let project = project.read(cx);
-                    let telemetry = project.client().telemetry().clone();
-                    let is_via_ssh = project.is_via_remote_server();
-                    (telemetry, is_via_ssh)
-                };
-                telemetry.log_edit_event("editor", is_via_ssh);
             }
             multi_buffer::Event::ExcerptsAdded {
                 buffer,
@@ -22719,14 +22712,12 @@ impl Editor {
             self.show_cursor_names(window, cx);
             self.buffer.update(cx, |buffer, cx| {
                 buffer.finalize_last_transaction(cx);
-                if self.leader_id.is_none() {
-                    buffer.set_active_selections(
-                        &self.selections.disjoint_anchors_arc(),
-                        self.selections.line_mode(),
-                        self.cursor_shape,
-                        cx,
-                    );
-                }
+                buffer.set_active_selections(
+                    &self.selections.disjoint_anchors_arc(),
+                    self.selections.line_mode(),
+                    self.cursor_shape,
+                    cx,
+                );
             });
 
             if let Some(position_map) = self.last_position_map.clone() {
@@ -24905,6 +24896,7 @@ fn ending_row(next_selection: &Selection<Point>, display_map: &DisplaySnapshot) 
 }
 
 impl EditorSnapshot {
+    #[cfg(any())]
     pub fn remote_selections_in_range<'a>(
         &'a self,
         range: &'a Range<Anchor>,
@@ -26305,7 +26297,7 @@ impl Render for MissingEditPredictionKeybindingTooltip {
                         .items_end()
                         .w_full()
                         .child(Button::new("open-keymap", "Assign Keybinding").size(ButtonSize::Compact).on_click(|_ev, window, cx| {
-                            window.dispatch_action(zed_actions::OpenKeymapFile.boxed_clone(), cx)
+                            window.dispatch_action(vector_actions::OpenKeymapFile.boxed_clone(), cx)
                         }))
                         .child(Button::new("see-docs", "See Docs").size(ButtonSize::Compact).on_click(|_ev, _window, cx| {
                             cx.open_url("https://vector.dev/docs/completions#edit-predictions-missing-keybinding");

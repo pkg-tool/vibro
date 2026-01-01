@@ -1088,7 +1088,7 @@ pub(crate) fn settings_data(cx: &App) -> Vec<SettingsPage> {
                         original_window
                             .update(cx, |_workspace, original_window, cx| {
                                 original_window
-                                    .dispatch_action(zed_actions::OpenKeymap.boxed_clone(), cx);
+                                    .dispatch_action(vector_actions::OpenKeymap.boxed_clone(), cx);
                                 original_window.activate_window();
                             })
                             .ok();
@@ -7649,64 +7649,7 @@ fn non_editor_language_settings_data() -> Vec<SettingsPageItem> {
 }
 
 fn edit_prediction_language_settings_section() -> Vec<SettingsPageItem> {
-    vec![
-        SettingsPageItem::SectionHeader("Edit Predictions"),
-        SettingsPageItem::SubPageLink(SubPageLink {
-            title: "Configure Providers".into(),
-            json_path: Some("edit_predictions.providers"),
-            description: Some("Set up different edit prediction providers in complement to Zed's built-in Zeta model.".into()),
-            in_json: false,
-            files: USER,
-            render: Arc::new(|_, window, cx| {
-                let settings_window = cx.entity();
-                let page = window.use_state(cx, |_, _| {
-                    crate::pages::EditPredictionSetupPage::new(settings_window)
-                });
-                page.into_any_element()
-            }),
-        }),
-        SettingsPageItem::SettingItem(SettingItem {
-            title: "Show Edit Predictions",
-            description: "Controls whether edit predictions are shown immediately or manually.",
-            field: Box::new(SettingField {
-                json_path: Some("languages.$(language).show_edit_predictions"),
-                pick: |settings_content| {
-                    language_settings_field(settings_content, |language| {
-                        language.show_edit_predictions.as_ref()
-                    })
-                },
-                write: |settings_content, value| {
-                    language_settings_field_mut(settings_content, value, |language, value| {
-                        language.show_edit_predictions = value;
-                    })
-                },
-            }),
-            metadata: None,
-            files: USER | PROJECT,
-        }),
-        SettingsPageItem::SettingItem(SettingItem {
-            title: "Disable in Language Scopes",
-            description: "Controls whether edit predictions are shown in the given language scopes.",
-            field: Box::new(
-                SettingField {
-                    json_path: Some("languages.$(language).edit_predictions_disabled_in"),
-                    pick: |settings_content| {
-                        language_settings_field(settings_content, |language| {
-                            language.edit_predictions_disabled_in.as_ref()
-                        })
-                    },
-                    write: |settings_content, value| {
-                        language_settings_field_mut(settings_content, value, |language, value| {
-                            language.edit_predictions_disabled_in = value;
-                        })
-                    },
-                }
-                .unimplemented(),
-            ),
-            metadata: None,
-            files: USER | PROJECT,
-        }),
-    ]
+    Vec::new()
 }
 
 fn show_scrollbar_or_editor(

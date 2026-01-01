@@ -561,10 +561,6 @@ impl Item for FileHistoryView {
         Some(Icon::new(IconName::GitBranch))
     }
 
-    fn telemetry_event_text(&self) -> Option<&'static str> {
-        Some("file history")
-    }
-
     fn clone_on_split(
         &self,
         _workspace_id: Option<workspace::WorkspaceId>,

@@ -23,9 +23,6 @@ use project::{
 };
 
 use language::{LanguageName, Toolchain, ToolchainScope};
-use remote::{
-    DockerConnectionOptions, RemoteConnectionOptions, SshConnectionOptions, WslConnectionOptions,
-};
 use serde::{Deserialize, Serialize};
 use sqlez::{
     bindable::{Bind, Column, StaticColumnCount},
@@ -40,12 +37,10 @@ use uuid::Uuid;
 use crate::{
     WorkspaceId,
     path_list::{PathList, SerializedPathList},
-    persistence::model::RemoteConnectionKind,
 };
 
 use model::{
-    GroupId, ItemId, PaneId, RemoteConnectionId, SerializedItem, SerializedPane,
-    SerializedPaneGroup, SerializedWorkspace,
+    GroupId, ItemId, PaneId, SerializedItem, SerializedPane, SerializedPaneGroup, SerializedWorkspace,
 };
 
 use self::model::{DockStructure, SerializedWorkspaceLocation};
@@ -901,21 +896,12 @@ impl WorkspaceDb {
         &self,
         worktree_roots: &[P],
     ) -> Option<SerializedWorkspace> {
-        self.workspace_for_roots_internal(worktree_roots, None)
-    }
-
-    pub(crate) fn remote_workspace_for_roots<P: AsRef<Path>>(
-        &self,
-        worktree_roots: &[P],
-        remote_project_id: RemoteConnectionId,
-    ) -> Option<SerializedWorkspace> {
-        self.workspace_for_roots_internal(worktree_roots, Some(remote_project_id))
+        self.workspace_for_roots_internal(worktree_roots)
     }
 
     pub(crate) fn workspace_for_roots_internal<P: AsRef<Path>>(
         &self,
         worktree_roots: &[P],
-        remote_connection_id: Option<RemoteConnectionId>,
     ) -> Option<SerializedWorkspace> {
         // paths are sorted before db interactions to ensure that the order of the paths
         // doesn't affect the workspace selection for existing workspaces
@@ -967,14 +953,11 @@ impl WorkspaceDb {
                 FROM workspaces
                 WHERE
                     paths IS ? AND
-                    remote_connection_id IS ?
+                    remote_connection_id IS NULL
                 LIMIT 1
             })
             .and_then(|mut prepared_statement| {
-                (prepared_statement)((
-                    root_paths.serialize().paths,
-                    remote_connection_id.map(|id| id.0 as i32),
-                ))
+                (prepared_statement)(root_paths.serialize().paths)
             })
             .context("No workspaces found")
             .warn_on_err()
@@ -985,20 +968,9 @@ impl WorkspaceDb {
             order: paths_order,
         });
 
-        let remote_connection_options = if let Some(remote_connection_id) = remote_connection_id {
-            self.remote_connection(remote_connection_id)
-                .context("Get remote connection")
-                .log_err()
-        } else {
-            None
-        };
-
         Some(SerializedWorkspace {
             id: workspace_id,
-            location: match remote_connection_options {
-                Some(options) => SerializedWorkspaceLocation::Remote(options),
-                None => SerializedWorkspaceLocation::Local,
-            },
+            location: SerializedWorkspaceLocation::Local,
             paths,
             center_group: self
                 .get_center_pane_group(workspace_id)
@@ -1011,7 +983,7 @@ impl WorkspaceDb {
             session_id: None,
             breakpoints: self.breakpoints(workspace_id),
             window_id,
-            user_toolchains: self.user_toolchains(workspace_id, remote_connection_id),
+            user_toolchains: self.user_toolchains(workspace_id),
         })
     }
 
@@ -1064,7 +1036,6 @@ impl WorkspaceDb {
     fn user_toolchains(
         &self,
         workspace_id: WorkspaceId,
-        remote_connection_id: Option<RemoteConnectionId>,
     ) -> BTreeMap<ToolchainScope, IndexSet<Toolchain>> {
         type RowKind = (WorkspaceId, String, String, String, String, String, String);
 
@@ -1072,13 +1043,11 @@ impl WorkspaceDb {
             .select_bound(sql! {
                 SELECT workspace_id, worktree_root_path, relative_worktree_path,
                 language_name, name, path, raw_json
-                FROM user_toolchains WHERE remote_connection_id IS ?1 AND (
-                      workspace_id IN (0, ?2)
+                FROM user_toolchains WHERE remote_connection_id IS NULL AND (
+                      workspace_id IN (0, ?)
                 )
             })
-            .and_then(|mut statement| {
-                (statement)((remote_connection_id.map(|id| id.0), workspace_id))
-            })
+            .and_then(|mut statement| (statement)(workspace_id))
             .unwrap_or_default();
         let mut ret = BTreeMap::<_, IndexSet<_>>::default();
 
@@ -1140,15 +1109,7 @@ impl WorkspaceDb {
         log::debug!("Saving workspace at location: {:?}", workspace.location);
         self.write(move |conn| {
             conn.with_savepoint("update_worktrees", || {
-                let remote_connection_id = match workspace.location.clone() {
-                    SerializedWorkspaceLocation::Local => None,
-                    SerializedWorkspaceLocation::Remote(connection_options) => {
-                        Some(Self::get_or_create_remote_connection_internal(
-                            conn,
-                            connection_options
-                        )?.0)
-                    }
-                };
+                let remote_connection_id: Option<u64> = None;
 
                 // Clear out panes and pane_groups
                 conn.exec_bound(sql!(
@@ -1188,9 +1149,6 @@ impl WorkspaceDb {
                         }
                     }
                 }
-                let SerializedWorkspaceLocation::Local(local_paths, local_paths_order) =
-                    workspace.location;
-
                 conn.exec_bound(
                     sql!(
                         DELETE FROM user_toolchains WHERE workspace_id = ?1;
@@ -1291,122 +1249,13 @@ impl WorkspaceDb {
         .await;
     }
 
-    pub(crate) async fn get_or_create_remote_connection(
-        &self,
-        options: RemoteConnectionOptions,
-    ) -> Result<RemoteConnectionId> {
-        self.write(move |conn| Self::get_or_create_remote_connection_internal(conn, options))
-            .await
-    }
-
-    fn get_or_create_remote_connection_internal(
-        this: &Connection,
-        options: RemoteConnectionOptions,
-    ) -> Result<RemoteConnectionId> {
-        let kind;
-        let mut user = None;
-        let mut host = None;
-        let mut port = None;
-        let mut distro = None;
-        let mut name = None;
-        let mut container_id = None;
-        match options {
-            RemoteConnectionOptions::Ssh(options) => {
-                kind = RemoteConnectionKind::Ssh;
-                host = Some(options.host.to_string());
-                port = options.port;
-                user = options.username;
-            }
-            RemoteConnectionOptions::Wsl(options) => {
-                kind = RemoteConnectionKind::Wsl;
-                distro = Some(options.distro_name);
-                user = options.user;
-            }
-            RemoteConnectionOptions::Docker(options) => {
-                kind = RemoteConnectionKind::Docker;
-                container_id = Some(options.container_id);
-                name = Some(options.name);
-            }
-        }
-        Self::get_or_create_remote_connection_query(
-            this,
-            kind,
-            host,
-            port,
-            user,
-            distro,
-            name,
-            container_id,
-        )
-    }
-
-    fn get_or_create_remote_connection_query(
-        this: &Connection,
-        kind: RemoteConnectionKind,
-        host: Option<String>,
-        port: Option<u16>,
-        user: Option<String>,
-        distro: Option<String>,
-        name: Option<String>,
-        container_id: Option<String>,
-    ) -> Result<RemoteConnectionId> {
-        if let Some(id) = this.select_row_bound(sql!(
-            SELECT id
-            FROM remote_connections
-            WHERE
-                kind IS ? AND
-                host IS ? AND
-                port IS ? AND
-                user IS ? AND
-                distro IS ? AND
-                name IS ? AND
-                container_id IS ?
-            LIMIT 1
-        ))?((
-            kind.serialize(),
-            host.clone(),
-            port,
-            user.clone(),
-            distro.clone(),
-            name.clone(),
-            container_id.clone(),
-        ))? {
-            Ok(RemoteConnectionId(id))
-        } else {
-            let id = this.select_row_bound(sql!(
-                INSERT INTO remote_connections (
-                    kind,
-                    host,
-                    port,
-                    user,
-                    distro,
-                    name,
-                    container_id
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-                RETURNING id
-            ))?((
-                kind.serialize(),
-                host,
-                port,
-                user,
-                distro,
-                name,
-                container_id,
-            ))?
-            .context("failed to insert remote project")?;
-            Ok(RemoteConnectionId(id))
-        }
-    }
-
     query! {
         pub async fn next_id() -> Result<WorkspaceId> {
             INSERT INTO workspaces DEFAULT VALUES RETURNING workspace_id
         }
     }
 
-    fn recent_workspaces(
-        &self,
-    ) -> Result<Vec<(WorkspaceId, PathList, Option<RemoteConnectionId>)>> {
+    fn recent_workspaces(&self) -> Result<Vec<(WorkspaceId, PathList, Option<u64>)>> {
         Ok(self
             .recent_workspaces_query()?
             .into_iter()
@@ -1414,7 +1263,7 @@ impl WorkspaceDb {
                 (
                     id,
                     PathList::deserialize(&SerializedPathList { paths, order }),
-                    remote_connection_id.map(RemoteConnectionId),
+                    remote_connection_id,
                 )
             })
             .collect())
@@ -1434,7 +1283,7 @@ impl WorkspaceDb {
     fn session_workspaces(
         &self,
         session_id: String,
-    ) -> Result<Vec<(PathList, Option<u64>, Option<RemoteConnectionId>)>> {
+    ) -> Result<Vec<(PathList, Option<u64>, Option<u64>)>> {
         Ok(self
             .session_workspaces_query(session_id)?
             .into_iter()
@@ -1442,7 +1291,7 @@ impl WorkspaceDb {
                 (
                     PathList::deserialize(&SerializedPathList { paths, order }),
                     window_id,
-                    remote_connection_id.map(RemoteConnectionId),
+                    remote_connection_id,
                 )
             })
             .collect())
@@ -1472,75 +1321,6 @@ impl WorkspaceDb {
         }
     }
 
-    fn remote_connections(&self) -> Result<HashMap<RemoteConnectionId, RemoteConnectionOptions>> {
-        Ok(self.select(sql!(
-            SELECT
-                id, kind, host, port, user, distro, container_id, name
-            FROM
-                remote_connections
-        ))?()?
-        .into_iter()
-        .filter_map(|(id, kind, host, port, user, distro, container_id, name)| {
-            Some((
-                RemoteConnectionId(id),
-                Self::remote_connection_from_row(
-                    kind,
-                    host,
-                    port,
-                    user,
-                    distro,
-                    container_id,
-                    name,
-                )?,
-            ))
-        })
-        .collect())
-    }
-
-    pub(crate) fn remote_connection(
-        &self,
-        id: RemoteConnectionId,
-    ) -> Result<RemoteConnectionOptions> {
-        let (kind, host, port, user, distro, container_id, name) = self.select_row_bound(sql!(
-            SELECT kind, host, port, user, distro, container_id, name
-            FROM remote_connections
-            WHERE id = ?
-        ))?(id.0)?
-        .context("no such remote connection")?;
-        Self::remote_connection_from_row(kind, host, port, user, distro, container_id, name)
-            .context("invalid remote_connection row")
-    }
-
-    fn remote_connection_from_row(
-        kind: String,
-        host: Option<String>,
-        port: Option<u16>,
-        user: Option<String>,
-        distro: Option<String>,
-        container_id: Option<String>,
-        name: Option<String>,
-    ) -> Option<RemoteConnectionOptions> {
-        match RemoteConnectionKind::deserialize(&kind)? {
-            RemoteConnectionKind::Wsl => Some(RemoteConnectionOptions::Wsl(WslConnectionOptions {
-                distro_name: distro?,
-                user: user,
-            })),
-            RemoteConnectionKind::Ssh => Some(RemoteConnectionOptions::Ssh(SshConnectionOptions {
-                host: host?.into(),
-                port,
-                username: user,
-                ..Default::default()
-            })),
-            RemoteConnectionKind::Docker => {
-                Some(RemoteConnectionOptions::Docker(DockerConnectionOptions {
-                    container_id: container_id?,
-                    name: name?,
-                    upload_binary_over_docker_exec: false,
-                }))
-            }
-        }
-    }
-
     query! {
         pub async fn delete_workspace_by_id(id: WorkspaceId) -> Result<()> {
             DELETE FROM workspaces
@@ -1555,19 +1335,10 @@ impl WorkspaceDb {
     ) -> Result<Vec<(WorkspaceId, SerializedWorkspaceLocation, PathList)>> {
         let mut result = Vec::new();
         let mut delete_tasks = Vec::new();
-        let remote_connections = self.remote_connections()?;
 
         for (id, paths, remote_connection_id) in self.recent_workspaces()? {
-            if let Some(remote_connection_id) = remote_connection_id {
-                if let Some(connection_options) = remote_connections.get(&remote_connection_id) {
-                    result.push((
-                        id,
-                        SerializedWorkspaceLocation::Remote(connection_options.clone()),
-                        paths,
-                    ));
-                } else {
-                    delete_tasks.push(self.delete_workspace_by_id(id));
-                }
+            if remote_connection_id.is_some() {
+                delete_tasks.push(self.delete_workspace_by_id(id));
                 continue;
             }
 
@@ -1621,15 +1392,10 @@ impl WorkspaceDb {
         for (paths, window_id, remote_connection_id) in
             self.session_workspaces(last_session_id.to_owned())?
         {
-            if let Some(remote_connection_id) = remote_connection_id {
-                workspaces.push((
-                    SerializedWorkspaceLocation::Remote(
-                        self.remote_connection(remote_connection_id)?,
-                    ),
-                    paths,
-                    window_id.map(WindowId::from),
-                ));
-            } else if paths.paths().iter().all(|path| path.exists())
+            if remote_connection_id.is_some() {
+                continue;
+            }
+            if paths.paths().iter().all(|path| path.exists())
                 && paths.paths().iter().any(|path| path.is_dir())
             {
                 workspaces.push((

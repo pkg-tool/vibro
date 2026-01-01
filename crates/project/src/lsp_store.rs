@@ -419,7 +419,8 @@ impl LocalLspStore {
             settings,
             toolchain.clone(),
             delegate.clone(),
-            true,
+            // Offline build: never download language servers automatically.
+            false,
             untrusted_worktree_task,
             cx,
         );

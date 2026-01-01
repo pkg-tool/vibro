@@ -3,7 +3,6 @@ use crate::restorable_workspace_locations;
 use anyhow::{Context as _, Result, anyhow};
 use cli::{CliRequest, CliResponse, ipc::IpcSender};
 use cli::{IpcHandshake, ipc};
-use client::{ZedLink, parse_zed_link};
 use collections::HashMap;
 use db::kvp::KEY_VALUE_STORE;
 use editor::Editor;
@@ -18,14 +17,10 @@ use gpui::{App, AsyncApp, Global, WindowHandle};
 use language::Point;
 use onboarding::FIRST_OPEN;
 use onboarding::show_onboarding_view;
-use recent_projects::{SshSettings, open_remote_project};
-use remote::{RemoteConnectionOptions, WslConnectionOptions};
-use settings::Settings;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
-use ui::SharedString;
 use util::ResultExt;
 use util::paths::PathWithPosition;
 use workspace::PathList;
@@ -37,18 +32,11 @@ pub struct OpenRequest {
     pub kind: Option<OpenRequestKind>,
     pub open_paths: Vec<String>,
     pub diff_paths: Vec<[String; 2]>,
-    pub open_channel_notes: Vec<(u64, Option<String>)>,
-    pub join_channel: Option<u64>,
-    pub remote_connection: Option<RemoteConnectionOptions>,
 }
 
 #[derive(Debug)]
 pub enum OpenRequestKind {
     CliConnection((mpsc::Receiver<CliRequest>, IpcSender<CliResponse>)),
-    Extension {
-        extension_id: String,
-    },
-    AgentPanel,
     DockMenuAction {
         index: usize,
     },
@@ -58,9 +46,6 @@ pub enum OpenRequestKind {
     Setting {
         /// `None` opens settings without navigating to a specific path.
         setting_path: Option<String>,
-    },
-    GitClone {
-        repo_url: SharedString,
     },
     GitCommit {
         sha: String,
@@ -72,20 +57,7 @@ impl OpenRequest {
         let mut this = Self::default();
 
         this.diff_paths = request.diff_paths;
-        if let Some(wsl) = request.wsl {
-            let (user, distro_name) = if let Some((user, distro)) = wsl.split_once('@') {
-                if user.is_empty() {
-                    anyhow::bail!("user is empty in wsl argument");
-                }
-                (Some(user.to_string()), distro.to_string())
-            } else {
-                (None, wsl)
-            };
-            this.remote_connection = Some(RemoteConnectionOptions::Wsl(WslConnectionOptions {
-                distro_name,
-                user,
-            }));
-        }
+        // Strict offline: ignore WSL / remote connection hints.
 
         for url in request.urls {
             if let Some(server_name) = url.strip_prefix("zed-cli://") {
@@ -98,15 +70,6 @@ impl OpenRequest {
                 this.parse_file_path(file)
             } else if let Some(file) = url.strip_prefix("vector://file") {
                 this.parse_file_path(file)
-            } else if let Some(file) = url.strip_prefix("zed://ssh") {
-                let ssh_url = "ssh:/".to_string() + file;
-                this.parse_ssh_file_path(&ssh_url, cx)?
-            } else if let Some(extension_id) = url.strip_prefix("zed://extension/") {
-                this.kind = Some(OpenRequestKind::Extension {
-                    extension_id: extension_id.to_string(),
-                });
-            } else if url == "zed://agent" {
-                this.kind = Some(OpenRequestKind::AgentPanel);
             } else if let Some(schema_path) = url.strip_prefix("zed://schemas/") {
                 this.kind = Some(OpenRequestKind::BuiltinJsonSchema {
                     schema_path: schema_path.to_string(),
@@ -117,24 +80,8 @@ impl OpenRequest {
                 this.kind = Some(OpenRequestKind::Setting {
                     setting_path: Some(setting_path.to_string()),
                 });
-            } else if let Some(clone_path) = url.strip_prefix("zed://git/clone") {
-                this.parse_git_clone_url(clone_path)?
             } else if let Some(commit_path) = url.strip_prefix("zed://git/commit/") {
                 this.parse_git_commit_url(commit_path)?
-            } else if url.starts_with("ssh://") {
-                this.parse_ssh_file_path(&url, cx)?
-            } else if let Some(zed_link) = parse_zed_link(&url, cx) {
-                match zed_link {
-                    ZedLink::Channel { channel_id } => {
-                        this.join_channel = Some(channel_id);
-                    }
-                    ZedLink::ChannelNotes {
-                        channel_id,
-                        heading,
-                    } => {
-                        this.open_channel_notes.push((channel_id, heading));
-                    }
-                }
             } else {
                 log::error!("unhandled url: {}", url);
             }
@@ -147,26 +94,6 @@ impl OpenRequest {
         if let Some(decoded) = urlencoding::decode(file).log_err() {
             self.open_paths.push(decoded.into_owned())
         }
-    }
-
-    fn parse_git_clone_url(&mut self, clone_path: &str) -> Result<()> {
-        // Format: /?repo=<url> or ?repo=<url>
-        let clone_path = clone_path.strip_prefix('/').unwrap_or(clone_path);
-
-        let query = clone_path
-            .strip_prefix('?')
-            .context("invalid git clone url: missing query string")?;
-
-        let repo_url = url::form_urlencoded::parse(query.as_bytes())
-            .find_map(|(key, value)| (key == "repo").then_some(value))
-            .filter(|s| !s.is_empty())
-            .context("invalid git clone url: missing repo query parameter")?
-            .to_string()
-            .into();
-
-        self.kind = Some(OpenRequestKind::GitClone { repo_url });
-
-        Ok(())
     }
 
     fn parse_git_commit_url(&mut self, commit_path: &str) -> Result<()> {
@@ -191,35 +118,6 @@ impl OpenRequest {
         Ok(())
     }
 
-    fn parse_ssh_file_path(&mut self, file: &str, cx: &App) -> Result<()> {
-        let url = url::Url::parse(file)?;
-        let host = url
-            .host()
-            .with_context(|| format!("missing host in ssh url: {file}"))?
-            .to_string();
-        let username = Some(url.username().to_string()).filter(|s| !s.is_empty());
-        let port = url.port();
-        anyhow::ensure!(
-            self.open_paths.is_empty(),
-            "cannot open both local and ssh paths"
-        );
-        let mut connection_options =
-            SshSettings::get_global(cx).connection_options_for(host, port, username);
-        if let Some(password) = url.password() {
-            connection_options.password = Some(password.to_string());
-        }
-
-        let connection_options = RemoteConnectionOptions::Ssh(connection_options);
-        if let Some(ssh_connection) = &self.remote_connection {
-            anyhow::ensure!(
-                *ssh_connection == connection_options,
-                "cannot open multiple different remote connections"
-            );
-        }
-        self.remote_connection = Some(connection_options);
-        self.parse_file_path(url.path());
-        Ok(())
-    }
 }
 
 #[derive(Clone)]
@@ -511,27 +409,6 @@ async fn open_workspaces(
                     if workspace_failed_to_open {
                         errored = true
                     }
-                }
-                SerializedWorkspaceLocation::Remote(mut connection) => {
-                    let app_state = app_state.clone();
-                    if let RemoteConnectionOptions::Ssh(options) = &mut connection {
-                        cx.update(|cx| {
-                            SshSettings::get_global(cx)
-                                .fill_connection_options_from_settings(options)
-                        })?;
-                    }
-                    cx.spawn(async move |cx| {
-                        open_remote_project(
-                            connection,
-                            workspace_paths.paths().to_vec(),
-                            app_state,
-                            OpenOptions::default(),
-                            cx,
-                        )
-                        .await
-                        .log_err();
-                    })
-                    .detach();
                 }
             }
         }

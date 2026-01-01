@@ -8,7 +8,7 @@ use ui::{HighlightedLabel, ListItem, ListItemSpacing, prelude::*};
 use workspace::{ModalView, Workspace};
 
 pub fn init(cx: &mut App) {
-    cx.on_action(|_: &zed_actions::settings_profile_selector::Toggle, cx| {
+    cx.on_action(|_: &vector_actions::settings_profile_selector::Toggle, cx| {
         workspace::with_active_or_new_workspace(cx, |workspace, window, cx| {
             toggle_settings_profile_selector(workspace, window, cx);
         });

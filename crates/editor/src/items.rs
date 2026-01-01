@@ -39,9 +39,9 @@ use theme::{Theme, ThemeSettings};
 use ui::{IconDecorationKind, prelude::*};
 use util::{TryFutureExt, paths::PathExt};
 use workspace::{
-    CollaboratorId, ItemId, ItemNavHistory, ToolbarItemLocation, ViewId, Workspace, WorkspaceId,
+    ItemId, ItemNavHistory, ToolbarItemLocation, Workspace, WorkspaceId,
     invalid_item_view::InvalidItemView,
-    item::{FollowableItem, Item, ItemBufferKind, ItemEvent, ProjectItem, SaveOptions},
+    item::{Item, ItemBufferKind, ItemEvent, ProjectItem, SaveOptions},
     searchable::{
         Direction, FilteredSearchRange, SearchEvent, SearchableItem, SearchableItemHandle,
     },
@@ -58,6 +58,7 @@ use workspace::{
 
 pub const MAX_TAB_TITLE_LEN: usize = 24;
 
+#[cfg(any())]
 impl FollowableItem for Editor {
     fn remote_id(&self) -> Option<ViewId> {
         self.remote_id
@@ -378,6 +379,7 @@ impl FollowableItem for Editor {
     }
 }
 
+#[cfg(any())]
 async fn update_editor_from_message(
     this: WeakEntity<Editor>,
     project: Entity<Project>,
@@ -495,6 +497,7 @@ async fn update_editor_from_message(
     Ok(())
 }
 
+#[cfg(any())]
 fn serialize_excerpt(
     buffer_id: BufferId,
     id: &ExcerptId,
@@ -510,6 +513,7 @@ fn serialize_excerpt(
     })
 }
 
+#[cfg(any())]
 fn serialize_selection(
     selection: &Selection<Anchor>,
     buffer: &MultiBufferSnapshot,
@@ -522,6 +526,7 @@ fn serialize_selection(
     }
 }
 
+#[cfg(any())]
 fn serialize_anchor(anchor: &Anchor, buffer: &MultiBufferSnapshot) -> proto::EditorAnchor {
     proto::EditorAnchor {
         excerpt_id: buffer.latest_excerpt_id(anchor.excerpt_id).to_proto(),
@@ -529,6 +534,7 @@ fn serialize_anchor(anchor: &Anchor, buffer: &MultiBufferSnapshot) -> proto::Edi
     }
 }
 
+#[cfg(any())]
 fn deserialize_excerpt_range(
     excerpt: proto::Excerpt,
 ) -> Option<(ExcerptId, ExcerptRange<language::Anchor>)> {
@@ -552,6 +558,7 @@ fn deserialize_excerpt_range(
     ))
 }
 
+#[cfg(any())]
 fn deserialize_selection(selection: proto::Selection) -> Option<Selection<Anchor>> {
     Some(Selection {
         id: selection.id as usize,
@@ -562,6 +569,7 @@ fn deserialize_selection(selection: proto::Selection) -> Option<Selection<Anchor
     })
 }
 
+#[cfg(any())]
 fn deserialize_anchor(anchor: proto::EditorAnchor) -> Option<Anchor> {
     let excerpt_id = ExcerptId::from_proto(anchor.excerpt_id);
     Some(Anchor::in_buffer(

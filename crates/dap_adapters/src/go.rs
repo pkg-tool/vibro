@@ -1,11 +1,8 @@
-use anyhow::{Context as _, bail};
+use anyhow::bail;
 use collections::HashMap;
 use dap::{
     StartDebuggingRequestArguments,
-    adapters::{
-        DebugTaskDefinition, DownloadedFileType, TcpArguments, download_adapter_from_github,
-        latest_github_release,
-    },
+    adapters::{DebugTaskDefinition, TcpArguments},
 };
 use fs::Fs;
 use gpui::{AsyncApp, SharedString};
@@ -14,86 +11,20 @@ use log::warn;
 use serde_json::{Map, Value};
 use task::TcpArgumentsTemplate;
 use task::VectorDebugConfig;
-use util;
 
 use std::{
-    env::consts,
     ffi::OsStr,
     path::{Path, PathBuf},
     str::FromStr,
-    sync::OnceLock,
 };
 
 use crate::*;
 
 #[derive(Default, Debug)]
-pub(crate) struct GoDebugAdapter {
-    shim_path: OnceLock<PathBuf>,
-}
+pub(crate) struct GoDebugAdapter;
 
 impl GoDebugAdapter {
     const ADAPTER_NAME: &'static str = "Delve";
-    async fn fetch_latest_adapter_version(
-        delegate: &Arc<dyn DapDelegate>,
-    ) -> Result<AdapterVersion> {
-        let release = latest_github_release(
-            "zed-industries/delve-shim-dap",
-            true,
-            false,
-            delegate.http_client(),
-        )
-        .await?;
-
-        let os = match consts::OS {
-            "macos" => "apple-darwin",
-            "linux" => "unknown-linux-gnu",
-            "windows" => "pc-windows-msvc",
-            other => bail!("Running on unsupported os: {other}"),
-        };
-        let suffix = if consts::OS == "windows" {
-            ".zip"
-        } else {
-            ".tar.gz"
-        };
-        let asset_name = format!("delve-shim-dap-{}-{os}{suffix}", consts::ARCH);
-        let asset = release
-            .assets
-            .iter()
-            .find(|asset| asset.name == asset_name)
-            .with_context(|| format!("no asset found matching `{asset_name:?}`"))?;
-
-        Ok(AdapterVersion {
-            tag_name: release.tag_name,
-            url: asset.browser_download_url.clone(),
-        })
-    }
-    async fn install_shim(&self, delegate: &Arc<dyn DapDelegate>) -> anyhow::Result<PathBuf> {
-        if let Some(path) = self.shim_path.get().cloned() {
-            return Ok(path);
-        }
-
-        let asset = Self::fetch_latest_adapter_version(delegate).await?;
-        let ty = if consts::OS == "windows" {
-            DownloadedFileType::Zip
-        } else {
-            DownloadedFileType::GzipTar
-        };
-        download_adapter_from_github(
-            "delve-shim-dap".into(),
-            asset.clone(),
-            ty,
-            delegate.as_ref(),
-        )
-        .await?;
-
-        let path = paths::debug_adapters_dir()
-            .join("delve-shim-dap")
-            .join(format!("delve-shim-dap_{}", asset.tag_name))
-            .join(format!("delve-shim-dap{}", std::env::consts::EXE_SUFFIX));
-        self.shim_path.set(path.clone()).ok();
-
-        Ok(path)
-    }
 }
 
 #[async_trait(?Send)]
@@ -426,29 +357,10 @@ impl DebugAdapter for GoDebugAdapter {
         } else if delegate.fs().is_file(&dlv_path).await {
             dlv_path.to_string_lossy().into_owned()
         } else {
-            let go = delegate
-                .which(OsStr::new("go"))
-                .await
-                .context("Go not found in path. Please install Go first, then Dlv will be installed automatically.")?;
-
-            let adapter_path = paths::debug_adapters_dir().join(&Self::ADAPTER_NAME);
-
-            let install_output = util::command::new_smol_command(&go)
-                .env("GO111MODULE", "on")
-                .env("GOBIN", &adapter_path)
-                .args(&["install", "github.com/go-delve/delve/cmd/dlv@latest"])
-                .output()
-                .await?;
-
-            if !install_output.status.success() {
-                bail!(
-                    "failed to install dlv via `go install`. stdout: {:?}, stderr: {:?}\n Please try installing it manually using 'go install github.com/go-delve/delve/cmd/dlv@latest'",
-                    String::from_utf8_lossy(&install_output.stdout),
-                    String::from_utf8_lossy(&install_output.stderr)
-                );
-            }
-
-            adapter_path.join("dlv").to_string_lossy().into_owned()
+            bail!(
+                "Delve (dlv) not found. Install it manually and either add it to PATH or place it at {}",
+                dlv_path.display()
+            );
         };
 
         let cwd = Some(
@@ -492,17 +404,14 @@ impl DebugAdapter for GoDebugAdapter {
                 timeout,
             });
         } else {
-            let minidelve_path = self.install_shim(delegate).await?;
             let (host, port, _) =
                 crate::configure_tcp_connection(TcpArgumentsTemplate::default()).await?;
-            command = Some(minidelve_path.to_string_lossy().into_owned());
+            command = Some(delve_path.clone());
             connection = None;
-            arguments = if let Some(mut args) = user_args {
-                args.insert(0, delve_path);
+            arguments = if let Some(args) = user_args {
                 args
             } else if cfg!(windows) {
                 vec![
-                    delve_path,
                     "dap".into(),
                     "--listen".into(),
                     format!("{}:{}", host, port),
@@ -510,7 +419,6 @@ impl DebugAdapter for GoDebugAdapter {
                 ]
             } else {
                 vec![
-                    delve_path,
                     "dap".into(),
                     "--listen".into(),
                     format!("{}:{}", host, port),

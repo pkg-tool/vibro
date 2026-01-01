@@ -2,7 +2,6 @@ use crate::{
     NewFile, Open, PathList, SerializedWorkspaceLocation, WORKSPACE_DB, Workspace, WorkspaceId,
     item::{Item, ItemEvent},
 };
-use git::Clone as GitClone;
 use gpui::WeakEntity;
 use gpui::{
     Action, App, Context, Entity, EventEmitter, FocusHandle, Focusable, InteractiveElement,
@@ -13,7 +12,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use ui::{ButtonLike, Divider, DividerColor, KeyBinding, Vector, VectorName, prelude::*};
 use util::ResultExt;
-use zed_actions::{Extensions, OpenOnboarding, OpenSettings, agent, command_palette};
+use vector_actions::{Extensions, OpenOnboarding, OpenSettings, command_palette};
 
 #[derive(PartialEq, Clone, Debug, Deserialize, Serialize, JsonSchema, Action)]
 #[action(namespace = welcome)]
@@ -136,7 +135,7 @@ impl SectionEntry {
     }
 }
 
-const CONTENT: (Section<4>, Section<3>) = (
+const CONTENT: (Section<3>, Section<2>) = (
     Section {
         title: "Get Started",
         entries: [
@@ -149,11 +148,6 @@ const CONTENT: (Section<4>, Section<3>) = (
                 icon: IconName::FolderOpen,
                 title: "Open Project",
                 action: &Open,
-            },
-            SectionEntry {
-                icon: IconName::CloudDownload,
-                title: "Clone Repository",
-                action: &GitClone,
             },
             SectionEntry {
                 icon: IconName::ListCollapse,
@@ -171,13 +165,8 @@ const CONTENT: (Section<4>, Section<3>) = (
                 action: &OpenSettings,
             },
             SectionEntry {
-                icon: IconName::ZedAssistant,
-                title: "View AI Settings",
-                action: &agent::OpenSettings,
-            },
-            SectionEntry {
                 icon: IconName::Blocks,
-                title: "Explore Extensions",
+                title: "Manage Extensions",
                 action: &Extensions {
                     category_filter: None,
                     id: None,
@@ -283,7 +272,7 @@ impl WelcomePage {
                     })
                     .detach();
                 } else {
-                    use zed_actions::OpenRecent;
+                    use vector_actions::OpenRecent;
                     window.dispatch_action(OpenRecent::default().boxed_clone(), cx);
                 }
             }
@@ -303,26 +292,18 @@ impl WelcomePage {
     fn render_recent_project(
         &self,
         index: usize,
-        location: &SerializedWorkspaceLocation,
+        _location: &SerializedWorkspaceLocation,
         paths: &PathList,
     ) -> impl IntoElement {
-        let (icon, title) = match location {
-            SerializedWorkspaceLocation::Local => {
-                let path = paths.paths().first().map(|p| p.as_path());
-                let name = path
-                    .and_then(|p| p.file_name())
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_else(|| "Untitled".to_string());
-                (IconName::Folder, name)
-            }
-            SerializedWorkspaceLocation::Remote(_) => {
-                (IconName::Server, "Remote Project".to_string())
-            }
-        };
+        let path = paths.paths().first().map(|p| p.as_path());
+        let title = path
+            .and_then(|p| p.file_name())
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "Untitled".to_string());
 
         SectionButton::new(
             title,
-            icon,
+            IconName::Folder,
             &OpenRecentProject { index },
             10,
             self.focus_handle.clone(),
@@ -437,10 +418,6 @@ impl Item for WelcomePage {
 
     fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
         "Welcome".into()
-    }
-
-    fn telemetry_event_text(&self) -> Option<&'static str> {
-        Some("New Welcome Page Opened")
     }
 
     fn show_toolbar(&self) -> bool {

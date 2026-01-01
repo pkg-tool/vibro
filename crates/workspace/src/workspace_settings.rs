@@ -84,7 +84,6 @@ impl Settings for WorkspaceSettings {
             pane_split_direction_vertical: workspace.pane_split_direction_vertical.unwrap(),
             centered_layout: workspace.centered_layout.unwrap(),
             confirm_quit: workspace.confirm_quit.unwrap(),
-            show_call_status_icon: workspace.show_call_status_icon.unwrap(),
             autosave: workspace.autosave.unwrap(),
             restore_on_startup: workspace.restore_on_startup.unwrap(),
             restore_on_file_reopen: workspace.restore_on_file_reopen.unwrap(),

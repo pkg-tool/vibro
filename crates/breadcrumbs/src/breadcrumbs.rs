@@ -139,7 +139,7 @@ impl Render for Breadcrumbs {
                         } else {
                             Tooltip::for_action(
                                 "Show Symbol Outline",
-                                &zed_actions::outline::ToggleOutline,
+                                &vector_actions::outline::ToggleOutline,
                                 cx,
                             )
                         }

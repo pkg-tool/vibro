@@ -2,21 +2,16 @@ pub mod running;
 
 use crate::{StackTraceView, persistence::SerializedLayout, session::running::DebugTerminal};
 use dap::client::SessionId;
-use gpui::{App, Axis, Entity, EventEmitter, FocusHandle, Focusable, Task, WeakEntity};
+use gpui::{App, Axis, Entity, EventEmitter, FocusHandle, Focusable, WeakEntity};
 use project::debugger::session::Session;
 use project::worktree_store::WorktreeStore;
 use project::{Project, debugger::session::SessionQuirks};
-use rpc::proto;
 use running::RunningState;
 use std::cell::OnceCell;
 use ui::prelude::*;
-use workspace::{
-    CollaboratorId, FollowableItem, ViewId, Workspace,
-    item::{self, Item},
-};
+use workspace::{Workspace, item::Item};
 
 pub struct DebugSession {
-    remote_id: Option<workspace::ViewId>,
     pub(crate) running_state: Entity<RunningState>,
     pub(crate) quirks: SessionQuirks,
     stack_trace_view: OnceCell<Entity<StackTraceView>>,
@@ -50,7 +45,6 @@ impl DebugSession {
         let quirks = session.read(cx).quirks();
 
         cx.new(|cx| Self {
-            remote_id: None,
             running_state,
             quirks,
             stack_trace_view: OnceCell::new(),

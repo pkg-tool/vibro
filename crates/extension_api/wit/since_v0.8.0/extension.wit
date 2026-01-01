@@ -1,4 +1,4 @@
-package zed:extension;
+package vector:extension;
 
 world extension {
     import context-server;

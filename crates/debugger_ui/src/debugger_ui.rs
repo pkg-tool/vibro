@@ -4,24 +4,20 @@ use debugger_panel::DebugPanel;
 use editor::{Editor, MultiBufferOffsetUtf16};
 use gpui::{Action, App, DispatchPhase, EntityInputHandler, actions};
 use new_process_modal::{NewProcessModal, NewProcessMode};
-use onboarding_modal::DebuggerOnboardingModal;
 use project::debugger::{self, breakpoint_store::SourceBreakpoint, session::ThreadStatus};
 use schemars::JsonSchema;
 use serde::Deserialize;
-use session::DebugSession;
 use stack_trace_view::StackTraceView;
 use tasks_ui::{Spawn, TaskOverrides};
 use ui::{FluentBuilder, InteractiveElement};
 use util::maybe;
 use workspace::{ItemHandle, ShutdownDebugAdapters, Workspace};
-use zed_actions::ToggleFocus;
-use zed_actions::debugger::OpenOnboardingModal;
+use vector_actions::ToggleFocus;
 
 pub mod attach_modal;
 pub mod debugger_panel;
 mod dropdown_menus;
 mod new_process_modal;
-mod onboarding_modal;
 mod persistence;
 pub(crate) mod session;
 mod stack_trace_view;
@@ -113,8 +109,6 @@ actions!(
 );
 
 pub fn init(cx: &mut App) {
-    workspace::FollowableViewRegistry::register::<DebugSession>(cx);
-
     cx.observe_new(|workspace: &mut Workspace, _, _| {
         workspace
             .register_action(spawn_task_or_modal)
@@ -142,9 +136,6 @@ pub fn init(cx: &mut App) {
                     })
                 },
             )
-            .register_action(|workspace, _: &OpenOnboardingModal, window, cx| {
-                DebuggerOnboardingModal::toggle(workspace, window, cx)
-            })
             .register_action_renderer(|div, workspace, _, cx| {
                 let Some(debug_panel) = workspace.panel::<DebugPanel>(cx) else {
                     return div;

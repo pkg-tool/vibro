@@ -1,16 +1,13 @@
 use dap::DapRegistry;
-use editor::Editor;
 use gpui::{BackgroundExecutor, TestAppContext, VisualTestContext};
-use project::{FakeFs, Fs as _, Project};
+use project::{FakeFs, Fs, Project};
 use serde_json::json;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use task::{DebugRequest, DebugScenario, LaunchRequest, TaskContext, VariableName, ZedDebugConfig};
-use text::Point;
+use task::{DebugRequest, DebugScenario, LaunchRequest, TaskContext, VariableName, VectorDebugConfig};
 use util::path;
 
-use crate::NewProcessMode;
-use crate::new_process_modal::NewProcessModal;
+use crate::new_session_modal::NewSessionMode;
 use crate::tests::{init_test, init_test_workspace};
 
 #[gpui::test]
@@ -69,10 +66,10 @@ async fn test_debug_session_substitutes_variables_and_relativizes_paths(
                 .to_string()
                 .leak(),
         ),
-        // Path with $ZED_WORKTREE_ROOT - should be substituted without double appending
+        // Path with $VECTOR_WORKTREE_ROOT - should be substituted without double appending
         (
             format!(
-                "$ZED_WORKTREE_ROOT{0}src{0}program",
+                "$VECTOR_WORKTREE_ROOT{0}src{0}program",
                 std::path::MAIN_SEPARATOR
             )
             .leak(),
@@ -106,8 +103,11 @@ async fn test_debug_session_substitutes_variables_and_relativizes_paths(
                             input_path
                         );
 
-                        let expected_other_field = if input_path.contains("$ZED_WORKTREE_ROOT") {
-                            input_path.replace("$ZED_WORKTREE_ROOT", path!("/test/worktree/path"))
+                        let expected_other_field =
+                            if input_path.contains("$VECTOR_WORKTREE_ROOT") {
+                            input_path
+                                .replace("$VECTOR_WORKTREE_ROOT", &path!("/test/worktree/path"))
+                                .to_owned()
                         } else {
                             input_path.to_string()
                         };
@@ -142,14 +142,7 @@ async fn test_debug_session_substitutes_variables_and_relativizes_paths(
 
         workspace
             .update(cx, |workspace, window, cx| {
-                workspace.start_debug_session(
-                    scenario,
-                    task_context.clone(),
-                    None,
-                    None,
-                    window,
-                    cx,
-                )
+                workspace.start_debug_session(scenario, task_context.clone(), None, window, cx)
             })
             .unwrap();
 
@@ -179,7 +172,13 @@ async fn test_save_debug_scenario_to_file(executor: BackgroundExecutor, cx: &mut
 
     workspace
         .update(cx, |workspace, window, cx| {
-            NewProcessModal::show(workspace, window, NewProcessMode::Debug, None, cx);
+            crate::new_session_modal::NewSessionModal::show(
+                workspace,
+                window,
+                NewSessionMode::Launch,
+                None,
+                cx,
+            );
         })
         .unwrap();
 
@@ -187,163 +186,77 @@ async fn test_save_debug_scenario_to_file(executor: BackgroundExecutor, cx: &mut
 
     let modal = workspace
         .update(cx, |workspace, _, cx| {
-            workspace.active_modal::<NewProcessModal>(cx)
+            workspace.active_modal::<crate::new_session_modal::NewSessionModal>(cx)
         })
         .unwrap()
         .expect("Modal should be active");
 
     modal.update_in(cx, |modal, window, cx| {
         modal.set_configure("/project/main", "/project", false, window, cx);
-        modal.save_debug_scenario(window, cx);
+        modal.save_scenario(window, cx);
     });
 
     cx.executor().run_until_parked();
 
-    let editor = workspace
-        .update(cx, |workspace, _window, cx| {
-            workspace.active_item_as::<Editor>(cx).unwrap()
-        })
-        .unwrap();
-
     let debug_json_content = fs
-        .load(path!("/project/.zed/debug.json").as_ref())
+        .load(path!("/project/.vector/debug.json").as_ref())
         .await
-        .expect("debug.json should exist")
-        .lines()
-        .filter(|line| !line.starts_with("//"))
-        .collect::<Vec<_>>()
-        .join("\n");
+        .expect("debug.json should exist");
 
-    let expected_content = indoc::indoc! {r#"
-        [
-          {
-            "adapter": "fake-adapter",
-            "label": "main (fake-adapter)",
-            "request": "launch",
-            "program": "/project/main",
-            "cwd": "/project",
-            "args": [],
-            "env": {}
-          }
-        ]"#};
+    let expected_content = vec![
+        "[",
+        "  {",
+        r#"    "adapter": "fake-adapter","#,
+        r#"    "label": "main (fake-adapter)","#,
+        r#"    "request": "launch","#,
+        r#"    "program": "/project/main","#,
+        r#"    "cwd": "/project","#,
+        r#"    "args": [],"#,
+        r#"    "env": {}"#,
+        "  }",
+        "]",
+    ];
 
-    pretty_assertions::assert_eq!(expected_content, debug_json_content);
-
-    editor.update(cx, |editor, cx| {
-        assert_eq!(
-            editor
-                .selections
-                .newest::<Point>(&editor.display_snapshot(cx))
-                .head(),
-            Point::new(5, 2)
-        )
-    });
+    let actual_lines: Vec<&str> = debug_json_content.lines().collect();
+    pretty_assertions::assert_eq!(expected_content, actual_lines);
 
     modal.update_in(cx, |modal, window, cx| {
         modal.set_configure("/project/other", "/project", true, window, cx);
-        modal.save_debug_scenario(window, cx);
+        modal.save_scenario(window, cx);
     });
 
     cx.executor().run_until_parked();
-
-    let expected_content = indoc::indoc! {r#"
-        [
-          {
-            "adapter": "fake-adapter",
-            "label": "main (fake-adapter)",
-            "request": "launch",
-            "program": "/project/main",
-            "cwd": "/project",
-            "args": [],
-            "env": {}
-          },
-          {
-            "adapter": "fake-adapter",
-            "label": "other (fake-adapter)",
-            "request": "launch",
-            "program": "/project/other",
-            "cwd": "/project",
-            "args": [],
-            "env": {}
-          }
-        ]"#};
 
     let debug_json_content = fs
-        .load(path!("/project/.zed/debug.json").as_ref())
+        .load(path!("/project/.vector/debug.json").as_ref())
         .await
-        .expect("debug.json should exist")
-        .lines()
-        .filter(|line| !line.starts_with("//"))
-        .collect::<Vec<_>>()
-        .join("\n");
-    pretty_assertions::assert_eq!(expected_content, debug_json_content);
-}
+        .expect("debug.json should exist after second save");
 
-#[gpui::test]
-async fn test_debug_modal_subtitles_with_multiple_worktrees(
-    executor: BackgroundExecutor,
-    cx: &mut TestAppContext,
-) {
-    init_test(cx);
+    let expected_content = vec![
+        "[",
+        "  {",
+        r#"    "adapter": "fake-adapter","#,
+        r#"    "label": "main (fake-adapter)","#,
+        r#"    "request": "launch","#,
+        r#"    "program": "/project/main","#,
+        r#"    "cwd": "/project","#,
+        r#"    "args": [],"#,
+        r#"    "env": {}"#,
+        "  },",
+        "  {",
+        r#"    "adapter": "fake-adapter","#,
+        r#"    "label": "other (fake-adapter)","#,
+        r#"    "request": "launch","#,
+        r#"    "program": "/project/other","#,
+        r#"    "cwd": "/project","#,
+        r#"    "args": [],"#,
+        r#"    "env": {}"#,
+        "  }",
+        "]",
+    ];
 
-    let fs = FakeFs::new(executor.clone());
-
-    fs.insert_tree(
-        path!("/workspace1"),
-        json!({
-            ".zed": {
-                "debug.json": r#"[
-                    {
-                        "adapter": "fake-adapter",
-                        "label": "Debug App 1",
-                        "request": "launch",
-                        "program": "./app1",
-                        "cwd": "."
-                    },
-                    {
-                        "adapter": "fake-adapter",
-                        "label": "Debug Tests 1",
-                        "request": "launch",
-                        "program": "./test1",
-                        "cwd": "."
-                    }
-                ]"#
-            },
-            "main.rs": "fn main() {}"
-        }),
-    )
-    .await;
-
-    let project = Project::test(fs.clone(), [path!("/workspace1").as_ref()], cx).await;
-
-    let workspace = init_test_workspace(&project, cx).await;
-    let cx = &mut VisualTestContext::from_window(*workspace, cx);
-
-    workspace
-        .update(cx, |workspace, window, cx| {
-            NewProcessModal::show(workspace, window, NewProcessMode::Debug, None, cx);
-        })
-        .unwrap();
-
-    cx.run_until_parked();
-
-    let modal = workspace
-        .update(cx, |workspace, _, cx| {
-            workspace.active_modal::<NewProcessModal>(cx)
-        })
-        .unwrap()
-        .expect("Modal should be active");
-
-    cx.executor().run_until_parked();
-
-    let subtitles = modal.update_in(cx, |modal, _, cx| {
-        modal.debug_picker_candidate_subtitles(cx)
-    });
-
-    assert_eq!(
-        subtitles.as_slice(),
-        [path!(".zed/debug.json"), path!(".zed/debug.json")]
-    );
+    let actual_lines: Vec<&str> = debug_json_content.lines().collect();
+    pretty_assertions::assert_eq!(expected_content, actual_lines);
 }
 
 #[gpui::test]
@@ -353,7 +266,9 @@ async fn test_dap_adapter_config_conversion_and_validation(cx: &mut TestAppConte
     let mut expected_adapters = vec![
         "CodeLLDB",
         "Debugpy",
+        "PHP",
         "JavaScript",
+        "Ruby",
         "Delve",
         "GDB",
         "fake-adapter",
@@ -361,10 +276,10 @@ async fn test_dap_adapter_config_conversion_and_validation(cx: &mut TestAppConte
 
     let adapter_names = cx.update(|cx| {
         let registry = DapRegistry::global(cx);
-        registry.enumerate_adapters::<Vec<_>>()
+        registry.enumerate_adapters()
     });
 
-    let zed_config = ZedDebugConfig {
+    let scenario_definition = VectorDebugConfig {
         label: "test_debug_session".into(),
         adapter: "test_adapter".into(),
         request: DebugRequest::Launch(LaunchRequest {
@@ -389,15 +304,14 @@ async fn test_dap_adapter_config_conversion_and_validation(cx: &mut TestAppConte
             })
             .unwrap_or_else(|| panic!("Adapter {} should exist", adapter_name));
 
-        let mut adapter_specific_config = zed_config.clone();
+        let mut adapter_specific_config = scenario_definition.clone();
         adapter_specific_config.adapter = adapter_name.to_string().into();
 
         let debug_scenario = adapter
-            .config_from_zed_format(adapter_specific_config)
-            .await
+            .config_from_vector_format(adapter_specific_config)
             .unwrap_or_else(|_| {
                 panic!(
-                    "Adapter {} should successfully convert from Zed format",
+                    "Adapter {} should successfully convert from Vector format",
                     adapter_name
                 )
             });
@@ -410,7 +324,6 @@ async fn test_dap_adapter_config_conversion_and_validation(cx: &mut TestAppConte
 
         let request_type = adapter
             .request_kind(&debug_scenario.config)
-            .await
             .unwrap_or_else(|_| {
                 panic!(
                     "Adapter {} should validate the config successfully",

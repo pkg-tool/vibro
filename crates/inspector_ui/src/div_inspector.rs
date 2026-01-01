@@ -81,7 +81,7 @@ impl DivInspector {
                 // Open the JSON style buffer in the inspector-specific project, so that it runs the
                 // JSON language server.
                 let json_style_buffer =
-                    Self::create_buffer_in_project(VECTOR_INSPECTOR_STYLE_JSON, &project, cx).await;
+                    Self::create_buffer_in_project(ZED_INSPECTOR_STYLE_JSON, &project, cx).await;
 
                 // Create Rust style buffer without adding it to the project / buffer_store, so that
                 // Rust Analyzer doesn't get started for it.
