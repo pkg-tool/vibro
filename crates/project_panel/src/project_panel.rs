@@ -44,7 +44,7 @@ use settings::{
     update_settings_file,
 };
 use smallvec::SmallVec;
-use std::{any::TypeId, time::Instant};
+use std::any::TypeId;
 use std::{
     cell::OnceCell,
     cmp,
@@ -56,7 +56,7 @@ use std::{
 };
 use theme::ThemeSettings;
 use ui::{
-    Color, ContextMenu, DecoratedIcon, Divider, Icon, IconDecoration, IconDecorationKind,
+    Color, ContextMenu, DecoratedIcon, Icon, IconDecoration, IconDecorationKind,
     IndentGuideColors, IndentGuideLayout, KeyBinding, Label, LabelSize, ListItem, ListItemSpacing,
     ScrollAxes, ScrollableHandle, Scrollbars, StickyCandidate, Tooltip, WithScrollbar, prelude::*,
     v_flex,
@@ -137,7 +137,6 @@ pub struct ProjectPanel {
     hover_expand_task: Option<Task<()>>,
     previous_drag_position: Option<Point<Pixels>>,
     sticky_items_count: usize,
-    last_reported_update: Instant,
     update_visible_entries_task: UpdateVisibleEntriesTask,
     state: State,
 }
@@ -578,7 +577,6 @@ impl ProjectPanel {
     ) -> Entity<Self> {
         let project = workspace.project().clone();
         let git_store = project.read(cx).git_store().clone();
-        let path_style = project.read(cx).path_style(cx);
         let project_panel = cx.new(|cx| {
             let focus_handle = cx.focus_handle();
             cx.on_focus(&focus_handle, window, Self::focus_in).detach();
@@ -807,7 +805,6 @@ impl ProjectPanel {
                 hover_expand_task: None,
                 previous_drag_position: None,
                 sticky_items_count: 0,
-                last_reported_update: Instant::now(),
                 state: State {
                     max_width_item_index: None,
                     edit_state: None,
@@ -838,13 +835,12 @@ impl ProjectPanel {
                             let file_path = entry.path.clone();
                             let worktree_id = worktree.read(cx).id();
                             let entry_id = entry.id;
-                            let is_via_ssh = project.read(cx).is_via_remote_server();
 
                             workspace
                                 .open_path_preview(
                                     ProjectPath {
                                         worktree_id,
-                                        path: file_path.clone(),
+                                        path: file_path,
                                     },
                                     None,
                                     focus_opened_item,
@@ -3437,7 +3433,6 @@ impl ProjectPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let now = Instant::now();
         let settings = ProjectPanelSettings::get_global(cx);
         let auto_collapse_dirs = settings.auto_fold_dirs;
         let hide_gitignore = settings.hide_gitignore;

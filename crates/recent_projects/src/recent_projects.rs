@@ -389,7 +389,7 @@ impl PickerDelegate for RecentProjectsDelegate {
 
     fn render_footer(
         &self,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<Picker<Self>>,
     ) -> Option<AnyElement> {
         Some(
@@ -520,31 +520,33 @@ impl Render for MatchTooltip {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::path::PathBuf;
+	mod tests {
+	    use std::path::PathBuf;
 
-    use dap::debugger_settings::DebuggerSettings;
-    use editor::Editor;
-    use gpui::{TestAppContext, UpdateGlobal, WindowHandle};
-    use project::{Project, project_settings::ProjectSettings};
-    use serde_json::json;
-    use settings::{Settings as _, SettingsStore};
-    use util::path;
-    use workspace::{AppState, open_paths};
+	    use dap::debugger_settings::DebuggerSettings;
+	    use editor::Editor;
+	    use gpui::{TestAppContext, UpdateGlobal, WindowHandle};
+	    use serde_json::json;
+	    use settings::{Settings as _, SettingsStore};
+	    use util::path;
+	    use workspace::{AppState, open_paths};
 
     use super::*;
 
     #[gpui::test]
-    async fn test_prompts_on_dirty_before_submit(cx: &mut TestAppContext) {
-        let app_state = init_test(cx);
+	    async fn test_prompts_on_dirty_before_submit(cx: &mut TestAppContext) {
+	        let app_state = init_test(cx);
 
-        cx.update(|cx| {
-            SettingsStore::update_global(cx, |store, cx| {
-                store.update_user_settings::<ProjectSettings>(cx, |settings| {
-                    settings.session.restore_unsaved_buffers = false
-                });
-            });
-        });
+	        cx.update(|cx| {
+	            SettingsStore::update_global(cx, |store, cx| {
+	                store.update_user_settings(cx, |settings| {
+	                    settings
+	                        .session
+	                        .get_or_insert_with(Default::default)
+	                        .restore_unsaved_buffers = Some(false);
+	                });
+	            });
+	        });
 
         app_state
             .fs
@@ -666,16 +668,13 @@ mod tests {
             .unwrap()
     }
 
-    fn init_test(cx: &mut TestAppContext) -> Arc<AppState> {
-        cx.update(|cx| {
-            let state = AppState::test(cx);
-            language::init(cx);
-            crate::init(cx);
-            editor::init(cx);
-            workspace::init_settings(cx);
-            DebuggerSettings::register(cx);
-            Project::init_settings(cx);
-            state
-        })
-    }
-}
+	    fn init_test(cx: &mut TestAppContext) -> Arc<AppState> {
+	        cx.update(|cx| {
+	            let state = AppState::test(cx);
+	            crate::init(cx);
+	            editor::init(cx);
+	            DebuggerSettings::register(cx);
+	            state
+	        })
+	    }
+	}

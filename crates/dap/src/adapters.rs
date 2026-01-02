@@ -26,6 +26,8 @@ use std::{
 use task::{DebugScenario, TcpArgumentsTemplate, VectorDebugConfig};
 use util::{archive::extract_zip, rel_path::RelPath};
 
+use crate::proto_conversions::ProtoConversion as _;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DapStatus {
     None,
@@ -112,28 +114,22 @@ pub struct TcpArguments {
 }
 
 impl TcpArguments {
-    pub fn from_proto(proto: proto::TcpHost) -> Result<Self> {
-        let host_str = proto.host.unwrap_or_else(|| Ipv4Addr::LOCALHOST.to_string());
-        let host = host_str
-            .parse::<Ipv4Addr>()
-            .with_context(|| format!("invalid tcp host: {host_str:?}"))?;
-        let port = proto
-            .port
-            .map(|p| p as u16)
-            .context("missing tcp port")?;
-        Ok(Self {
-            host,
-            port,
-            timeout: proto.timeout,
+    pub fn from_proto(proto: proto::TcpHost) -> anyhow::Result<Self> {
+        let host = TcpArgumentsTemplate::from_proto(proto)?;
+        Ok(TcpArguments {
+            host: host.host.context("missing host")?,
+            port: host.port.context("missing port")?,
+            timeout: host.timeout,
         })
     }
 
     pub fn to_proto(&self) -> proto::TcpHost {
-        proto::TcpHost {
-            port: Some(self.port as u32),
-            host: Some(self.host.to_string()),
+        TcpArgumentsTemplate {
+            host: Some(self.host),
+            port: Some(self.port),
             timeout: self.timeout,
         }
+        .to_proto()
     }
 }
 
@@ -173,7 +169,26 @@ impl DebugTaskDefinition {
         }
     }
 
-    // Proto conversions were used for remote/collab plumbing and are intentionally removed.
+    pub fn to_proto(&self) -> proto::DebugTaskDefinition {
+        proto::DebugTaskDefinition {
+            label: self.label.clone().into(),
+            config: self.config.to_string(),
+            tcp_connection: self.tcp_connection.clone().map(|v| v.to_proto()),
+            adapter: self.adapter.clone().0.into(),
+        }
+    }
+
+    pub fn from_proto(proto: proto::DebugTaskDefinition) -> Result<Self> {
+        Ok(Self {
+            label: proto.label.into(),
+            config: serde_json::from_str(&proto.config)?,
+            tcp_connection: proto
+                .tcp_connection
+                .map(TcpArgumentsTemplate::from_proto)
+                .transpose()?,
+            adapter: DebugAdapterName(proto.adapter.into()),
+        })
+    }
 }
 
 /// Created from a [DebugTaskDefinition], this struct describes how to spawn the debugger to create a previously-configured debug session.
@@ -185,18 +200,6 @@ pub struct DebugAdapterBinary {
     pub cwd: Option<PathBuf>,
     pub connection: Option<TcpArguments>,
     pub request_args: StartDebuggingRequestArguments,
-}
-
-impl PartialEq for DebugAdapterBinary {
-    fn eq(&self, other: &Self) -> bool {
-        self.command == other.command
-            && self.arguments == other.arguments
-            && self.envs == other.envs
-            && self.cwd == other.cwd
-            && self.connection == other.connection
-            && self.request_args.configuration == other.request_args.configuration
-            && self.request_args.request == other.request_args.request
-    }
 }
 
 impl DebugAdapterBinary {
@@ -448,8 +451,8 @@ impl DebugAdapter for FakeAdapter {
         let config = serde_json::to_value(zed_scenario.request).unwrap();
 
         Ok(DebugScenario {
-            adapter: vector_scenario.adapter,
-            label: vector_scenario.label,
+            adapter: zed_scenario.adapter,
+            label: zed_scenario.label,
             build: None,
             config,
             tcp_connection: None,

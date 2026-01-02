@@ -11,7 +11,7 @@ use fuzzy::{StringMatchCandidate, match_strings};
 use gpui::{
     Action, App, ClipboardItem, Context, Entity, EventEmitter, Flatten, Focusable,
     InteractiveElement, KeyContext, ParentElement, Render, Styled, Task, TextStyle,
-    UniformListScrollHandle, WeakEntity, Window, actions, point, uniform_list,
+    UniformListScrollHandle, WeakEntity, Window, actions, uniform_list,
 };
 use num_format::{Locale, ToFormattedString};
 use project::DirectoryLister;
@@ -184,7 +184,6 @@ struct ExtensionCardButtons {
 }
 
 pub struct ExtensionsPage {
-    workspace: WeakEntity<Workspace>,
     list: UniformListScrollHandle,
     is_fetching_extensions: bool,
     remote_extension_entries: Vec<ExtensionMetadata>,
@@ -237,8 +236,7 @@ impl ExtensionsPage {
             let scroll_handle = UniformListScrollHandle::new();
 
             let mut this = Self {
-                workspace: workspace.weak_handle(),
-                list: scroll_handle.clone(),
+                list: scroll_handle,
                 is_fetching_extensions: false,
                 dev_extension_entries: Vec::new(),
                 remote_extension_entries: Vec::new(),
@@ -549,7 +547,7 @@ impl ExtensionsPage {
                                 cx.open_url(&repository_url);
                             }
                         }))
-                        .tooltip(Tooltip::text(repository_url.clone()))
+                        .tooltip(Tooltip::text(repository_url))
                     })),
             )
     }
@@ -673,7 +671,7 @@ impl ExtensionsPage {
                     .child(
                         h_flex()
                             .gap_2()
-                            .children(repository_url.clone().map(|repository_url| {
+                            .children(repository_url.map(|repository_url| {
                                 IconButton::new(
                                     SharedString::from(format!("repository-{}", extension.id)),
                                     IconName::Github,
@@ -686,7 +684,7 @@ impl ExtensionsPage {
                                         cx.open_url(&repository_url);
                                     }
                                 }))
-                                .tooltip(Tooltip::text(repository_url.clone()))
+                                .tooltip(Tooltip::text(repository_url))
                             }))
                             .child(
                                 PopoverMenu::new(SharedString::from(format!(

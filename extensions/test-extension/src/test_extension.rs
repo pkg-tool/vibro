@@ -13,7 +13,7 @@ impl TestExtension {
         &mut self,
         language_server_id: &LanguageServerId,
     ) -> Result<String> {
-        let (platform, arch) = zed::current_platform();
+        let (platform, arch) = vector::current_platform();
 
         let current_dir = std::env::current_dir().unwrap();
         println!("current_dir: {}", current_dir.display());
@@ -40,8 +40,8 @@ impl TestExtension {
         );
 
         let command = match platform {
-            zed::Os::Linux | zed::Os::Mac => Command::new("echo"),
-            zed::Os::Windows => Command::new("cmd").args(["/C", "echo"]),
+            vector::Os::Linux | vector::Os::Mac => Command::new("echo"),
+            vector::Os::Windows => Command::new("cmd").args(["/C", "echo"]),
         };
         let output = command.arg("hello from a child process!").output()?;
         println!(
@@ -68,14 +68,14 @@ impl TestExtension {
         )?;
 
         let ext = "tar.gz";
-        let download_type = zed::DownloadedFileType::GzipTar;
+        let download_type = vector::DownloadedFileType::GzipTar;
 
         // Do this if you want to actually run this extension -
         // the actual asset is a .zip. But the integration test is simpler
         // if every platform uses .tar.gz.
         //
         // ext = "zip";
-        // download_type = zed::DownloadedFileType::Zip;
+        // download_type = vector::DownloadedFileType::Zip;
 
         let asset_name = format!(
             "gleam-{version}-{arch}-{os}.{ext}",
@@ -102,17 +102,17 @@ impl TestExtension {
         let binary_path = format!("{version_dir}/gleam");
 
         if !fs::metadata(&binary_path).is_ok_and(|stat| stat.is_file()) {
-            zed::set_language_server_installation_status(
+            vector::set_language_server_installation_status(
                 language_server_id,
                 &vector::LanguageServerInstallationStatus::Downloading,
             );
 
-            zed::download_file(&asset.download_url, &version_dir, download_type)
+            vector::download_file(&asset.download_url, &version_dir, download_type)
                 .map_err(|e| format!("failed to download file: {e}"))?;
 
-            zed::set_language_server_installation_status(
+            vector::set_language_server_installation_status(
                 language_server_id,
-                &zed::LanguageServerInstallationStatus::None,
+                &vector::LanguageServerInstallationStatus::None,
             );
 
             let entries =

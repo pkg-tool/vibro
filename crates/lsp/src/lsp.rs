@@ -905,7 +905,6 @@ impl LanguageServer {
                     }),
                     ..WindowClientCapabilities::default()
                 }),
-                notebook_document: None,
             },
             trace: None,
             workspace_folders: Some(workspace_folders),

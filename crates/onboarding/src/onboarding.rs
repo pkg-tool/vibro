@@ -21,7 +21,6 @@ use workspace::{
     AppState, Workspace, WorkspaceId,
     dock::DockPosition,
     item::{Item, ItemEvent},
-    notifications::NotifyResultExt as _,
     open_new, register_serializable_item, with_active_or_new_workspace,
 };
 use vector_actions::OpenOnboarding;
@@ -281,7 +280,7 @@ impl Render for Onboarding {
                                     .child(
                                         h_flex()
                                             .gap_4()
-                                            .child(Vector::square(VectorName::ZedLogo, rems(2.5)))
+                                            .child(Vector::square(VectorName::VectorLogo, rems(2.5)))
                                             .child(
                                                 v_flex()
                                                     .child(

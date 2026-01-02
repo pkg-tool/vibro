@@ -3,7 +3,6 @@ use crate::git_panel::{GitPanel, commit_message_editor};
 use git::repository::CommitOptions;
 use git::{Amend, Commit, Signoff};
 use panel::{panel_button, panel_editor_style};
-use settings::Settings;
 use ui::{
     ContextMenu, KeybindingHint, PopoverMenu, PopoverMenuHandle, SplitButton, Tooltip, prelude::*,
 };

@@ -52,6 +52,7 @@ use crate::{
 };
 
 const NO_ACTION_ARGUMENTS_TEXT: SharedString = SharedString::new_static("<no arguments>");
+const SEARCH_QUERY_DEBOUNCE: Duration = Duration::from_millis(50);
 
 actions!(
     keymap_editor,
@@ -581,13 +582,21 @@ impl KeymapEditor {
     fn on_query_changed(&mut self, cx: &mut Context<Self>) {
         let action_query = self.current_action_query(cx);
         let keystroke_query = self.current_keystroke_query(cx);
-        cx.spawn(async move |this, cx| {
-            Self::update_matches(this.clone(), action_query, keystroke_query, cx).await?;
-            this.update(cx, |this, cx| {
-                this.scroll_to_item(0, ScrollStrategy::Top, cx)
-            })
-        })
-        .detach();
+        self.search_query_debounce.take();
+        self.search_query_debounce = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(SEARCH_QUERY_DEBOUNCE).await;
+
+            if Self::update_matches(this.clone(), action_query, keystroke_query, cx)
+                .await
+                .log_err()
+                .is_none()
+            {
+                return;
+            }
+
+            this.update(cx, |this, cx| this.scroll_to_item(0, ScrollStrategy::Top, cx))
+                .ok();
+        }));
     }
 
     async fn update_matches(

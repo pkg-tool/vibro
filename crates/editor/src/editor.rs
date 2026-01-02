@@ -78,7 +78,6 @@ use aho_corasick::{AhoCorasick, AhoCorasickBuilder, BuildError};
 use anyhow::{Context as _, Result, anyhow, bail};
 use blink_manager::BlinkManager;
 use buffer_diff::DiffHunkStatus;
-use clock::ReplicaId;
 use code_context_menus::{
     AvailableCodeAction, CodeActionContents, CodeActionsItem, CodeActionsMenu, CodeContextMenu,
     CompletionsMenu, ContextMenuOrigin,
@@ -163,7 +162,6 @@ use project::{
 };
 use rand::seq::SliceRandom;
 use regex::Regex;
-use rpc::{ErrorCode, ErrorExt, proto::PeerId};
 use scroll::{Autoscroll, OngoingScroll, ScrollAnchor, ScrollManager};
 use selections_collection::{MutableSelectionsCollection, SelectionsCollection};
 use serde::{Deserialize, Serialize};
@@ -1330,12 +1328,6 @@ enum SelectionHistoryMode {
     Undoing,
     Redoing,
     Skipping,
-}
-
-#[derive(Clone, PartialEq, Eq, Hash)]
-struct HoveredCursor {
-    replica_id: ReplicaId,
-    selection_id: usize,
 }
 
 #[derive(Debug)]

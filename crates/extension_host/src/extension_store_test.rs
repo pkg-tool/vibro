@@ -492,9 +492,7 @@ async fn test_extension_store(cx: &mut TestAppContext) {
     });
 
     store.update(cx, |store, cx| {
-        store
-            .uninstall_extension("zed-ruby".into(), cx)
-            .detach_and_log_err(cx);
+        store.uninstall_extension("zed-ruby".into(), cx);
     });
 
     cx.executor().advance_clock(RELOAD_DEBOUNCE_DURATION);

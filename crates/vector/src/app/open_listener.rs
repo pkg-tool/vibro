@@ -13,7 +13,7 @@ use futures::future;
 use futures::future::join_all;
 use futures::{FutureExt, SinkExt, StreamExt};
 use git_ui::file_diff_view::FileDiffView;
-use gpui::{App, AsyncApp, Global, WindowHandle};
+use gpui::{AsyncApp, Global, WindowHandle};
 use language::Point;
 use onboarding::FIRST_OPEN;
 use onboarding::show_onboarding_view;
@@ -53,7 +53,7 @@ pub enum OpenRequestKind {
 }
 
 impl OpenRequest {
-    pub fn parse(request: RawOpenRequest, cx: &App) -> Result<Self> {
+    pub fn parse(request: RawOpenRequest) -> Result<Self> {
         let mut this = Self::default();
 
         this.diff_paths = request.diff_paths;
@@ -127,7 +127,6 @@ pub struct OpenListener(UnboundedSender<RawOpenRequest>);
 pub struct RawOpenRequest {
     pub urls: Vec<String>,
     pub diff_paths: Vec<[String; 2]>,
-    pub wsl: Option<String>,
 }
 
 impl Global for OpenListener {}
@@ -279,7 +278,7 @@ pub async fn handle_cli_connection(
                 paths,
                 diff_paths,
                 wait,
-                wsl,
+                wsl: _,
                 open_new_workspace,
                 reuse,
                 env,
@@ -287,14 +286,7 @@ pub async fn handle_cli_connection(
             } => {
                 if !urls.is_empty() {
                     cx.update(|cx| {
-                        match OpenRequest::parse(
-                            RawOpenRequest {
-                                urls,
-                                diff_paths,
-                                wsl,
-                            },
-                            cx,
-                        ) {
+                        match OpenRequest::parse(RawOpenRequest { urls, diff_paths }) {
                             Ok(open_request) => {
                                 handle_open_request(open_request, app_state.clone(), cx);
                                 responses.send(CliResponse::Exit { status: 0 }).log_err();
@@ -572,6 +564,7 @@ pub async fn derive_paths_with_position(
 #[cfg(test)]
 mod tests {
     use crate::app::{open_listener::open_local_workspace, tests::init_test};
+    use super::{OpenRequest, OpenRequestKind, RawOpenRequest};
     use cli::{
         CliResponse,
         ipc::{self},
@@ -580,56 +573,22 @@ mod tests {
     use futures::poll;
     use gpui::{AppContext as _, TestAppContext};
     use language::LineEnding;
-    use remote::SshConnectionOptions;
     use rope::Rope;
     use serde_json::json;
-    use std::{sync::Arc, task::Poll};
+    use std::{path::Path, sync::Arc, task::Poll};
     use util::path;
     use workspace::{AppState, Workspace};
-
-    #[gpui::test]
-    fn test_parse_ssh_url(cx: &mut TestAppContext) {
-        let _app_state = init_test(cx);
-        let request = cx.update(|cx| {
-            OpenRequest::parse(
-                RawOpenRequest {
-                    urls: vec!["ssh://me@localhost:/".into()],
-                    ..Default::default()
-                },
-                cx,
-            )
-            .unwrap()
-        });
-        assert_eq!(
-            request.remote_connection.unwrap(),
-            RemoteConnectionOptions::Ssh(SshConnectionOptions {
-                host: "localhost".into(),
-                username: Some("me".into()),
-                port: None,
-                password: None,
-                args: None,
-                port_forwards: None,
-                nickname: None,
-                upload_binary_over_ssh: false,
-                connection_timeout: None,
-            })
-        );
-        assert_eq!(request.open_paths, vec!["/"]);
-    }
 
     #[gpui::test]
     fn test_parse_git_commit_url(cx: &mut TestAppContext) {
         let _app_state = init_test(cx);
 
         // Test basic git commit URL
-        let request = cx.update(|cx| {
-            OpenRequest::parse(
-                RawOpenRequest {
-                    urls: vec!["zed://git/commit/abc123?repo=path/to/repo".into()],
-                    ..Default::default()
-                },
-                cx,
-            )
+        let request = cx.update(|_| {
+            OpenRequest::parse(RawOpenRequest {
+                urls: vec!["zed://git/commit/abc123?repo=path/to/repo".into()],
+                ..Default::default()
+            })
             .unwrap()
         });
 
@@ -643,14 +602,11 @@ mod tests {
         assert_eq!(request.open_paths, vec!["path/to/repo"]);
 
         // Test with URL encoded path
-        let request = cx.update(|cx| {
-            OpenRequest::parse(
-                RawOpenRequest {
-                    urls: vec!["zed://git/commit/def456?repo=path%20with%20spaces".into()],
-                    ..Default::default()
-                },
-                cx,
-            )
+        let request = cx.update(|_| {
+            OpenRequest::parse(RawOpenRequest {
+                urls: vec!["zed://git/commit/def456?repo=path%20with%20spaces".into()],
+                ..Default::default()
+            })
             .unwrap()
         });
 
@@ -663,15 +619,12 @@ mod tests {
         assert_eq!(request.open_paths, vec!["path with spaces"]);
 
         // Test with empty path
-        cx.update(|cx| {
+        cx.update(|_| {
             assert!(
-                OpenRequest::parse(
-                    RawOpenRequest {
-                        urls: vec!["zed://git/commit/abc123?repo=".into()],
-                        ..Default::default()
-                    },
-                    cx,
-                )
+                OpenRequest::parse(RawOpenRequest {
+                    urls: vec!["zed://git/commit/abc123?repo=".into()],
+                    ..Default::default()
+                })
                 .unwrap_err()
                 .to_string()
                 .contains("missing repo")
@@ -679,14 +632,11 @@ mod tests {
         });
 
         // Test error case: missing SHA
-        let result = cx.update(|cx| {
-            OpenRequest::parse(
-                RawOpenRequest {
-                    urls: vec!["zed://git/commit/abc123?foo=bar".into()],
-                    ..Default::default()
-                },
-                cx,
-            )
+        let result = cx.update(|_| {
+            OpenRequest::parse(RawOpenRequest {
+                urls: vec!["zed://git/commit/abc123?foo=bar".into()],
+                ..Default::default()
+            })
         });
         assert!(result.is_err());
         assert!(
@@ -990,79 +940,5 @@ mod tests {
         assert!(!errored_reuse);
     }
 
-    #[gpui::test]
-    fn test_parse_git_clone_url(cx: &mut TestAppContext) {
-        let _app_state = init_test(cx);
-
-        let request = cx.update(|cx| {
-            OpenRequest::parse(
-                RawOpenRequest {
-                    urls: vec![
-                        "zed://git/clone/?repo=https://github.com/zed-industries/zed.git".into(),
-                    ],
-                    ..Default::default()
-                },
-                cx,
-            )
-            .unwrap()
-        });
-
-        match request.kind {
-            Some(OpenRequestKind::GitClone { repo_url }) => {
-                assert_eq!(repo_url, "https://github.com/zed-industries/zed.git");
-            }
-            _ => panic!("Expected GitClone kind"),
-        }
-    }
-
-    #[gpui::test]
-    fn test_parse_git_clone_url_without_slash(cx: &mut TestAppContext) {
-        let _app_state = init_test(cx);
-
-        let request = cx.update(|cx| {
-            OpenRequest::parse(
-                RawOpenRequest {
-                    urls: vec![
-                        "zed://git/clone?repo=https://github.com/zed-industries/zed.git".into(),
-                    ],
-                    ..Default::default()
-                },
-                cx,
-            )
-            .unwrap()
-        });
-
-        match request.kind {
-            Some(OpenRequestKind::GitClone { repo_url }) => {
-                assert_eq!(repo_url, "https://github.com/zed-industries/zed.git");
-            }
-            _ => panic!("Expected GitClone kind"),
-        }
-    }
-
-    #[gpui::test]
-    fn test_parse_git_clone_url_with_encoding(cx: &mut TestAppContext) {
-        let _app_state = init_test(cx);
-
-        let request = cx.update(|cx| {
-            OpenRequest::parse(
-                RawOpenRequest {
-                    urls: vec![
-                        "zed://git/clone/?repo=https%3A%2F%2Fgithub.com%2Fzed-industries%2Fzed.git"
-                            .into(),
-                    ],
-                    ..Default::default()
-                },
-                cx,
-            )
-            .unwrap()
-        });
-
-        match request.kind {
-            Some(OpenRequestKind::GitClone { repo_url }) => {
-                assert_eq!(repo_url, "https://github.com/zed-industries/zed.git");
-            }
-            _ => panic!("Expected GitClone kind"),
-        }
-    }
+    // Git clone URLs are intentionally unsupported in offline-only mode.
 }

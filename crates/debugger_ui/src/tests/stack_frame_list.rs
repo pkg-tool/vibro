@@ -18,6 +18,26 @@ use std::sync::Arc;
 use unindent::Unindent as _;
 use util::{path, rel_path::rel_path};
 
+#[derive(Debug, PartialEq, Eq)]
+enum StackFrameEntrySummary {
+    Normal(u64),
+    Label(u64),
+    Collapsed(Vec<u64>),
+}
+
+fn summarize_stack_frame_entries(entries: &[StackFrameEntry]) -> Vec<StackFrameEntrySummary> {
+    entries
+        .iter()
+        .map(|entry| match entry {
+            StackFrameEntry::Normal(frame) => StackFrameEntrySummary::Normal(frame.id),
+            StackFrameEntry::Label(frame) => StackFrameEntrySummary::Label(frame.id),
+            StackFrameEntry::Collapsed(frames) => {
+                StackFrameEntrySummary::Collapsed(frames.iter().map(|f| f.id).collect())
+            }
+        })
+        .collect()
+}
+
 #[gpui::test]
 async fn test_fetch_initial_stack_frames_and_go_to_stack_frame(
     executor: BackgroundExecutor,
@@ -126,7 +146,7 @@ async fn test_fetch_initial_stack_frames_and_go_to_stack_frame(
     });
 
     client
-        .fake_event("stopped", dap::StoppedEvent {
+        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -134,7 +154,7 @@ async fn test_fetch_initial_stack_frames_and_go_to_stack_frame(
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        })
+        }))
         .await;
 
     cx.run_until_parked();
@@ -287,7 +307,7 @@ async fn test_select_stack_frame(executor: BackgroundExecutor, cx: &mut TestAppC
     });
 
     client
-        .fake_event("stopped", dap::StoppedEvent {
+        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -295,7 +315,7 @@ async fn test_select_stack_frame(executor: BackgroundExecutor, cx: &mut TestAppC
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        })
+        }))
         .await;
 
     cx.run_until_parked();
@@ -634,7 +654,7 @@ async fn test_collapsed_entries(executor: BackgroundExecutor, cx: &mut TestAppCo
     });
 
     client
-        .fake_event("stopped", dap::StoppedEvent {
+        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -642,7 +662,7 @@ async fn test_collapsed_entries(executor: BackgroundExecutor, cx: &mut TestAppCo
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        })
+        }))
         .await;
 
     cx.run_until_parked();
@@ -699,6 +719,7 @@ async fn test_collapsed_entries(executor: BackgroundExecutor, cx: &mut TestAppCo
                     .iter()
                     .map(|entry| match entry {
                         StackFrameEntry::Normal(frame) => vec![frame.id],
+                        StackFrameEntry::Label(frame) => vec![frame.id],
                         StackFrameEntry::Collapsed(frames) => frames.iter().map(|f| f.id).collect(),
                     })
                     .collect::<Vec<Vec<u64>>>()
@@ -978,23 +999,23 @@ async fn test_stack_frame_filter(executor: BackgroundExecutor, cx: &mut TestAppC
                 .running_state()
                 .update(cx, |state, _| state.stack_frame_list().clone());
 
-            stack_frame_list.update(cx, |stack_frame_list, cx| {
-                stack_frame_list.build_entries(true, window, cx);
+                stack_frame_list.update(cx, |stack_frame_list, cx| {
+                    stack_frame_list.build_entries(true, window, cx);
 
-                // Verify we have the expected collapsed structure
-                assert_eq!(
-                    stack_frame_list.entries(),
-                    &vec![
-                        StackFrameEntry::Normal(stack_frames_for_assertions[0].clone()),
-                        StackFrameEntry::Collapsed(vec![
-                            stack_frames_for_assertions[1].clone(),
-                            stack_frames_for_assertions[2].clone(),
-                            stack_frames_for_assertions[3].clone()
-                        ]),
-                        StackFrameEntry::Normal(stack_frames_for_assertions[4].clone()),
-                    ]
-                );
-            });
+                    // Verify we have the expected collapsed structure
+                    assert_eq!(
+                        summarize_stack_frame_entries(stack_frame_list.entries()),
+                        vec![
+                            StackFrameEntrySummary::Normal(stack_frames_for_assertions[0].id),
+                            StackFrameEntrySummary::Collapsed(vec![
+                                stack_frames_for_assertions[1].id,
+                                stack_frames_for_assertions[2].id,
+                                stack_frames_for_assertions[3].id,
+                            ]),
+                            StackFrameEntrySummary::Normal(stack_frames_for_assertions[4].id),
+                        ],
+                    );
+                });
 
             stack_frame_list
         });
@@ -1031,18 +1052,18 @@ async fn test_stack_frame_filter(executor: BackgroundExecutor, cx: &mut TestAppC
             "Should see all 5 frames after toggling back"
         );
 
-        // Test 3: Verify collapsed entries stay expanded
-        stack_frame_list.expand_collapsed_entry(1, cx);
-        assert_eq!(
-            stack_frame_list.entries(),
-            &vec![
-                StackFrameEntry::Normal(stack_frames_for_assertions[0].clone()),
-                StackFrameEntry::Normal(stack_frames_for_assertions[1].clone()),
-                StackFrameEntry::Normal(stack_frames_for_assertions[2].clone()),
-                StackFrameEntry::Normal(stack_frames_for_assertions[3].clone()),
-                StackFrameEntry::Normal(stack_frames_for_assertions[4].clone()),
-            ]
-        );
+            // Test 3: Verify collapsed entries stay expanded
+            stack_frame_list.expand_collapsed_entry(1, cx);
+            assert_eq!(
+                summarize_stack_frame_entries(stack_frame_list.entries()),
+                vec![
+                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[0].id),
+                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[1].id),
+                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[2].id),
+                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[3].id),
+                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[4].id),
+                ],
+            );
 
         stack_frame_list
             .toggle_frame_filter(Some(project::debugger::session::ThreadStatus::Stopped), cx);
@@ -1074,20 +1095,20 @@ async fn test_stack_frame_filter(executor: BackgroundExecutor, cx: &mut TestAppC
             ]
         );
 
-        // Verify entries remain expanded
-        assert_eq!(
-            stack_frame_list.entries(),
-            &vec![
-                StackFrameEntry::Normal(stack_frames_for_assertions[0].clone()),
-                StackFrameEntry::Normal(stack_frames_for_assertions[1].clone()),
-                StackFrameEntry::Normal(stack_frames_for_assertions[2].clone()),
-                StackFrameEntry::Normal(stack_frames_for_assertions[3].clone()),
-                StackFrameEntry::Normal(stack_frames_for_assertions[4].clone()),
-            ],
-            "Expanded entries should remain expanded after toggling filter"
-        );
-    });
-}
+            // Verify entries remain expanded
+            assert_eq!(
+                summarize_stack_frame_entries(stack_frame_list.entries()),
+                vec![
+                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[0].id),
+                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[1].id),
+                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[2].id),
+                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[3].id),
+                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[4].id),
+                ],
+                "Expanded entries should remain expanded after toggling filter"
+            );
+        });
+    }
 
 #[gpui::test]
 async fn test_stack_frame_filter_persistence(

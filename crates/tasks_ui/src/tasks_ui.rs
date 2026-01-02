@@ -599,13 +599,13 @@ mod tests {
         );
     }
 
-    pub(crate) fn init_test(cx: &mut TestAppContext) -> Arc<AppState> {
-        cx.update(|cx| {
-            let state = AppState::test(cx);
-            crate::init(cx);
-            editor::init(cx);
-            TaskStore::init(None);
-            state
-        })
-    }
-}
+	    pub(crate) fn init_test(cx: &mut TestAppContext) -> Arc<AppState> {
+	        cx.update(|cx| {
+	            let state = AppState::test(cx);
+	            crate::init(cx);
+	            editor::init(cx);
+	            project::task_store::TaskStore::init(None);
+	            state
+	        })
+	    }
+	}

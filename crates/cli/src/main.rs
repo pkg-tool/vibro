@@ -31,7 +31,7 @@ const URL_PREFIX: [&'static str; 5] = ["zed://", "http://", "https://", "file://
 struct Detect;
 
 trait InstalledApp {
-    fn zed_version_string(&self) -> String;
+    fn app_version_string(&self) -> String;
     fn launch(&self, ipc_url: String, user_data_dir: Option<&str>) -> anyhow::Result<()>;
     fn run_foreground(
         &self,
@@ -94,8 +94,8 @@ struct Args {
     #[arg(long)]
     foreground: bool,
     /// Custom path to Vector.app or the vector binary
-    #[arg(long)]
-    zed: Option<PathBuf>,
+    #[arg(long, alias = "zed")]
+    vector: Option<PathBuf>,
     /// Run zed in dev-server mode
     #[arg(long)]
     dev_server_token: Option<String>,
@@ -706,7 +706,7 @@ mod linux {
                 .unwrap_or_else(|| paths::data_dir().clone());
 
             let sock_path = data_dir.join(format!(
-                "zed-{}.sock",
+                "vector-{}.sock",
                 *release_channel::RELEASE_CHANNEL_NAME
             ));
             let sock = UnixDatagram::unbound()?;
@@ -842,10 +842,15 @@ mod flatpak {
     pub fn set_bin_if_no_escape(mut args: super::Args) -> super::Args {
         if env::var(NO_ESCAPE_ENV_NAME).is_ok()
             && env::var("FLATPAK_ID").is_ok_and(|id| id.starts_with("dev.zed.Zed"))
-            && args.zed.is_none()
+            && args.vector.is_none()
         {
-            args.zed = Some("/app/libexec/zed-editor".into());
-            unsafe { env::set_var("ZED_UPDATE_EXPLANATION", "Please use flatpak to update zed") };
+            args.vector = Some("/app/libexec/zed-editor".into());
+            unsafe {
+                env::set_var(
+                    "VECTOR_UPDATE_EXPLANATION",
+                    "Please use flatpak to update vector",
+                )
+            };
         }
         args
     }
@@ -1183,13 +1188,6 @@ mod mac_os {
                 cmd.arg("--user-data-dir").arg(dir);
             }
             cmd.status()
-        }
-
-        fn path(&self) -> PathBuf {
-            match self {
-                Bundle::App { app_bundle, .. } => app_bundle.join("Contents/MacOS/zed"),
-                Bundle::LocalPath { executable, .. } => executable.clone(),
-            }
         }
     }
 

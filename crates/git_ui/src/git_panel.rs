@@ -3,7 +3,6 @@ use crate::commit_modal::CommitModal;
 use crate::commit_tooltip::CommitTooltip;
 use crate::commit_view::CommitView;
 use crate::project_diff::{self, Diff, ProjectDiff};
-use crate::remote_output::{self, RemoteAction, SuccessMessage};
 use crate::{branch_picker, picker_prompt};
 use crate::{
     file_history_view::FileHistoryView, git_panel_settings::GitPanelSettings, git_status_icon,
@@ -18,12 +17,10 @@ use editor::{
     Direction, Editor, EditorElement, EditorMode, MultiBuffer, MultiBufferOffset,
     actions::ExpandAllDiffHunks,
 };
-use futures::StreamExt as _;
 use git::commit::ParsedCommitMessage;
 use git::repository::{
-    Branch, CommitDetails, CommitOptions, CommitSummary, DiffType, FetchOptions, GitCommitter,
-    PushOptions, Remote, RemoteCommandOutput, ResetMode, Upstream, UpstreamTracking,
-    UpstreamTrackingStatus, get_git_committer,
+    Branch, CommitDetails, CommitOptions, CommitSummary, GitCommitter, ResetMode, Upstream,
+    UpstreamTracking, UpstreamTrackingStatus, get_git_committer,
 };
 use git::stash::GitStash;
 use git::status::StageStatus;
@@ -33,7 +30,7 @@ use git::{
     TrashUntrackedFiles, UnstageAll,
 };
 use gpui::{
-    Action, AsyncApp, AsyncWindowContext, Bounds, ClickEvent, Corner, DismissEvent, Entity,
+    Action, AsyncWindowContext, Bounds, ClickEvent, Corner, DismissEvent, Entity,
     EventEmitter, FocusHandle, Focusable, KeyContext, MouseButton, MouseDownEvent, Point,
     PromptLevel, ScrollStrategy, Subscription, Task, UniformListScrollHandle, WeakEntity, actions,
     anchored, deferred, point, size, uniform_list,
@@ -61,18 +58,17 @@ use std::{sync::Arc, time::Duration, usize};
 use strum::{IntoEnumIterator, VariantNames};
 use time::OffsetDateTime;
 use ui::{
-    ButtonLike, Checkbox, CommonAnimationExt, ContextMenu, ElevationIndex, IndentGuideColors,
-    PopoverMenu, RenderedIndentGuide, ScrollAxes, Scrollbars, SplitButton, Tooltip, WithScrollbar,
-    prelude::*,
+    ButtonLike, Checkbox, ContextMenu, ElevationIndex, IndentGuideColors, PopoverMenu,
+    RenderedIndentGuide, ScrollAxes, Scrollbars, SplitButton, Tooltip, WithScrollbar, prelude::*,
 };
 use util::paths::PathStyle;
-use util::{ResultExt, TryFutureExt, maybe, rel_path::RelPath};
+use util::{ResultExt, TryFutureExt, maybe};
 use workspace::SERIALIZATION_THROTTLE_TIME;
 use workspace::{
     Workspace,
     dock::{DockPosition, Panel, PanelEvent},
-    notifications::{DetachAndPromptErr, ErrorMessagePrompt, NotificationId, NotifyResultExt},
 };
+use workspace::notifications::{DetachAndPromptErr as _, NotifyResultExt as _};
 actions!(
     git_panel,
     [
@@ -575,7 +571,6 @@ pub struct GitPanel {
     conflicted_count: usize,
     conflicted_staged_count: usize,
     add_coauthors: bool,
-    generate_commit_message_task: Option<Task<Option<()>>>,
     entries: Vec<GitListEntry>,
     view_mode: GitPanelViewMode,
     entries_indices: HashMap<RepoPath, usize>,
@@ -735,7 +730,6 @@ impl GitPanel {
                 conflicted_count: 0,
                 conflicted_staged_count: 0,
                 add_coauthors: true,
-                generate_commit_message_task: None,
                 entries: Vec::new(),
                 view_mode: GitPanelViewMode::from_settings(cx),
                 entries_indices: HashMap::default(),
@@ -2742,108 +2736,6 @@ impl GitPanel {
         }));
     }
 
-    fn get_fetch_options(
-        &self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Task<Option<FetchOptions>> {
-        let repo = self.active_repository.clone();
-        let workspace = self.workspace.clone();
-
-        cx.spawn_in(window, async move |_, cx| {
-            let repo = repo?;
-            let remotes = repo
-                .update(cx, |repo, _| repo.get_remotes(None, false))
-                .ok()?
-                .await
-                .ok()?
-                .log_err()?;
-
-            let mut remotes: Vec<_> = remotes.into_iter().map(FetchOptions::Remote).collect();
-            if remotes.len() > 1 {
-                remotes.push(FetchOptions::All);
-            }
-            let selection = cx
-                .update(|window, cx| {
-                    picker_prompt::prompt(
-                        "Pick which remote to fetch",
-                        remotes.iter().map(|r| r.name()).collect(),
-                        workspace,
-                        window,
-                        cx,
-                    )
-                })
-                .ok()?
-                .await?;
-            remotes.get(selection).cloned()
-        })
-    }
-
-    pub(crate) fn fetch(
-        &mut self,
-        is_fetch_all: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if !self.can_push_and_pull(cx) {
-            return;
-        }
-
-        let Some(repo) = self.active_repository.clone() else {
-            return;
-        };
-        let askpass = self.askpass_delegate("git fetch", window, cx);
-        let this = cx.weak_entity();
-
-        let fetch_options = if is_fetch_all {
-            Task::ready(Some(FetchOptions::All))
-        } else {
-            self.get_fetch_options(window, cx)
-        };
-
-        window
-            .spawn(cx, async move |cx| {
-                let Some(fetch_options) = fetch_options.await else {
-                    return Ok(());
-                };
-                let fetch = repo.update(cx, |repo, cx| {
-                    repo.fetch(fetch_options.clone(), askpass, cx)
-                })?;
-
-                let remote_message = fetch.await?;
-                this.update(cx, |this, cx| {
-                    let action = match fetch_options {
-                        FetchOptions::All => RemoteAction::Fetch(None),
-                        FetchOptions::Remote(remote) => RemoteAction::Fetch(Some(remote)),
-                    };
-                    match remote_message {
-                        Ok(remote_message) => this.show_remote_output(action, remote_message, cx),
-                        Err(e) => {
-                            log::error!("Error while fetching {:?}", e);
-                            this.show_error_toast(action.name(), e, cx)
-                        }
-                    }
-
-                    anyhow::Ok(())
-                })
-                .ok();
-                anyhow::Ok(())
-            })
-            .detach_and_log_err(cx);
-    }
-
-    pub(crate) fn git_clone(&mut self, repo: String, window: &mut Window, cx: &mut Context<Self>) {
-        let workspace = self.workspace.clone();
-
-        crate::clone::clone_and_open(
-            repo.into(),
-            workspace,
-            window,
-            cx,
-            Arc::new(|_workspace: &mut workspace::Workspace, _window, _cx| {}),
-        );
-    }
-
     pub(crate) fn git_init(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let worktrees = self
             .project
@@ -2926,138 +2818,6 @@ impl GitPanel {
         .detach();
     }
 
-    pub(crate) fn pull(&mut self, rebase: bool, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.can_push_and_pull(cx) {
-            return;
-        }
-        let Some(repo) = self.active_repository.clone() else {
-            return;
-        };
-        let Some(branch) = repo.read(cx).branch.as_ref() else {
-            return;
-        };
-        let branch = branch.clone();
-        let remote = self.get_remote(false, false, window, cx);
-        cx.spawn_in(window, async move |this, cx| {
-            let remote = match remote.await {
-                Ok(Some(remote)) => remote,
-                Ok(None) => {
-                    return Ok(());
-                }
-                Err(e) => {
-                    log::error!("Failed to get current remote: {}", e);
-                    this.update(cx, |this, cx| this.show_error_toast("pull", e, cx))
-                        .ok();
-                    return Ok(());
-                }
-            };
-
-            let askpass = this.update_in(cx, |this, window, cx| {
-                this.askpass_delegate(format!("git pull {}", remote.name), window, cx)
-            })?;
-
-            let branch_name = branch
-                .upstream
-                .is_none()
-                .then(|| branch.name().to_owned().into());
-
-            let pull = repo.update(cx, |repo, cx| {
-                repo.pull(branch_name, remote.name.clone(), rebase, askpass, cx)
-            })?;
-
-            let remote_message = pull.await?;
-
-            let action = RemoteAction::Pull(remote);
-            this.update(cx, |this, cx| match remote_message {
-                Ok(remote_message) => this.show_remote_output(action, remote_message, cx),
-                Err(e) => {
-                    log::error!("Error while pulling {:?}", e);
-                    this.show_error_toast(action.name(), e, cx)
-                }
-            })
-            .ok();
-
-            anyhow::Ok(())
-        })
-        .detach_and_log_err(cx);
-    }
-
-    pub(crate) fn push(
-        &mut self,
-        force_push: bool,
-        select_remote: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if !self.can_push_and_pull(cx) {
-            return;
-        }
-        let Some(repo) = self.active_repository.clone() else {
-            return;
-        };
-        let Some(branch) = repo.read(cx).branch.as_ref() else {
-            return;
-        };
-        let branch = branch.clone();
-
-        let options = if force_push {
-            Some(PushOptions::Force)
-        } else {
-            match branch.upstream {
-                Some(Upstream {
-                    tracking: UpstreamTracking::Gone,
-                    ..
-                })
-                | None => Some(PushOptions::SetUpstream),
-                _ => None,
-            }
-        };
-        let remote = self.get_remote(select_remote, true, window, cx);
-
-        cx.spawn_in(window, async move |this, cx| {
-            let remote = match remote.await {
-                Ok(Some(remote)) => remote,
-                Ok(None) => {
-                    return Ok(());
-                }
-                Err(e) => {
-                    log::error!("Failed to get current remote: {}", e);
-                    this.update(cx, |this, cx| this.show_error_toast("push", e, cx))
-                        .ok();
-                    return Ok(());
-                }
-            };
-
-            let askpass_delegate = this.update_in(cx, |this, window, cx| {
-                this.askpass_delegate(format!("git push {}", remote.name), window, cx)
-            })?;
-
-            let push = repo.update(cx, |repo, cx| {
-                repo.push(
-                    branch.name().to_owned().into(),
-                    remote.name.clone(),
-                    options,
-                    askpass_delegate,
-                    cx,
-                )
-            })?;
-
-            let remote_output = push.await?;
-
-            let action = RemoteAction::Push(branch.name().to_owned().into(), remote);
-            this.update(cx, |this, cx| match remote_output {
-                Ok(remote_message) => this.show_remote_output(action, remote_message, cx),
-                Err(e) => {
-                    log::error!("Error while pushing {:?}", e);
-                    this.show_error_toast(action.name(), e, cx)
-                }
-            })?;
-
-            anyhow::Ok(())
-        })
-        .detach_and_log_err(cx);
-    }
-
     fn askpass_delegate(
         &self,
         operation: impl Into<SharedString>,
@@ -3082,57 +2842,6 @@ impl GitPanel {
         })
     }
 
-    fn can_push_and_pull(&self, cx: &App) -> bool {
-        !self.project.read(cx).is_via_collab()
-    }
-
-    fn get_remote(
-        &mut self,
-        always_select: bool,
-        is_push: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl Future<Output = anyhow::Result<Option<Remote>>> + use<> {
-        let repo = self.active_repository.clone();
-        let workspace = self.workspace.clone();
-        let mut cx = window.to_async(cx);
-
-        async move {
-            let repo = repo.context("No active repository")?;
-            let current_remotes: Vec<Remote> = repo
-                .update(&mut cx, |repo, _| {
-                    let current_branch = if always_select {
-                        None
-                    } else {
-                        let current_branch = repo.branch.as_ref().context("No active branch")?;
-                        Some(current_branch.name().to_string())
-                    };
-                    anyhow::Ok(repo.get_remotes(current_branch, is_push))
-                })??
-                .await??;
-
-            let current_remotes: Vec<_> = current_remotes
-                .into_iter()
-                .map(|remotes| remotes.name)
-                .collect();
-            let selection = cx
-                .update(|window, cx| {
-                    picker_prompt::prompt(
-                        "Pick which remote to push to",
-                        current_remotes.clone(),
-                        workspace,
-                        window,
-                        cx,
-                    )
-                })?
-                .await;
-
-            Ok(selection.map(|selection| Remote {
-                name: current_remotes[selection].clone(),
-            }))
-        }
-    }
-
     pub fn load_local_committer(&mut self, cx: &Context<Self>) {
         if self.local_committer_task.is_none() {
             self.local_committer_task = Some(cx.spawn(async move |this, cx| {
@@ -3146,7 +2855,7 @@ impl GitPanel {
         }
     }
 
-    fn potential_co_authors(&self, cx: &App) -> Vec<(String, String)> {
+    fn potential_co_authors(&self, _cx: &App) -> Vec<(String, String)> {
         Vec::new()
     }
 
@@ -3161,16 +2870,6 @@ impl GitPanel {
             .or_else(|| user.name.clone())
             .unwrap_or_else(|| user.github_login.clone().to_string());
         Some((name, email))
-    }
-
-    fn toggle_fill_co_authors(
-        &mut self,
-        _: &ToggleFillCoAuthors,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.add_coauthors = !self.add_coauthors;
-        cx.notify();
     }
 
     fn toggle_sort_by_path(
@@ -3629,62 +3328,6 @@ impl GitPanel {
         show_error_toast(workspace, action, e, cx)
     }
 
-    fn show_commit_message_error<E>(weak_this: &WeakEntity<Self>, err: &E, cx: &mut AsyncApp)
-    where
-        E: std::fmt::Debug + std::fmt::Display,
-    {
-        if let Ok(Some(workspace)) = weak_this.update(cx, |this, _cx| this.workspace.upgrade()) {
-            let _ = workspace.update(cx, |workspace, cx| {
-                struct CommitMessageError;
-                let notification_id = NotificationId::unique::<CommitMessageError>();
-                workspace.show_notification(notification_id, cx, |cx| {
-                    cx.new(|cx| {
-                        ErrorMessagePrompt::new(
-                            format!("Failed to generate commit message: {err}"),
-                            cx,
-                        )
-                    })
-                });
-            });
-        }
-    }
-
-    fn show_remote_output(&self, action: RemoteAction, info: RemoteCommandOutput, cx: &mut App) {
-        let Some(workspace) = self.workspace.upgrade() else {
-            return;
-        };
-
-        workspace.update(cx, |workspace, cx| {
-            let SuccessMessage { message, style } = remote_output::format_output(&action, info);
-            let workspace_weak = cx.weak_entity();
-            let operation = action.name();
-
-            let status_toast = StatusToast::new(message, cx, move |this, _cx| {
-                use remote_output::SuccessStyle::*;
-                match style {
-                    Toast => this.icon(ToastIcon::new(IconName::GitBranchAlt).color(Color::Muted)),
-                    ToastWithLog { output } => this
-                        .icon(ToastIcon::new(IconName::GitBranchAlt).color(Color::Muted))
-                        .action("View Log", move |window, cx| {
-                            let output = output.clone();
-                            let output =
-                                format!("stdout:\n{}\nstderr:\n{}", output.stdout, output.stderr);
-                            workspace_weak
-                                .update(cx, move |workspace, cx| {
-                                    open_output(operation, workspace, &output, window, cx)
-                                })
-                                .ok();
-                        }),
-                    PushPrLink { text, link } => this
-                        .icon(ToastIcon::new(IconName::GitBranchAlt).color(Color::Muted))
-                        .action(text, move |_, cx| cx.open_url(&link)),
-                }
-                .dismiss_button(true)
-            });
-            workspace.toggle_status_toast(status_toast, cx)
-        });
-    }
-
     pub fn can_commit(&self) -> bool {
         (self.has_staged_changes() || self.has_tracked_changes()) && !self.has_unstaged_conflicts()
     }
@@ -4001,7 +3644,7 @@ impl GitPanel {
         )
     }
 
-    pub(crate) fn render_remote_button(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub(crate) fn render_remote_button(&self, _cx: &mut Context<Self>) -> Option<AnyElement> {
         None
     }
 
@@ -5084,7 +4727,7 @@ impl GitPanel {
     }
 
     fn has_write_access(&self, cx: &App) -> bool {
-        !self.project.read(cx).is_read_only()
+        !self.project.read(cx).is_read_only(cx)
     }
 
     pub fn amend_pending(&self) -> bool {
@@ -5967,6 +5610,7 @@ mod tests {
     use settings::SettingsStore;
     use theme::LoadThemes;
     use util::path;
+    use util::rel_path::RelPath;
     use util::rel_path::rel_path;
 
     use super::*;

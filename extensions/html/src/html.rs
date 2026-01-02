@@ -68,7 +68,7 @@ impl vector::Extension for HtmlExtension {
         worktree: &vector::Worktree,
     ) -> Result<vector::Command> {
         let server_path = if let Some(path) = worktree.which(BINARY_NAME) {
-            return Ok(zed::Command {
+            return Ok(vector::Command {
                 command: path,
                 args: vec!["--stdio".to_string()],
                 env: Default::default(),
@@ -83,8 +83,8 @@ impl vector::Extension for HtmlExtension {
         };
         self.cached_binary_path = Some(server_path.clone());
 
-        Ok(zed::Command {
-            command: zed::node_binary_path()?,
+        Ok(vector::Command {
+            command: vector::node_binary_path()?,
             args: vec![server_path, "--stdio".to_string()],
             env: Default::default(),
         })
@@ -105,11 +105,11 @@ impl vector::Extension for HtmlExtension {
     fn language_server_initialization_options(
         &mut self,
         _: &LanguageServerId,
-        _: &vector_extension_api::Worktree,
-    ) -> Result<Option<vector_extension_api::serde_json::Value>> {
+        _: &vector::Worktree,
+    ) -> Result<Option<vector::serde_json::Value>> {
         let initialization_options = json!({"provideFormatter": true });
         Ok(Some(initialization_options))
     }
 }
 
-zed::register_extension!(HtmlExtension);
+vector::register_extension!(HtmlExtension);

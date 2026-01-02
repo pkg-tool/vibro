@@ -8,16 +8,18 @@ use collections::HashMap;
 use fs::{Fs, copy_recursive};
 use futures::{FutureExt, future::Shared};
 use gpui::{
-    App, AppContext as _, Context, Entity, EntityId, EventEmitter, Task, WeakEntity,
+    App, AppContext as _, AsyncApp, Context, Entity, EntityId, EventEmitter, Task, WeakEntity,
 };
-use rpc::{
-    AnyProtoClient, ErrorExt, TypedEnvelope,
-    proto::{self, REMOTE_SERVER_PROJECT_ID},
-};
+use rpc::proto::{self};
+#[cfg(feature = "collab")]
+use rpc::AnyProtoClient;
+#[cfg(feature = "collab")]
+use rpc::{TypedEnvelope, proto::REMOTE_SERVER_PROJECT_ID};
+#[cfg(feature = "collab")]
 use text::ReplicaId;
 use util::{
     ResultExt,
-    paths::{PathStyle, RemotePathBuf, SanitizedPath},
+    paths::{PathStyle, SanitizedPath},
     rel_path::RelPath,
 };
 use worktree::{
@@ -31,6 +33,7 @@ enum WorktreeStoreState {
     Local {
         fs: Arc<dyn Fs>,
     },
+    #[cfg(feature = "collab")]
     Remote {
         upstream_client: AnyProtoClient,
         upstream_project_id: u64,
@@ -177,6 +180,7 @@ impl WorktreeStore {
     pub fn path_style(&self) -> PathStyle {
         match &self.state {
             WorktreeStoreState::Local { .. } => PathStyle::local(),
+            #[cfg(feature = "collab")]
             WorktreeStoreState::Remote { path_style, .. } => *path_style,
         }
     }
@@ -264,6 +268,7 @@ impl WorktreeStore {
                         .await
                 })
             }
+            #[cfg(feature = "collab")]
             WorktreeStoreState::Remote { .. } => {
                 Task::ready(Err(anyhow!("remote worktrees are not supported")))
             }
@@ -394,6 +399,7 @@ impl WorktreeStore {
                         }))
                 })
             }
+            #[cfg(feature = "collab")]
             WorktreeStoreState::Remote { .. } => {
                 Task::ready(Err(anyhow!("remote worktrees are not supported")))
             }
@@ -411,6 +417,7 @@ impl WorktreeStore {
                 WorktreeStoreState::Local { fs } => {
                     self.create_local_worktree(fs.clone(), abs_path.clone(), visible, cx)
                 }
+                #[cfg(feature = "collab")]
                 WorktreeStoreState::Remote { .. } => {
                     Task::ready(Err(Arc::new(anyhow!("remote worktrees are not supported"))))
                 }
@@ -549,6 +556,7 @@ impl WorktreeStore {
         self.worktrees_reordered = worktrees_reordered;
     }
 
+    #[cfg(feature = "collab")]
     fn upstream_client(&self) -> Option<(AnyProtoClient, u64)> {
         match &self.state {
             WorktreeStoreState::Remote {
@@ -940,6 +948,7 @@ impl WorktreeStore {
     pub fn fs(&self) -> Option<Arc<dyn Fs>> {
         match &self.state {
             WorktreeStoreState::Local { fs } => Some(fs.clone()),
+            #[cfg(feature = "collab")]
             WorktreeStoreState::Remote { .. } => None,
         }
     }

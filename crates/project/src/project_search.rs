@@ -20,12 +20,11 @@ use smol::{
     future::FutureExt,
 };
 
-use text::BufferId;
 use util::{ResultExt, maybe, paths::compare_rel_paths, rel_path::RelPath};
 use worktree::{Entry, ProjectEntryId, Snapshot, Worktree, WorktreeSettings};
 
 use crate::{
-    Project, ProjectItem, ProjectPath,
+    ProjectItem, ProjectPath,
     buffer_store::BufferStore,
     search::{SearchQuery, SearchResult},
     worktree_store::WorktreeStore,
@@ -828,6 +827,7 @@ mod tests {
     use fs::FakeFs;
     use serde_json::json;
     use settings::Settings;
+    use settings::SettingsStore;
     use util::{
         path,
         paths::{PathMatcher, PathStyle},
@@ -835,10 +835,17 @@ mod tests {
     };
     use worktree::{Entry, EntryKind, WorktreeSettings};
 
-    use crate::{
-        Project, project_search::PathInclusionMatcher, project_tests::init_test,
-        search::SearchQuery,
-    };
+    use crate::{Project, project_search::PathInclusionMatcher, search::SearchQuery};
+
+    fn init_test(cx: &mut gpui::TestAppContext) {
+        zlog::init_test();
+
+        cx.update(|cx| {
+            let settings_store = SettingsStore::test(cx);
+            cx.set_global(settings_store);
+            release_channel::init(semver::Version::new(0, 0, 0), cx);
+        });
+    }
 
     #[gpui::test]
     async fn test_path_inclusion_matcher(cx: &mut gpui::TestAppContext) {

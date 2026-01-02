@@ -42,107 +42,7 @@ pub enum TaskSettingsLocation<'a> {
 }
 
 impl TaskStore {
-    pub fn init(client: Option<&AnyProtoClient>) {
-        if let Some(client) = client {
-            client.add_entity_request_handler(Self::handle_task_context_for_location);
-        }
-    }
-
-    async fn handle_task_context_for_location(
-        store: Entity<Self>,
-        envelope: TypedEnvelope<proto::TaskContextForLocation>,
-        mut cx: AsyncApp,
-    ) -> anyhow::Result<proto::TaskContext> {
-        let location = envelope
-            .payload
-            .location
-            .context("no location given for task context handling")?;
-        let (buffer_store, is_remote) = store.read_with(&cx, |store, _| {
-            Ok(match store {
-                TaskStore::Functional(state) => (
-                    state.buffer_store.clone(),
-                    match &state.mode {
-                        StoreMode::Local { .. } => false,
-                        StoreMode::Remote { .. } => true,
-                    },
-                ),
-                TaskStore::Noop => {
-                    anyhow::bail!("empty task store cannot handle task context requests")
-                }
-            })
-        })??;
-        let buffer_store = buffer_store
-            .upgrade()
-            .context("no buffer store when handling task context request")?;
-
-        let buffer_id = BufferId::new(location.buffer_id).with_context(|| {
-            format!(
-                "cannot handle task context request for invalid buffer id: {}",
-                location.buffer_id
-            )
-        })?;
-
-        let start = location
-            .start
-            .and_then(deserialize_anchor)
-            .context("missing task context location start")?;
-        let end = location
-            .end
-            .and_then(deserialize_anchor)
-            .context("missing task context location end")?;
-        let buffer = buffer_store
-            .update(&mut cx, |buffer_store, cx| {
-                if is_remote {
-                    buffer_store.wait_for_remote_buffer(buffer_id, cx)
-                } else {
-                    Task::ready(
-                        buffer_store
-                            .get(buffer_id)
-                            .with_context(|| format!("no local buffer with id {buffer_id}")),
-                    )
-                }
-            })?
-            .await?;
-
-        let location = Location {
-            buffer,
-            range: start..end,
-        };
-        let context_task = store.update(&mut cx, |store, cx| {
-            let captured_variables = {
-                let mut variables = TaskVariables::from_iter(
-                    envelope
-                        .payload
-                        .task_variables
-                        .into_iter()
-                        .filter_map(|(k, v)| Some((k.parse().log_err()?, v))),
-                );
-
-                let snapshot = location.buffer.read(cx).snapshot();
-                let range = location.range.to_offset(&snapshot);
-
-                for range in snapshot.runnable_ranges(range) {
-                    for (capture_name, value) in range.extra_captures {
-                        variables.insert(VariableName::Custom(capture_name.into()), value);
-                    }
-                }
-                variables
-            };
-            store.task_context_for_location(captured_variables, location, cx)
-        })?;
-        let task_context = context_task.await.unwrap_or_default();
-        Ok(proto::TaskContext {
-            project_env: task_context.project_env.into_iter().collect(),
-            cwd: task_context
-                .cwd
-                .map(|cwd| cwd.to_string_lossy().into_owned()),
-            task_variables: task_context
-                .task_variables
-                .into_iter()
-                .map(|(variable_name, variable_value)| (variable_name.to_string(), variable_value))
-                .collect(),
-        })
-    }
+    pub fn init(_client: Option<&rpc::AnyProtoClient>) {}
 
     pub fn local(
         worktree_store: Entity<WorktreeStore>,
@@ -249,7 +149,7 @@ fn local_task_context_for_location(
             .update(|cx| {
                 combine_task_variables(
                     captured_variables,
-                    Some(fs),
+                    fs,
                     worktree_store.clone(),
                     location,
                     project_env.clone(),
@@ -270,99 +170,6 @@ fn local_task_context_for_location(
             task_variables,
         })
     })
-}
-
-fn remote_task_context_for_location(
-    project_id: u64,
-    upstream_client: AnyProtoClient,
-    worktree_store: Entity<WorktreeStore>,
-    captured_variables: TaskVariables,
-    location: Location,
-    toolchain_store: Arc<dyn LanguageToolchainStore>,
-    cx: &mut App,
-) -> Task<Option<TaskContext>> {
-    cx.spawn(async move |cx| {
-        // We need to gather a client context, as the headless one may lack certain information (e.g. tree-sitter parsing is disabled there, so symbols are not available).
-        let mut remote_context = cx
-            .update(|cx| {
-                let worktree_root = worktree_root(&worktree_store, &location, cx);
-
-                BasicContextProvider::new(worktree_store).build_context(
-                    &TaskVariables::default(),
-                    ContextLocation {
-                        fs: None,
-                        worktree_root,
-                        file_location: &location,
-                    },
-                    None,
-                    toolchain_store,
-                    cx,
-                )
-            })
-            .ok()?
-            .await
-            .log_err()
-            .unwrap_or_default();
-        remote_context.extend(captured_variables);
-
-        let buffer_id = cx
-            .update(|cx| location.buffer.read(cx).remote_id().to_proto())
-            .ok()?;
-        let context_task = upstream_client.request(proto::TaskContextForLocation {
-            project_id,
-            location: Some(proto::Location {
-                buffer_id,
-                start: Some(serialize_anchor(&location.range.start)),
-                end: Some(serialize_anchor(&location.range.end)),
-            }),
-            task_variables: remote_context
-                .into_iter()
-                .map(|(k, v)| (k.to_string(), v))
-                .collect(),
-        });
-        let task_context = context_task.await.log_err()?;
-        Some(TaskContext {
-            cwd: task_context.cwd.map(PathBuf::from),
-            task_variables: task_context
-                .task_variables
-                .into_iter()
-                .filter_map(
-                    |(variable_name, variable_value)| match variable_name.parse() {
-                        Ok(variable_name) => Some((variable_name, variable_value)),
-                        Err(()) => {
-                            log::error!("Unknown variable name: {variable_name}");
-                            None
-                        }
-                    },
-                )
-                .collect(),
-            project_env: task_context.project_env.into_iter().collect(),
-        })
-    })
-}
-
-fn worktree_root(
-    worktree_store: &Entity<WorktreeStore>,
-    location: &Location,
-    cx: &mut App,
-) -> Option<PathBuf> {
-    location
-        .buffer
-        .read(cx)
-        .file()
-        .map(|f| f.worktree_id(cx))
-        .and_then(|worktree_id| worktree_store.read(cx).worktree_for_id(worktree_id, cx))
-        .and_then(|worktree| {
-            let worktree = worktree.read(cx);
-            if !worktree.is_visible() {
-                return None;
-            }
-            let root_entry = worktree.root_entry()?;
-            if !root_entry.is_dir() {
-                return None;
-            }
-            Some(worktree.absolutize(&root_entry.path))
-        })
 }
 
 fn combine_task_variables(

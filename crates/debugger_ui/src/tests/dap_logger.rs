@@ -104,7 +104,7 @@ async fn test_dap_logger_captures_all_session_rpc_messages(
 
     // Simulate a stopped event to generate more DAP messages
     client
-        .fake_event("stopped", dap::StoppedEvent {
+        .fake_event(dap::messages::Events::Stopped(dap::StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -112,6 +112,6 @@ async fn test_dap_logger_captures_all_session_rpc_messages(
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        })
+        }))
         .await;
 }

@@ -24,7 +24,7 @@ use dap::{
 };
 use fs::{Fs, RemoveOptions};
 use futures::{
-    StreamExt, TryStreamExt as _,
+    TryStreamExt as _,
     channel::mpsc::{self, UnboundedSender},
     future::{Shared, join_all},
 };
@@ -129,6 +129,12 @@ impl DapStore {
         Self::new(mode, breakpoint_store, worktree_store, fs, cx)
     }
 
+    fn as_local(&self) -> Option<&LocalDapStore> {
+        match &self.mode {
+            DapStoreMode::Local(store) => Some(store),
+        }
+    }
+
     fn new(
         mode: DapStoreMode,
         breakpoint_store: Entity<BreakpointStore>,
@@ -179,7 +185,6 @@ impl DapStore {
     pub fn get_debug_adapter_binary(
         &mut self,
         definition: DebugTaskDefinition,
-        session_id: SessionId,
         worktree: &Entity<Worktree>,
         console: UnboundedSender<String>,
         cx: &mut Context<Self>,
@@ -282,7 +287,17 @@ impl DapStore {
                 if let Some(result) = result {
                     return Ok(result);
                 }
-            }
+
+                anyhow::bail!(
+                    "None of the locators for task `{}` completed successfully",
+                    build_command.label
+                )
+            })
+        } else {
+            Task::ready(Err(anyhow!(
+                "Couldn't find any locator for task `{}`. Specify the `attach` or `launch` arguments in your debug scenario definition",
+                build_command.label
+            )))
         }
     }
 
@@ -356,7 +371,6 @@ impl DapStore {
                     .update(cx, |this, cx| {
                         this.get_debug_adapter_binary(
                             definition.clone(),
-                            session_id,
                             &worktree,
                             console,
                             cx,
@@ -508,6 +522,7 @@ impl DapStore {
                                 expression: inline_value_location.variable_name.clone(),
                                 frame_id: Some(stack_frame_id),
                                 context: Some(EvaluateArgumentsContext::Variables),
+                                source: None,
                             })
                         }) else {
                             continue;

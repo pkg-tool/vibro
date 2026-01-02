@@ -53,6 +53,16 @@ And to run the tests:
 cargo test --workspace
 ```
 
+## Building a macOS Bundle (.app / .dmg)
+
+To build a stable `.dmg` bundle:
+
+```sh
+script/bundle-mac
+```
+
+The output is written to `target/<arch>-apple-darwin/release/Vector.dmg`.
+
 ## Troubleshooting
 
 ### Error compiling metal shaders

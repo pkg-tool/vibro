@@ -608,6 +608,7 @@ impl Settings for ProjectSettings {
 
 pub enum SettingsObserverMode {
     Local(Arc<dyn Fs>),
+    Remote,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -621,6 +622,9 @@ impl EventEmitter<SettingsObserverEvent> for SettingsObserver {}
 
 pub struct SettingsObserver {
     mode: SettingsObserverMode,
+    downstream_client: Option<AnyProtoClient>,
+    worktree_store: Entity<WorktreeStore>,
+    project_id: u64,
     task_store: Entity<TaskStore>,
     pending_local_settings:
         HashMap<PathTrust, BTreeMap<(WorktreeId, Arc<RelPath>), Option<String>>>,
@@ -699,6 +703,7 @@ impl SettingsObserver {
             });
 
         Self {
+            worktree_store,
             task_store,
             mode: SettingsObserverMode::Local(fs.clone()),
             downstream_client: None,
@@ -896,7 +901,9 @@ impl SettingsObserver {
         changes: &UpdatedEntriesSet,
         cx: &mut Context<Self>,
     ) {
-        let SettingsObserverMode::Local(fs) = &self.mode;
+        let SettingsObserverMode::Local(fs) = &self.mode else {
+            return;
+        };
 
         let mut settings_contents = Vec::new();
         for (path, _, change) in changes.iter() {
@@ -1146,7 +1153,7 @@ impl SettingsObserver {
                     downstream_client
                         .send(proto::UpdateWorktreeSettings {
                             project_id: self.project_id,
-                            worktree_id: remote_worktree_id.to_proto(),
+                            worktree_id: worktree_id.to_proto(),
                             path: directory.to_proto(),
                             content: file_content.clone(),
                             kind: Some(local_settings_kind_to_proto(kind).into()),

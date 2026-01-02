@@ -17,16 +17,15 @@ use editor::{Editor, MultiBuffer};
 use extension_host::ExtensionStore;
 use feature_flags::{FeatureFlagAppExt, PanicFeatureFlag};
 use fs::Fs;
-use futures::FutureExt as _;
 use futures::future::Either;
 use futures::{StreamExt, channel::mpsc, select_biased};
 use git_ui::commit_view::CommitViewToolbar;
 use git_ui::git_panel::GitPanel;
 use git_ui::project_diff::ProjectDiffToolbar;
 use gpui::{
-    Action, App, AppContext as _, AsyncWindowContext, Context, DismissEvent, Element, Entity,
+    Action, App, AppContext as _, Context, DismissEvent, Element, Entity,
     Focusable, KeyBinding, ParentElement, PathPromptOptions, PromptLevel, ReadGlobal, SharedString,
-    Task, TitlebarOptions, UpdateGlobal, WeakEntity, Window, WindowKind, WindowOptions, actions,
+    TitlebarOptions, UpdateGlobal, WeakEntity, Window, WindowKind, WindowOptions, actions,
     image_cache, point, px, retain_all,
 };
 use image_viewer::ImageInfo;
@@ -55,7 +54,6 @@ use settings::{
     initial_local_debug_tasks_content, initial_project_settings_content, initial_tasks_content,
     update_settings_file,
 };
-use std::time::Duration;
 use std::{
     borrow::Cow,
     path::{Path, PathBuf},
@@ -71,16 +69,15 @@ use util::{ResultExt, asset_str};
 use uuid::Uuid;
 use vim_mode_setting::VimModeSetting;
 use workspace::notifications::{
-    NotificationId, SuppressEvent, dismiss_app_notification, show_app_notification,
+    NotificationId, dismiss_app_notification, show_app_notification,
 };
-use workspace::utility_pane::utility_slot_for_dock_position;
 use workspace::{
-    AppState, NewFile, NewWindow, OpenLog, Panel, Toast, Workspace, WorkspaceSettings,
+    AppState, NewFile, NewWindow, OpenLog, Toast, Workspace, WorkspaceSettings,
     create_and_open_local_file, notifications::simple_message_notification::MessageNotification,
     open_new,
 };
 use workspace::{
-    CloseIntent, CloseWindow, NotificationFrame, RestoreBanner, with_active_or_new_workspace,
+    CloseIntent, CloseWindow, RestoreBanner, with_active_or_new_workspace,
 };
 use workspace::{Pane, notifications::DetachAndPromptErr};
 use vector_actions::{OpenSettingsFile, OpenVectorUrl, Quit};
@@ -359,7 +356,7 @@ pub fn initialize_workspace(
 
         if let Some(specs) = window.gpu_specs() {
             log::info!("Using GPU: {:?}", specs);
-            show_software_emulation_warning_if_needed(specs.clone(), window, cx);
+            show_software_emulation_warning_if_needed(specs, window, cx);
         }
 
         #[cfg(target_os = "windows")]
@@ -4015,7 +4012,6 @@ mod tests {
             let app_state = AppState::test(cx);
 
             theme::init(theme::LoadThemes::JustBase, cx);
-            client::init(&app_state.client, cx);
             workspace::init(app_state.clone(), cx);
             onboarding::init(cx);
             app_state
@@ -4488,10 +4484,7 @@ mod tests {
 
             gpui_tokio::init(cx);
             theme::init(theme::LoadThemes::JustBase, cx);
-            audio::init(cx);
-            channel::init(&app_state.client, app_state.user_store.clone(), cx);
-            call::init(app_state.client.clone(), app_state.user_store.clone(), cx);
-            notifications::init(app_state.client.clone(), app_state.user_store.clone(), cx);
+            audio::init(Assets, cx);
             workspace::init(app_state.clone(), cx);
             release_channel::init(Version::new(0, 0, 0), cx);
             command_palette::init(cx);
@@ -4500,27 +4493,7 @@ mod tests {
             project_panel::init(cx);
             outline_panel::init(cx);
             terminal_view::init(cx);
-            copilot::copilot_chat::init(
-                app_state.fs.clone(),
-                app_state.client.http_client(),
-                copilot::copilot_chat::CopilotChatConfiguration::default(),
-                cx,
-            );
             image_viewer::init(cx);
-            language_model::init(app_state.client.clone(), cx);
-            language_models::init(app_state.user_store.clone(), app_state.client.clone(), cx);
-            web_search::init(cx);
-            web_search_providers::init(app_state.client.clone(), cx);
-            let prompt_builder = PromptBuilder::load(app_state.fs.clone(), false, cx);
-            agent_ui::init(
-                app_state.fs.clone(),
-                app_state.client.clone(),
-                prompt_builder.clone(),
-                app_state.languages.clone(),
-                false,
-                cx,
-            );
-            agent_ui_v2::agents_panel::init(cx);
             repl::init(app_state.fs.clone(), cx);
             repl::notebook::init(cx);
             tasks_ui::init(cx);
@@ -4613,7 +4586,7 @@ mod tests {
             "Test setup failed - settings file doesn't contain our marker"
         );
 
-        // 3. Add .vector to file scan exclusions in user settings
+        // 3. Add .zed to file scan exclusions in user settings
         cx.update_global::<SettingsStore, _>(|store, cx| {
             store.update_user_settings(cx, |worktree_settings| {
                 worktree_settings.project.worktree.file_scan_exclusions =
@@ -4621,7 +4594,7 @@ mod tests {
             });
         });
 
-        eprintln!("Added .vector to file_scan_exclusions in settings");
+        eprintln!("Added .zed to file_scan_exclusions in settings");
 
         // 4. Run tasks to apply settings
         cx.background_executor.run_until_parked();
@@ -4633,15 +4606,15 @@ mod tests {
             cx.update(|cx| worktree.read(cx).entry_for_path(rel_path(".zed")).is_some());
 
         eprintln!(
-            "Is .vector directory visible in worktree after exclusion: {}",
-            has_vector_entry
+            "Is .zed directory visible in worktree after exclusion: {}",
+            has_zed_entry
         );
 
         // This assertion verifies the test is set up correctly to show the bug
-        // If .vector is not excluded, the test will fail here
+        // If .zed is not excluded, the test will fail here
         assert!(
-            !has_vector_entry,
-            "Test precondition failed: .vector directory should be excluded but was found in worktree"
+            !has_zed_entry,
+            "Test precondition failed: .zed directory should be excluded but was found in worktree"
         );
 
         // 6. Create workspace and trigger the actual function that causes the bug

@@ -21,8 +21,6 @@ actions!(
 
 struct AutoUpdateUiNotification;
 
-struct AutoUpdateUiNotification;
-
 pub fn init(cx: &mut App) {
     notify_if_app_was_updated(cx);
     cx.observe_new(|workspace: &mut Workspace, _window, _cx| {
@@ -144,8 +142,6 @@ pub fn notify_if_app_was_updated(cx: &mut App) {
     if let ReleaseChannel::Nightly = ReleaseChannel::global(cx) {
         return;
     }
-
-    struct UpdateNotification;
 
     let should_show_notification = updater.read(cx).should_show_update_notification(cx);
     cx.spawn(async move |cx| {

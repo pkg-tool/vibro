@@ -11,12 +11,15 @@ use gpui::{
 pub use image::ImageFormat;
 use image::{ExtendedColorType, GenericImageView, ImageReader};
 use language::{DiskState, File};
+#[cfg(feature = "collab")]
 use rpc::{AnyProtoClient, ErrorExt as _, TypedEnvelope, proto};
 use std::num::NonZeroU64;
 use std::path::PathBuf;
 use std::sync::Arc;
 use util::{ResultExt, rel_path::RelPath};
-use worktree::{LoadedBinaryFile, PathChange, Worktree, WorktreeId};
+use worktree::{LoadedBinaryFile, PathChange, Worktree};
+#[cfg(feature = "collab")]
+use worktree::WorktreeId;
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, PartialOrd, Ord, Eq)]
 pub struct ImageId(NonZeroU64);

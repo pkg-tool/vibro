@@ -1,12 +1,14 @@
 use super::*;
 use crate::Buffer;
 use clock::ReplicaId;
+#[cfg(feature = "remote")]
 use collections::BTreeMap;
 use futures::FutureExt as _;
 use gpui::{App, AppContext as _, BorrowAppContext, Entity};
 use gpui::{HighlightStyle, TestAppContext};
 use indoc::indoc;
 use pretty_assertions::assert_eq;
+#[cfg(feature = "remote")]
 use proto::deserialize_operation;
 use rand::prelude::*;
 use regex::RegexBuilder;
@@ -16,7 +18,7 @@ use std::collections::BTreeSet;
 use std::{
     ops::Range,
     sync::LazyLock,
-    time::Duration,
+    time::{Duration, Instant},
 };
 use syntax_map::TreeSitterOptions;
 use text::LineEnding;

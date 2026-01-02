@@ -204,9 +204,6 @@ impl Render for QuickActionBar {
                 .read(cx)
                 .snapshot(cx)
                 .has_diff_hunks();
-            let has_selection = editor.update(cx, |editor, cx| {
-                editor.has_non_empty_selection(&editor.display_snapshot(cx))
-            });
 
             let focus = editor.focus_handle(cx);
 

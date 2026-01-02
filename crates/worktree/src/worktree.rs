@@ -2230,7 +2230,7 @@ impl LocalSnapshot {
         ignore_stack
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, feature = "remote"))]
     fn expanded_entries(&self) -> impl Iterator<Item = &Entry> {
         self.entries_by_path
             .cursor::<()>(())
@@ -2773,6 +2773,24 @@ impl language::File for File {
 
     fn worktree_id(&self, cx: &App) -> WorktreeId {
         self.worktree.read(cx).id()
+    }
+
+    fn to_proto(&self, cx: &App) -> language::proto::File {
+        let (mtime, is_deleted, is_historic) = match self.disk_state {
+            DiskState::New => (None, false, false),
+            DiskState::Present { mtime } => (Some(mtime.into()), false, false),
+            DiskState::Deleted => (None, true, false),
+            DiskState::Historic { was_deleted } => (None, was_deleted, true),
+        };
+
+        language::proto::File {
+            worktree_id: self.worktree_id(cx).to_proto(),
+            entry_id: self.entry_id.map(|id| id.to_proto()),
+            path: self.path.as_std_path().to_string_lossy().into_owned(),
+            mtime,
+            is_deleted,
+            is_historic,
+        }
     }
 
     fn is_private(&self) -> bool {

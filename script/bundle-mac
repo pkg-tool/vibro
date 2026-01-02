@@ -4,10 +4,11 @@ set -euo pipefail
 source script/lib/blob-store.sh
 
 build_flag="--release"
-target_dir="release"
+profile_dir="release"
 open_result=false
 local_install=false
 can_code_sign=false
+target_root_dir="${CARGO_TARGET_DIR:-target}"
 
 # This must match the team in the provisioning profile.
 IDENTITY="Vector"
@@ -27,7 +28,7 @@ Options:
   "
 }
 
-while getopts 'dloih' flag
+while getopts 'doih' flag
 do
     case "${flag}" in
         o) open_result=true;;
@@ -35,7 +36,7 @@ do
             export CARGO_INCREMENTAL=true
             export CARGO_BUNDLE_SKIP_BUILD=true
             build_flag="";
-            target_dir="debug"
+            profile_dir="debug"
             ;;
         i) local_install=true;;
         h)
@@ -48,19 +49,25 @@ done
 shift $((OPTIND-1))
 
 
-# Get release channel
 channel=$(<crates/release_channel/RELEASE_CHANNEL)
-export VECTOR_RELEASE_CHANNEL="${channel}"
+if [[ "${channel}" != "stable" ]]; then
+    echo "This fork builds stable bundles only; got crates/release_channel/RELEASE_CHANNEL='${channel}'."
+    echo "Set it to 'stable' and re-run."
+    exit 1
+fi
 
 export VECTOR_BUNDLE=true
 
-cargo_bundle_version=$(cargo -q bundle --help 2>&1 | head -n 1 || echo "")
-if [ "$cargo_bundle_version" != "cargo-bundle v0.6.1" ]; then
-    cargo install cargo-bundle --version 0.6.1
+if ! cargo bundle --version >/dev/null 2>&1; then
+    cargo install cargo-bundle --version 0.9.0 --locked
 fi
 
 # Deal with versions of macOS that don't include libstdc++ headers
 export CXXFLAGS="-stdlib=libc++"
+
+version="$(script/get-crate-version vector)"
+export RELEASE_VERSION="${version}"
+export VECTOR_RELEASE_CHANNEL="${channel}"
 
 version_info=$(rustc --version --verbose)
 host_line=$(echo "$version_info" | grep host)
@@ -84,29 +91,16 @@ script/generate-licenses
 
 rustup target add $target_triple
 
-echo "Compiling zed binaries"
-cargo build ${build_flag} --package zed --package cli --target $target_triple
-# Build remote_server in separate invocation to prevent feature unification from other crates
-# from influencing dynamic libraries required by it.
-cargo build ${build_flag} --package remote_server --target $target_triple
+echo "Compiling Vector binaries"
+cargo build ${build_flag} --package vector --package cli --target $target_triple
 
 echo "Creating application bundle"
-pushd crates/vector
-cp Cargo.toml Cargo.toml.backup
-sed \
-    -i.backup \
-    "s/package.metadata.bundle-${channel}/package.metadata.bundle/" \
-    Cargo.toml
-
-app_path=$(cargo bundle ${build_flag} --target $target_triple --select-workspace-root | xargs)
-
-mv Cargo.toml.backup Cargo.toml
-popd
+app_path=$(cargo bundle ${build_flag} --package vector --target $target_triple | xargs)
 echo "Bundled ${app_path}"
 
 # DocumentTypes.plist references CFBundleTypeIconFile "Document", so the bundle must contain Document.icns.
 # We use the app icon as a placeholder document icon for now.
-document_icon_source="crates/zed/resources/Document.icns"
+document_icon_source="crates/vector/resources/Document.icns"
 document_icon_target="${app_path}/Contents/Resources/Document.icns"
 if [[ -f "${document_icon_source}" ]]; then
     mkdir -p "$(dirname "${document_icon_target}")"
@@ -119,15 +113,15 @@ if [[ -n "${MACOS_CERTIFICATE:-}" && -n "${MACOS_CERTIFICATE_PASSWORD:-}" && -n 
     can_code_sign=true
 
     echo "Setting up keychain for code signing..."
-    security create-keychain -p "$MACOS_CERTIFICATE_PASSWORD" zed.keychain || echo ""
-    security default-keychain -s zed.keychain
-    security unlock-keychain -p "$MACOS_CERTIFICATE_PASSWORD" zed.keychain
+    security create-keychain -p "$MACOS_CERTIFICATE_PASSWORD" vector.keychain || echo ""
+    security default-keychain -s vector.keychain
+    security unlock-keychain -p "$MACOS_CERTIFICATE_PASSWORD" vector.keychain
     # Calling set-keychain-settings without `-t` disables the auto-lock timeout
-    security set-keychain-settings zed.keychain
-    echo "$MACOS_CERTIFICATE" | base64 --decode > /tmp/zed-certificate.p12
-    security import /tmp/zed-certificate.p12 -k zed.keychain -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-    rm /tmp/zed-certificate.p12
-    security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MACOS_CERTIFICATE_PASSWORD" zed.keychain
+    security set-keychain-settings vector.keychain
+    echo "$MACOS_CERTIFICATE" | base64 --decode > /tmp/vector-certificate.p12
+    security import /tmp/vector-certificate.p12 -k vector.keychain -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+    rm /tmp/vector-certificate.p12
+    security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MACOS_CERTIFICATE_PASSWORD" vector.keychain
 
     function cleanup() {
         echo "Cleaning up keychain"
@@ -138,60 +132,8 @@ if [[ -n "${MACOS_CERTIFICATE:-}" && -n "${MACOS_CERTIFICATE_PASSWORD:-}" && -n 
     trap cleanup EXIT
 fi
 
-GIT_VERSION="v2.43.3"
-GIT_VERSION_SHA="fa29823"
-
-function download_and_unpack() {
-    local url=$1
-    local path_to_unpack=$2
-    local target_path=$3
-
-    temp_dir=$(mktemp -d)
-
-    if ! command -v curl &> /dev/null; then
-        echo "curl is not installed. Please install curl to continue."
-        exit 1
-    fi
-
-    curl --silent --fail --location "$url" | tar -xvz -C "$temp_dir" -f - $path_to_unpack
-
-    mv "$temp_dir/$path_to_unpack" "$target_path"
-
-    rm -rf "$temp_dir"
-}
-
-function download_git() {
-    local architecture=$1
-    local target_binary=$2
-
-    tmp_dir=$(mktemp -d)
-    pushd "$tmp_dir"
-
-    case "$architecture" in
-        aarch64-apple-darwin)
-            download_and_unpack "https://github.com/desktop/dugite-native/releases/download/${GIT_VERSION}/dugite-native-${GIT_VERSION}-${GIT_VERSION_SHA}-macOS-arm64.tar.gz" bin/git ./git
-            ;;
-        x86_64-apple-darwin)
-            download_and_unpack "https://github.com/desktop/dugite-native/releases/download/${GIT_VERSION}/dugite-native-${GIT_VERSION}-${GIT_VERSION_SHA}-macOS-x64.tar.gz" bin/git ./git
-            ;;
-        *)
-            echo "Unsupported architecture: $architecture"
-            exit 1
-            ;;
-    esac
-
-    popd
-
-    mv "${tmp_dir}/git" "${target_binary}"
-    rm -rf "$tmp_dir"
-}
-
 function sign_app_binaries() {
-    rm -rf "${app_path}/Contents/Frameworks"
     mkdir -p "${app_path}/Contents/Frameworks"
-
-    echo "Downloading git binary"
-    download_git "${target_triple}" "${app_path}/Contents/MacOS/git"
 
     # Note: The app identifier for our development builds is the same as the app identifier for nightly.
     cp crates/vector/contents/$channel/embedded.provisionprofile "${app_path}/Contents/"
@@ -200,7 +142,6 @@ function sign_app_binaries() {
         echo "Code signing binaries"
         # sequence of codesign commands modeled after this example: https://developer.apple.com/forums/thread/701514
         /usr/bin/codesign --deep --force --timestamp --options runtime --sign "$IDENTITY" "${app_path}/Contents/MacOS/cli" -v
-        /usr/bin/codesign --deep --force --timestamp --options runtime --sign "$IDENTITY" "${app_path}/Contents/MacOS/git" -v
         /usr/bin/codesign --deep --force --timestamp --options runtime --entitlements crates/vector/resources/vector.entitlements --sign "$IDENTITY" "${app_path}/Contents/MacOS/vector" -v
         /usr/bin/codesign --force --timestamp --options runtime --entitlements crates/vector/resources/vector.entitlements --sign "$IDENTITY" "${app_path}" -v
     else
@@ -230,20 +171,23 @@ function sign_app_binaries() {
             echo "Opening /Applications/$bundle_name"
             open "/Applications/$bundle_name"
         fi
+        return 0
     elif [ "$open_result" = true ]; then
-        open "$app_path"
+        if [[ "$profile_dir" = "debug" ]]; then
+            open "$app_path"
+        fi
     fi
 
-    if [[ "$target_dir" = "debug" ]]; then
+    if [[ "$profile_dir" = "debug" ]]; then
         echo "Debug build detected - skipping DMG creation and signing"
         if [ "$local_install" = false ]; then
             echo "Created application bundle:"
             echo "$app_path"
         fi
     else
-        dmg_target_directory="target/${target_triple}/${target_dir}"
+        dmg_target_directory="${target_root_dir}/${target_triple}/${profile_dir}"
         dmg_source_directory="${dmg_target_directory}/dmg"
-        dmg_file_path="${dmg_target_directory}/Zed-${arch_suffix}.dmg"
+        dmg_file_path="${dmg_target_directory}/Vector.dmg"
         xcode_bin_dir_path="$(xcode-select -p)/usr/bin"
 
         rm -rf ${dmg_source_directory}
@@ -263,9 +207,13 @@ function sign_app_binaries() {
         rm ${dmg_source_directory}/Applications
 
         if [[ -f script/terms/terms.json ]]; then
-            echo "Adding license agreement to DMG"
-            npm install --global dmg-license minimist
-            dmg-license script/terms/terms.json "${dmg_file_path}"
+            if command -v dmg-license >/dev/null 2>&1; then
+                echo "Adding license agreement to DMG"
+                dmg-license script/terms/terms.json "${dmg_file_path}"
+            else
+                echo "Skipping DMG license agreement (dmg-license not found)."
+                echo "Install with: npm install --global dmg-license minimist"
+            fi
         else
             echo "Skipping DMG license agreement (script/terms/terms.json not found)"
         fi
@@ -280,7 +228,7 @@ function sign_app_binaries() {
         fi
 
         if [ "$open_result" = true ]; then
-            open $dmg_target_directory
+            open "$dmg_target_directory"
         fi
     fi
 }
@@ -298,27 +246,22 @@ function upload_debug_symbols() {
     if [ "$local_install" = true ]; then
         echo "local install; skipping sentry upload."
     elif [[ -n "${SENTRY_AUTH_TOKEN:-}" ]]; then
-        echo "Uploading zed debug symbols to sentry..."
-        exe_path="target/${target_triple}/release/Zed"
-        if ! dsymutil --flat "target/${target_triple}/${target_dir}/zed" 2> target/dsymutil.log; then
+        echo "Uploading vector debug symbols to sentry..."
+        if ! dsymutil --flat "${target_root_dir}/${target_triple}/${profile_dir}/vector" 2> "${target_root_dir}/dsymutil.log"; then
             echo "dsymutil failed"
-            cat target/dsymutil.log
+            cat "${target_root_dir}/dsymutil.log"
             exit 1
         fi
-        if ! dsymutil --flat "target/${target_triple}/${target_dir}/remote_server" 2> target/dsymutil.log; then
+        if ! dsymutil --flat "${target_root_dir}/${target_triple}/${profile_dir}/cli" 2> "${target_root_dir}/dsymutil.log"; then
             echo "dsymutil failed"
-            cat target/dsymutil.log
+            cat "${target_root_dir}/dsymutil.log"
             exit 1
         fi
-        # note: this uploads the unstripped binary which is needed because it contains
-        # .eh_frame data for stack unwinding. see https://github.com/getsentry/symbolic/issues/783
-        sentry-cli debug-files upload --include-sources --wait -p zed -o zed-dev \
-        # Try uploading up to 3 times
         for attempt in 1 2 3; do
             echo "Sentry upload attempt $attempt..."
-            if sentry-cli debug-files upload --include-sources --wait -p zed -o zed-dev \
-                "target/${target_triple}/${target_dir}/zed.dwarf" \
-                "target/${target_triple}/${target_dir}/remote_server.dwarf"; then
+            if sentry-cli debug-files upload --include-sources --wait -p vector -o vector \
+                "${target_root_dir}/${target_triple}/${profile_dir}/vector.dwarf" \
+                "${target_root_dir}/${target_triple}/${profile_dir}/cli.dwarf"; then
                 break
             else
                 echo "Sentry upload failed on attempt $attempt"
@@ -335,9 +278,5 @@ function upload_debug_symbols() {
 
 upload_debug_symbols
 
-cp target/${target_triple}/${target_dir}/zed "${app_path}/Contents/MacOS/zed"
-cp target/${target_triple}/${target_dir}/cli "${app_path}/Contents/MacOS/cli"
+cp "${target_root_dir}/${target_triple}/${profile_dir}/cli" "${app_path}/Contents/MacOS/cli"
 sign_app_binaries
-
-sign_binary "target/$target_triple/release/remote_server"
-gzip -f --stdout --best target/$target_triple/release/remote_server > target/zed-remote-server-macos-$arch_suffix.gz

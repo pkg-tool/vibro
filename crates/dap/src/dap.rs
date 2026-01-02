@@ -2,20 +2,19 @@ pub mod adapters;
 pub mod client;
 pub mod debugger_settings;
 pub mod inline_value;
-pub mod protocol;
+pub mod proto_conversions;
 mod registry;
 pub mod transport;
 
 use std::net::Ipv4Addr;
 
 pub use dap_types::*;
-pub use registry::{DapLocator, DapRegistry};
-pub use task::DebugRequest;
-use task::DebugScenario;
-
+use debugger_settings::DebuggerSettings;
 use gpui::App;
+pub use registry::{DapLocator, DapRegistry};
 use serde::Serialize;
-use settings::Settings as _;
+use settings::Settings;
+pub use task::DebugRequest;
 
 pub type ScopeId = u64;
 pub type VariableReference = u64;
@@ -23,7 +22,7 @@ pub type StackFrameId = u64;
 
 #[cfg(any(test, feature = "test-support"))]
 pub use adapters::FakeAdapter;
-use task::TcpArgumentsTemplate;
+use task::{DebugScenario, TcpArgumentsTemplate};
 
 pub async fn configure_tcp_connection(
     tcp_connection: TcpArgumentsTemplate,
@@ -52,13 +51,17 @@ pub fn send_telemetry(scenario: &DebugScenario, location: TelemetrySpawnLocation
     let Some(adapter) = cx.global::<DapRegistry>().adapter(&scenario.adapter) else {
         return;
     };
-    let dock = debugger_settings::DebuggerSettings::get_global(cx).dock;
+    let dock = DebuggerSettings::get_global(cx).dock;
     let config = scenario.config.clone();
     let with_build_task = scenario.build.is_some();
     let adapter_name = scenario.adapter.clone();
     cx.spawn(async move |_| {
-        let kind = adapter.request_kind(&config).await.ok();
-        let kind = kind.and_then(|kind| serde_json::to_value(kind).ok());
+        let kind = adapter
+            .request_kind(&config)
+            .await
+            .ok()
+            .map(serde_json::to_value)
+            .and_then(Result::ok);
 
         telemetry::event!(
             "Debugger Session Started",

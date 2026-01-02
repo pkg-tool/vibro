@@ -18,8 +18,8 @@ pub use wit::{
     CodeLabel, CodeLabelSpan, CodeLabelSpanLiteral, Command, DownloadedFileType, EnvVars,
     KeyValueStore, LanguageServerInstallationStatus, Project, Range, Worktree, download_file,
     make_file_executable,
-    zed::extension::context_server::ContextServerConfiguration,
-    zed::extension::dap::{
+    vector::extension::context_server::ContextServerConfiguration,
+    vector::extension::dap::{
         AttachRequest, BuildTaskDefinition, BuildTaskDefinitionTemplatePayload, BuildTaskTemplate,
         DebugAdapterBinary, DebugConfig, DebugRequest, DebugScenario, DebugTaskDefinition,
         LaunchRequest, StartDebuggingRequestArguments, StartDebuggingRequestArgumentsRequest,
@@ -304,9 +304,7 @@ macro_rules! register_extension {
             #[cfg(target_os = "wasi")]
             wasi_ext::init_cwd();
 
-            zed_extension_api::register_extension(|| {
-                Box::new(<$extension_type as zed_extension_api::Extension>::new())
-            });
+            $crate::register_extension(|| Box::new(<$extension_type as $crate::Extension>::new()));
         }
     };
 }

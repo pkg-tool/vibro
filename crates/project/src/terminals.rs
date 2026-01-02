@@ -15,7 +15,7 @@ use task::{Shell, ShellBuilder, ShellKind, SpawnInTerminal};
 use terminal::{
     TaskState, TaskStatus, Terminal, TerminalBuilder, terminal_settings::TerminalSettings,
 };
-use util::{command::new_std_command, get_default_system_shell, maybe, rel_path::RelPath};
+use util::{command::new_std_command, maybe, rel_path::RelPath};
 
 use crate::{Project, ProjectPath};
 
@@ -82,7 +82,7 @@ impl Project {
         let shell_kind = ShellKind::new(&shell, is_windows);
 
         // Prepare a task for resolving the environment
-        let env_task = self.resolve_directory_environment(&shell, path.clone(), cx);
+        let env_task = self.resolve_directory_environment(&shell, path, cx);
 
         let project_path_contexts = self
             .active_entry()
@@ -269,7 +269,7 @@ impl Project {
         let is_windows = self.path_style(cx).is_windows();
 
         // Prepare a task for resolving the environment
-        let env_task = self.resolve_directory_environment(&shell, path.clone(), cx);
+        let env_task = self.resolve_directory_environment(&shell, path, cx);
 
         let lang_registry = self.languages.clone();
         cx.spawn(async move |project, cx| {
@@ -425,7 +425,7 @@ impl Project {
             let mut env = env_task.await.unwrap_or_default();
             env.extend(settings.env);
 
-            project.update(cx, move |_, cx| {
+            project.update(cx, move |_, _cx| {
                 let mut process = new_std_command(command);
                 process.args(args);
                 process.envs(env);

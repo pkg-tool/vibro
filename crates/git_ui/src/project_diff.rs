@@ -2,7 +2,6 @@ use crate::{
     conflict_view::ConflictAddon,
     git_panel::{GitPanel, GitPanelAddon, GitStatusEntry},
     git_panel_settings::GitPanelSettings,
-    remote_button::{render_publish_button, render_push_button},
 };
 use anyhow::{Context as _, Result, anyhow};
 use buffer_diff::{BufferDiff, DiffHunkSecondaryStatus};
@@ -1441,27 +1440,13 @@ impl RenderOnce for ProjectDiffEmptyState {
                         this.child(
                             v_flex()
                                 .child(Headline::new(ahead_string).size(HeadlineSize::Small))
-                                .child(
-                                    Label::new(format!("Push your changes to {}", branch.name()))
-                                        .color(Color::Muted),
-                                ),
+                                .child(Label::new("Remote operations disabled").color(Color::Muted)),
                         )
-                        .child(div().child(render_push_button(
-                            self.focus_handle,
-                            "push".into(),
-                            ahead_count as u32,
-                        )))
                     } else if branch_not_on_remote {
                         this.child(
                             v_flex()
-                                .child(Headline::new("Publish Branch").size(HeadlineSize::Small))
-                                .child(
-                                    Label::new(format!("Create {} on remote", branch.name()))
-                                        .color(Color::Muted),
-                                ),
-                        )
-                        .child(
-                            div().child(render_publish_button(self.focus_handle, "publish".into())),
+                                .child(Headline::new("Branch Not Published").size(HeadlineSize::Small))
+                                .child(Label::new("Remote operations disabled").color(Color::Muted)),
                         )
                     } else {
                         this.child(Label::new("Remote status unknown").color(Color::Muted))

@@ -53,11 +53,6 @@ impl ModalView for SecurityModal {
     }
 
     fn on_before_dismiss(&mut self, _: &mut Window, _: &mut Context<Self>) -> DismissDecision {
-        match self.trusted {
-            Some(false) => telemetry::event!("Open in Restricted", source = "Worktree Trust Modal"),
-            Some(true) => telemetry::event!("Trust and Continue", source = "Worktree Trust Modal"),
-            None => telemetry::event!("Dismissed", source = "Worktree Trust Modal"),
-        }
         DismissDecision::Dismiss(true)
     }
 }

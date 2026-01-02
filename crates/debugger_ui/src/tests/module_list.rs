@@ -91,7 +91,7 @@ async fn test_module_list(executor: BackgroundExecutor, cx: &mut TestAppContext)
     });
 
     client
-        .fake_event("stopped", StoppedEvent {
+        .fake_event(dap::messages::Events::Stopped(StoppedEvent {
             reason: dap::StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -99,7 +99,7 @@ async fn test_module_list(executor: BackgroundExecutor, cx: &mut TestAppContext)
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        })
+        }))
         .await;
 
     cx.run_until_parked();
@@ -158,10 +158,10 @@ async fn test_module_list(executor: BackgroundExecutor, cx: &mut TestAppContext)
     };
 
     client
-        .fake_event("module", dap::ModuleEvent {
+        .fake_event(dap::messages::Events::Module(dap::ModuleEvent {
             reason: dap::ModuleEventReason::New,
             module: new_module.clone(),
-        })
+        }))
         .await;
 
     cx.run_until_parked();
@@ -192,10 +192,10 @@ async fn test_module_list(executor: BackgroundExecutor, cx: &mut TestAppContext)
     };
 
     client
-        .fake_event("module", dap::ModuleEvent {
+        .fake_event(dap::messages::Events::Module(dap::ModuleEvent {
             reason: dap::ModuleEventReason::Changed,
             module: changed_module.clone(),
-        })
+        }))
         .await;
 
     cx.run_until_parked();
@@ -214,10 +214,10 @@ async fn test_module_list(executor: BackgroundExecutor, cx: &mut TestAppContext)
     });
 
     client
-        .fake_event("module", dap::ModuleEvent {
+        .fake_event(dap::messages::Events::Module(dap::ModuleEvent {
             reason: dap::ModuleEventReason::Removed,
             module: changed_module.clone(),
-        })
+        }))
         .await;
 
     cx.run_until_parked();

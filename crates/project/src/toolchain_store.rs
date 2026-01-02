@@ -21,7 +21,9 @@ use rpc::{
 };
 use settings::WorktreeId;
 use task::Shell;
-use util::{ResultExt as _, rel_path::RelPath};
+use util::rel_path::RelPath;
+#[cfg(feature = "collab")]
+use util::ResultExt as _;
 
 use crate::{
     ProjectEnvironment, ProjectPath,
@@ -38,6 +40,7 @@ pub struct ToolchainStore {
 
 enum ToolchainStoreInner {
     Local(Entity<LocalToolchainStore>),
+    #[cfg(feature = "collab")]
     Remote(Entity<RemoteToolchainStore>),
 }
 
@@ -84,6 +87,7 @@ impl ToolchainStore {
         }
     }
 
+    #[cfg(feature = "collab")]
     pub(super) fn remote(
         project_id: u64,
         worktree_store: Entity<WorktreeStore>,
@@ -111,6 +115,7 @@ impl ToolchainStore {
             ToolchainStoreInner::Local(local) => {
                 local.update(cx, |this, cx| this.activate_toolchain(path, toolchain, cx))
             }
+            #[cfg(feature = "collab")]
             ToolchainStoreInner::Remote(remote) => {
                 remote.update(cx, |this, cx| this.activate_toolchain(path, toolchain, cx))
             }
@@ -162,6 +167,7 @@ impl ToolchainStore {
             ToolchainStoreInner::Local(local) => local.update(cx, |this, cx| {
                 this.resolve_toolchain(abs_path, language_name, cx)
             }),
+            #[cfg(feature = "collab")]
             ToolchainStoreInner::Remote(remote) => remote.update(cx, |this, cx| {
                 this.resolve_toolchain(abs_path, language_name, cx)
             }),
@@ -208,6 +214,7 @@ impl ToolchainStore {
             ToolchainStoreInner::Local(local) => {
                 local.update(cx, |this, cx| this.list_toolchains(path, language_name, cx))
             }
+            #[cfg(feature = "collab")]
             ToolchainStoreInner::Remote(remote) => {
                 remote.read(cx).list_toolchains(path, language_name, cx)
             }
@@ -240,6 +247,7 @@ impl ToolchainStore {
                 &path.path,
                 language_name,
             )),
+            #[cfg(feature = "collab")]
             ToolchainStoreInner::Remote(remote) => {
                 remote.read(cx).active_toolchain(path, language_name, cx)
             }
@@ -401,12 +409,14 @@ impl ToolchainStore {
     pub fn as_language_toolchain_store(&self) -> Arc<dyn LanguageToolchainStore> {
         match &self.mode {
             ToolchainStoreInner::Local(local) => Arc::new(LocalStore(local.downgrade())),
+            #[cfg(feature = "collab")]
             ToolchainStoreInner::Remote(remote) => Arc::new(RemoteStore(remote.downgrade())),
         }
     }
     pub fn as_local_store(&self) -> Option<&Entity<LocalToolchainStore>> {
         match &self.mode {
             ToolchainStoreInner::Local(local) => Some(local),
+            #[cfg(feature = "collab")]
             ToolchainStoreInner::Remote(_) => None,
         }
     }
@@ -438,6 +448,7 @@ impl language::LocalLanguageToolchainStore for LocalStore {
     }
 }
 
+#[cfg(feature = "collab")]
 #[async_trait(?Send)]
 impl language::LanguageToolchainStore for RemoteStore {
     async fn active_toolchain(
@@ -469,6 +480,7 @@ impl language::LocalLanguageToolchainStore for EmptyToolchainStore {
     }
 }
 pub(crate) struct LocalStore(WeakEntity<LocalToolchainStore>);
+#[cfg(feature = "collab")]
 struct RemoteStore(WeakEntity<RemoteToolchainStore>);
 
 #[derive(Clone)]
@@ -625,12 +637,16 @@ impl LocalToolchainStore {
     }
 }
 
+#[cfg(feature = "collab")]
 impl EventEmitter<ToolchainStoreEvent> for RemoteToolchainStore {}
+
+#[cfg(feature = "collab")]
 struct RemoteToolchainStore {
     client: AnyProtoClient,
     project_id: u64,
 }
 
+#[cfg(feature = "collab")]
 impl RemoteToolchainStore {
     pub(crate) fn activate_toolchain(
         &self,

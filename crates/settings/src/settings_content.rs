@@ -74,6 +74,13 @@ pub struct SettingsContent {
     /// Default: true
     pub auto_update: Option<bool>,
 
+    /// Optional URL used for self-updating the app.
+    ///
+    /// When unset/null, Vector will not perform any network access for updates.
+    ///
+    /// This can point to a JSON manifest (recommended) or directly to a binary/package.
+    pub auto_update_url: Option<String>,
+
     /// This base keymap settings adjusts the default keybindings in Zed to be similar
     /// to other common code editors. By default, Zed's keymap closely follows VSCode's
     /// keymap, with minor adjustments, this corresponds to the "VSCode" setting.

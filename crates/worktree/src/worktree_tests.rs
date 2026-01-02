@@ -1,9 +1,12 @@
-use crate::{Entry, EntryKind, Event, PathChange, Worktree, WorktreeModelHandle};
+use crate::{EntryKind, Event, PathChange, Worktree, WorktreeModelHandle};
+#[cfg(feature = "remote")]
 use anyhow::Result;
 use encoding_rs;
 use fs::{FakeFs, Fs, RealFs, RemoveOptions};
-use git::{DOT_GIT, GITIGNORE, REPO_EXCLUDE};
-use gpui::{AppContext as _, BackgroundExecutor, BorrowAppContext, Context, Task, TestAppContext};
+use git::{DOT_GIT, REPO_EXCLUDE};
+#[cfg(feature = "remote")]
+use git::GITIGNORE;
+use gpui::{BackgroundExecutor, BorrowAppContext, TestAppContext};
 use parking_lot::Mutex;
 use postage::prelude::Stream as _;
 use pretty_assertions::assert_eq;
@@ -18,7 +21,7 @@ use std::{
     sync::Arc,
 };
 use util::{
-    ResultExt, path,
+    path,
     paths::PathStyle,
     rel_path::{RelPath, rel_path},
     test::TempTree,

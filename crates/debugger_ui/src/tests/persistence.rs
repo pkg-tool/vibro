@@ -44,7 +44,7 @@ async fn test_invert_axis_on_panel_position_change(
     cx.run_until_parked();
 
     client
-        .fake_event("stopped", StoppedEvent {
+        .fake_event(dap::messages::Events::Stopped(StoppedEvent {
             reason: StoppedEventReason::Pause,
             description: None,
             thread_id: Some(1),
@@ -52,7 +52,7 @@ async fn test_invert_axis_on_panel_position_change(
             text: None,
             all_threads_stopped: None,
             hit_breakpoint_ids: None,
-        })
+        }))
         .await;
 
     cx.run_until_parked();

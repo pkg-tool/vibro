@@ -18,7 +18,7 @@ use collections::HashMap;
 use futures::{StreamExt, channel::oneshot};
 use gpui::{
     BackgroundExecutor, DismissEvent, Rgba, TestAppContext, UpdateGlobal, VisualTestContext,
-    WindowBounds, WindowOptions, div,
+    div,
 };
 use indoc::indoc;
 use language::{
@@ -70,8 +70,8 @@ use util::{
 };
 use workspace::{
     CloseActiveItem, CloseAllItems, CloseOtherItems, MoveItemToPaneInDirection, NavigationEntry,
-    OpenOptions, ViewId,
-    item::{FollowEvent, FollowableItem, Item, ItemHandle, SaveOptions},
+    OpenOptions,
+    item::{Item, ItemHandle, SaveOptions},
     register_project_item,
 };
 
@@ -17257,6 +17257,7 @@ fn test_highlighted_ranges(cx: &mut TestAppContext) {
     });
 }
 
+#[cfg(any())]
 #[gpui::test]
 async fn test_following(cx: &mut TestAppContext) {
     init_test(cx, |_| {});
@@ -17478,6 +17479,7 @@ async fn test_following(cx: &mut TestAppContext) {
     assert!(!(*is_still_following.borrow()));
 }
 
+#[cfg(any())]
 #[gpui::test]
 async fn test_following_with_multiple_excerpts(cx: &mut TestAppContext) {
     init_test(cx, |_| {});
@@ -30064,7 +30066,7 @@ async fn test_tab_list_indent(cx: &mut TestAppContext) {
 #[gpui::test]
 async fn test_local_worktree_trust(cx: &mut TestAppContext) {
     init_test(cx, |_| {});
-    cx.update(|cx| project::trusted_worktrees::init(HashMap::default(), None, None, cx));
+    cx.update(|cx| project::trusted_worktrees::init(HashMap::default(), cx));
 
     cx.update(|cx| {
         SettingsStore::update_global(cx, |store, cx| {

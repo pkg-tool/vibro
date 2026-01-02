@@ -33,9 +33,11 @@ mod system_info {
     pub fn os_version() -> String {
         #[cfg(target_os = "macos")]
         {
-            let output = std::process::Command::new("/usr/bin/sw_vers")
-                .args(["-productVersion"])
-                .output();
+            let output = smol::block_on(
+                smol::process::Command::new("/usr/bin/sw_vers")
+                    .args(["-productVersion"])
+                    .output(),
+            );
             match output {
                 Ok(output) if output.status.success() => {
                     let version = String::from_utf8_lossy(&output.stdout).trim().to_string();

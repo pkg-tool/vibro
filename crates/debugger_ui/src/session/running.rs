@@ -1632,7 +1632,7 @@ impl RunningState {
             return;
         };
 
-        let granularity = DebuggerSettings::get_global(cx).stepping_granularity.to_dap();
+        let granularity = DebuggerSettings::get_global(cx).stepping_granularity;
 
         self.session().update(cx, |state, cx| {
             state.step_over(thread_id, granularity, cx);
@@ -1644,7 +1644,7 @@ impl RunningState {
             return;
         };
 
-        let granularity = DebuggerSettings::get_global(cx).stepping_granularity.to_dap();
+        let granularity = DebuggerSettings::get_global(cx).stepping_granularity;
 
         self.session().update(cx, |state, cx| {
             state.step_in(thread_id, granularity, cx);
@@ -1656,7 +1656,7 @@ impl RunningState {
             return;
         };
 
-        let granularity = DebuggerSettings::get_global(cx).stepping_granularity.to_dap();
+        let granularity = DebuggerSettings::get_global(cx).stepping_granularity;
 
         self.session().update(cx, |state, cx| {
             state.step_out(thread_id, granularity, cx);
@@ -1668,7 +1668,7 @@ impl RunningState {
             return;
         };
 
-        let granularity = DebuggerSettings::get_global(cx).stepping_granularity.to_dap();
+        let granularity = DebuggerSettings::get_global(cx).stepping_granularity;
 
         self.session().update(cx, |state, cx| {
             state.step_back(thread_id, granularity, cx);

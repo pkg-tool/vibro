@@ -19,7 +19,7 @@ use itertools::Itertools;
 use project::{Fs, Project, ProjectEntryId};
 use search::{BufferSearchBar, buffer_search::DivRegistrar};
 use settings::{Settings, TerminalDockPosition};
-use task::{RevealStrategy, RevealTarget, Shell, ShellBuilder, SpawnInTerminal, TaskId};
+use task::{RevealStrategy, RevealTarget, ShellBuilder, SpawnInTerminal, TaskId};
 use terminal::{Terminal, terminal_settings::TerminalSettings};
 use ui::{
     ButtonLike, Clickable, ContextMenu, FluentBuilder, PopoverMenu, SplitButton, Toggleable,

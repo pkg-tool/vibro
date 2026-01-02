@@ -5,7 +5,7 @@ use gpui::{
     GlobalElementId, HighlightStyle, Hitbox, Hsla, InputHandler, InteractiveElement, Interactivity,
     IntoElement, LayoutId, Length, ModifiersChangedEvent, MouseButton, MouseMoveEvent, Pixels,
     Point, ShapedLine, StatefulInteractiveElement, StrikethroughStyle, Styled, TextRun, TextStyle,
-    UTF16Selection, UnderlineStyle, WeakEntity, WhiteSpace, Window, div, fill, point, px, relative,
+    UTF16Selection, UnderlineStyle, WhiteSpace, Window, div, fill, point, px, relative,
     size,
 };
 use itertools::Itertools;
@@ -29,8 +29,6 @@ use theme::{ActiveTheme, Theme, ThemeSettings};
 use ui::utils::ensure_minimum_contrast;
 use ui::{ParentElement, Tooltip};
 use util::ResultExt;
-use workspace::Workspace;
-
 use std::mem;
 use std::{fmt::Debug, ops::RangeInclusive, rc::Rc};
 
@@ -282,7 +280,6 @@ fn merge_background_regions(regions: Vec<BackgroundRegion>) -> Vec<BackgroundReg
 pub struct TerminalElement {
     terminal: Entity<Terminal>,
     terminal_view: Entity<TerminalView>,
-    workspace: WeakEntity<Workspace>,
     focus: FocusHandle,
     focused: bool,
     cursor_visible: bool,
@@ -303,7 +300,6 @@ impl TerminalElement {
     pub fn new(
         terminal: Entity<Terminal>,
         terminal_view: Entity<TerminalView>,
-        workspace: WeakEntity<Workspace>,
         focus: FocusHandle,
         focused: bool,
         cursor_visible: bool,
@@ -313,7 +309,6 @@ impl TerminalElement {
         TerminalElement {
             terminal,
             terminal_view,
-            workspace,
             focused,
             focus: focus.clone(),
             cursor_visible,
@@ -1263,7 +1258,6 @@ impl Element for TerminalElement {
                     .cursor
                     .as_ref()
                     .map(|cursor| cursor.bounding_rect(origin)),
-                workspace: self.workspace.clone(),
             };
 
             self.register_mouse_listeners(
@@ -1411,7 +1405,6 @@ impl IntoElement for TerminalElement {
 struct TerminalInputHandler {
     terminal: Entity<Terminal>,
     terminal_view: Entity<TerminalView>,
-    workspace: WeakEntity<Workspace>,
     cursor_bounds: Option<Bounds<Pixels>>,
 }
 

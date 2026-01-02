@@ -175,6 +175,7 @@ impl VsCodeSettings {
             agent_servers: None,
             audio: None,
             auto_update: None,
+            auto_update_url: None,
             base_keymap: Some(BaseKeymapContent::VSCode),
             calls: None,
             collaboration_panel: None,

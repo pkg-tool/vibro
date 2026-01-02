@@ -1214,56 +1214,6 @@ fn find_python_on_path(project_env: &HashMap<String, String>) -> Option<PythonEn
     None
 }
 
-fn find_worktree_virtual_env(worktree_root: &Path) -> Option<PythonEnvironment> {
-    let venv_root = worktree_root.join(".venv");
-    if !venv_root.is_dir() {
-        return None;
-    }
-
-    let executable = if cfg!(windows) {
-        [venv_root.join("Scripts").join("python.exe"), venv_root.join("Scripts").join("python")]
-            .into_iter()
-            .find(|path| path.is_file())
-    } else {
-        [venv_root.join("bin").join("python3"), venv_root.join("bin").join("python")]
-            .into_iter()
-            .find(|path| path.is_file())
-    }?;
-
-    Some(PythonEnvironment {
-        name: Some(".venv".to_string()),
-        executable: Some(executable),
-        kind: Some(PythonEnvironmentKind::Venv),
-        prefix: Some(venv_root),
-        project: Some(worktree_root.to_path_buf()),
-        ..Default::default()
-    })
-}
-
-fn find_python_on_path(project_env: &HashMap<String, String>) -> Option<PythonEnvironment> {
-    let path = project_env.get("PATH")?;
-    let candidates: &[&str] = if cfg!(windows) {
-        &["python.exe", "python3.exe", "python.bat"]
-    } else {
-        &["python3", "python"]
-    };
-
-    for dir in std::env::split_paths(path) {
-        for candidate in candidates {
-            let executable = dir.join(candidate);
-            if executable.is_file() {
-                return Some(PythonEnvironment {
-                    executable: Some(executable),
-                    kind: Some(PythonEnvironmentKind::GlobalPaths),
-                    ..Default::default()
-                });
-            }
-        }
-    }
-
-    None
-}
-
 #[async_trait]
 impl ToolchainLister for PythonToolchainProvider {
     async fn list(

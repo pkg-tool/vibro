@@ -7,35 +7,44 @@ use anyhow::{Context as _, Result, anyhow};
 #[cfg(feature = "collab")]
 use client::Client;
 use collections::{HashMap, HashSet, hash_map};
-use futures::{Future, FutureExt as _, channel::oneshot, future::Shared};
+use futures::{Future, FutureExt as _, future::Shared};
+#[cfg(feature = "collab")]
+use futures::channel::oneshot;
 use gpui::{
     App, AppContext as _, Context, Entity, EventEmitter, Subscription, Task, WeakEntity,
 };
-use language::{
-    Buffer, BufferEvent, Capability, DiskState, File as _, Language, Operation,
-    proto::{
-        deserialize_line_ending, deserialize_version, serialize_line_ending, serialize_version,
-        split_operations,
-    },
+use language::{Buffer, BufferEvent, Capability, DiskState, File as _, Language};
+#[cfg(feature = "collab")]
+use language::Operation;
+#[cfg(feature = "collab")]
+use language::proto::{
+    deserialize_line_ending, deserialize_version, serialize_line_ending, serialize_version,
+    split_operations,
 };
-use rpc::{
-    AnyProtoClient, ErrorCode, ErrorExt as _, TypedEnvelope,
-    proto::{self},
-};
+use rpc::{ErrorCode, ErrorExt as _, proto::{self}};
+#[cfg(feature = "collab")]
+use rpc::{AnyProtoClient, TypedEnvelope};
 
-use std::{io, sync::Arc, time::Instant};
+use std::{io, sync::Arc};
+#[cfg(feature = "collab")]
+use std::time::Instant;
 use text::{BufferId, ReplicaId};
-use util::{ResultExt as _, TryFutureExt, debug_panic, maybe, rel_path::RelPath};
-use worktree::{File, PathChange, ProjectEntryId, Worktree, WorktreeId};
+use util::{ResultExt as _, debug_panic, rel_path::RelPath};
+#[cfg(feature = "collab")]
+use util::maybe;
+use worktree::{File, PathChange, ProjectEntryId, Worktree};
+#[cfg(feature = "collab")]
+use worktree::WorktreeId;
 
 /// A set of open buffers.
 pub struct BufferStore {
-    state: LocalBufferStore,
+    state: BufferStoreState,
     #[allow(clippy::type_complexity)]
     loading_buffers: HashMap<ProjectPath, Shared<Task<Result<Entity<Buffer>, Arc<anyhow::Error>>>>>,
     worktree_store: Entity<WorktreeStore>,
-    opened_buffers: HashMap<BufferId, WeakEntity<Buffer>>,
+    opened_buffers: HashMap<BufferId, OpenBuffer>,
     path_to_buffer_id: HashMap<ProjectPath, BufferId>,
+    #[cfg(feature = "collab")]
     downstream_client: Option<(AnyProtoClient, u64)>,
     shared_buffers: HashMap<proto::PeerId, HashMap<BufferId, SharedBuffer>>,
     non_searchable_buffers: HashSet<BufferId>,
@@ -70,12 +79,19 @@ struct LocalBufferStore {
     _subscription: Subscription,
 }
 
+enum OpenBuffer {
+    Complete { buffer: WeakEntity<Buffer> },
+    #[cfg(feature = "collab")]
+    Operations(Vec<Operation>),
+}
+
 pub enum BufferStoreEvent {
     BufferAdded(Entity<Buffer>),
     BufferOpened {
         buffer: Entity<Buffer>,
         project_path: ProjectPath,
     },
+    SharedBufferClosed(proto::PeerId, BufferId),
     BufferDropped(BufferId),
     BufferChangedFilePath {
         buffer: Entity<Buffer>,
@@ -450,7 +466,7 @@ impl LocalBufferStore {
         };
 
         let buffer_id = this
-            .state
+            .as_local_mut()?
             .local_buffer_ids_by_entry_id
             .get(&entry_id)
             .copied()
@@ -468,7 +484,9 @@ impl LocalBufferStore {
             buffer
         } else {
             this.path_to_buffer_id.remove(&project_path);
-            this.state.local_buffer_ids_by_entry_id.remove(&entry_id);
+            this.as_local_mut()?
+                .local_buffer_ids_by_entry_id
+                .remove(&entry_id);
             return None;
         };
 
@@ -531,12 +549,14 @@ impl LocalBufferStore {
             }
             if new_file.entry_id != old_file.entry_id {
                 if let Some(entry_id) = old_file.entry_id {
-                    this.state.local_buffer_ids_by_entry_id.remove(&entry_id);
+                    if let Some(local) = this.as_local_mut() {
+                        local.local_buffer_ids_by_entry_id.remove(&entry_id);
+                    }
                 }
                 if let Some(entry_id) = new_file.entry_id {
-                    this.state
-                        .local_buffer_ids_by_entry_id
-                        .insert(entry_id, buffer_id);
+                    if let Some(local) = this.as_local_mut() {
+                        local.local_buffer_ids_by_entry_id.insert(entry_id, buffer_id);
+                    }
                 }
             }
 
@@ -635,9 +655,9 @@ impl LocalBufferStore {
                         buffer_id,
                     );
                     if let Some(entry_id) = file.entry_id {
-                        this.state
-                            .local_buffer_ids_by_entry_id
-                            .insert(entry_id, buffer_id);
+                        if let Some(local) = this.as_local_mut() {
+                            local.local_buffer_ids_by_entry_id.insert(entry_id, buffer_id);
+                        }
                     }
                 }
 
@@ -706,15 +726,17 @@ impl BufferStore {
     /// Creates a buffer store, optionally retaining its buffers.
     pub fn local(worktree_store: Entity<WorktreeStore>, cx: &mut Context<Self>) -> Self {
         Self {
-            state: LocalBufferStore {
+            state: BufferStoreState::Local(LocalBufferStore {
                 local_buffer_ids_by_entry_id: Default::default(),
                 worktree_store: worktree_store.clone(),
                 _subscription: cx.subscribe(&worktree_store, |this, _, event, cx| {
                     if let WorktreeStoreEvent::WorktreeAdded(worktree) = event {
-                        this.state.subscribe_to_worktree(worktree, cx);
+                        let this = this.as_local_mut().unwrap();
+                        this.subscribe_to_worktree(worktree, cx);
                     }
                 }),
             }),
+            #[cfg(feature = "collab")]
             downstream_client: None,
             opened_buffers: Default::default(),
             path_to_buffer_id: Default::default(),
@@ -751,11 +773,18 @@ impl BufferStore {
         }
     }
 
+    #[cfg(feature = "collab")]
     fn as_local_mut(&mut self) -> Option<&mut LocalBufferStore> {
         match &mut self.state {
             BufferStoreState::Local(state) => Some(state),
             _ => None,
         }
+    }
+
+    #[cfg(not(feature = "collab"))]
+    fn as_local_mut(&mut self) -> Option<&mut LocalBufferStore> {
+        let BufferStoreState::Local(state) = &mut self.state;
+        Some(state)
     }
 
     #[cfg(feature = "collab")]
@@ -900,7 +929,6 @@ impl BufferStore {
             path: file.path.clone(),
             worktree_id: file.worktree_id(cx),
         });
-        let is_remote = buffer.replica_id().is_remote();
         let open_buffer = OpenBuffer::Complete {
             buffer: buffer_entity.downgrade(),
         };
@@ -919,14 +947,14 @@ impl BufferStore {
 
         match self.opened_buffers.entry(remote_id) {
             hash_map::Entry::Vacant(entry) => {
-                entry.insert(buffer_entity.downgrade());
+                entry.insert(open_buffer);
             }
             hash_map::Entry::Occupied(mut entry) => {
                 if entry.get().upgrade().is_some() {
                     debug_panic!("buffer {remote_id} was already registered");
                     anyhow::bail!("buffer {remote_id} was already registered");
                 }
-                entry.insert(buffer_entity.downgrade());
+                entry.insert(open_buffer);
             }
         };
 
@@ -1045,6 +1073,7 @@ impl BufferStore {
     }
 
     pub fn discard_incomplete(&mut self) {
+        #[cfg(feature = "collab")]
         self.opened_buffers
             .retain(|_, buffer| !matches!(buffer, OpenBuffer::Operations(_)));
     }
@@ -1055,14 +1084,14 @@ impl BufferStore {
         let remote_id = buffer.read(cx).remote_id();
         if let Some(entry_id) = file.entry_id {
             if self
-                .state
+                .as_local_mut()?
                 .local_buffer_ids_by_entry_id
                 .contains_key(&entry_id)
             {
                 return None;
             }
 
-            self.state
+            self.as_local_mut()?
                 .local_buffer_ids_by_entry_id
                 .insert(entry_id, remote_id);
 
@@ -1599,9 +1628,9 @@ impl BufferStore {
                 buffer_id,
             );
             if let Some(entry_id) = file.entry_id {
-                self.state
-                    .local_buffer_ids_by_entry_id
-                    .insert(entry_id, buffer_id);
+                if let Some(local) = self.as_local_mut() {
+                    local.local_buffer_ids_by_entry_id.insert(entry_id, buffer_id);
+                }
             }
         }
         buffer
@@ -1705,7 +1734,8 @@ impl BufferStore {
 impl OpenBuffer {
     fn upgrade(&self) -> Option<Entity<Buffer>> {
         match self {
-            OpenBuffer::Complete { buffer, .. } => buffer.upgrade(),
+            OpenBuffer::Complete { buffer } => buffer.upgrade(),
+            #[cfg(feature = "collab")]
             OpenBuffer::Operations(_) => None,
         }
     }

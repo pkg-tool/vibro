@@ -1,6 +1,6 @@
 use crate::{
-    Anchor, Autoscroll, BufferSerialization, Editor, EditorEvent, EditorSettings, ExcerptId,
-    ExcerptRange, FormatTarget, MultiBuffer, MultiBufferSnapshot, NavigationData,
+    Anchor, Autoscroll, BufferSerialization, Editor, EditorEvent, EditorSettings, FormatTarget,
+    MultiBuffer, MultiBufferSnapshot, NavigationData,
     ReportEditorEvent, SearchWithinRange, SelectionEffects, ToPoint as _,
     display_map::HighlightKey,
     editor_settings::SeedQuerySetting,
@@ -16,8 +16,7 @@ use gpui::{
     SharedString, Styled, Task, WeakEntity, Window,
 };
 use language::{
-    Bias, Buffer, BufferRow, CharKind, CharScopeContext, LocalFile, Point, SelectionGoal,
-    proto::serialize_anchor as serialize_text_anchor,
+    Bias, Buffer, BufferRow, CharKind, CharScopeContext, LocalFile, Point,
 };
 use lsp::DiagnosticSeverity;
 use multi_buffer::MultiBufferOffset;

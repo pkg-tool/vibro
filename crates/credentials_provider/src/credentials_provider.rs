@@ -18,8 +18,9 @@ use release_channel::ReleaseChannel;
 ///
 /// Only works in development. Setting this environment variable in other
 /// release channels is a no-op.
-static ZED_DEVELOPMENT_USE_KEYCHAIN: LazyLock<bool> = LazyLock::new(|| {
-    std::env::var("ZED_DEVELOPMENT_USE_KEYCHAIN").is_ok_and(|value| !value.is_empty())
+static VECTOR_DEVELOPMENT_USE_KEYCHAIN: LazyLock<bool> = LazyLock::new(|| {
+    std::env::var("VECTOR_DEVELOPMENT_USE_KEYCHAIN").is_ok_and(|value| !value.is_empty())
+        || std::env::var("ZED_DEVELOPMENT_USE_KEYCHAIN").is_ok_and(|value| !value.is_empty())
 });
 
 /// A provider for credentials.

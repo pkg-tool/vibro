@@ -28,7 +28,7 @@ impl ReqwestClient {
         reqwest::Client::builder()
             .use_rustls_tls()
             .connect_timeout(Duration::from_secs(10))
-            .redirect(redirect::Policy::none())
+            .redirect_policy(redirect::Policy::none())
     }
 
     pub fn new() -> Self {

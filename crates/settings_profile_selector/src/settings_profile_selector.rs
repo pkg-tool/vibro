@@ -283,12 +283,12 @@ mod tests {
     use editor;
     use gpui::{TestAppContext, UpdateGlobal, VisualTestContext};
     use menu::{Cancel, Confirm, SelectNext, SelectPrevious};
-    use project::{FakeFs, Project};
-    use serde_json::json;
-    use settings::Settings;
-    use theme::{self, ThemeSettings};
-    use workspace::{self, AppState};
-    use zed_actions::settings_profile_selector;
+	    use project::{FakeFs, Project};
+	    use serde_json::json;
+	    use settings::Settings;
+	    use theme::{self, ThemeSettings};
+	    use workspace::{self, AppState};
+	    use vector_actions::settings_profile_selector;
 
     async fn init_test(
         profiles_json: serde_json::Value,

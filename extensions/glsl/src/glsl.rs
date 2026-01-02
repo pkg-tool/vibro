@@ -61,7 +61,7 @@ impl GlslExtension {
         let binary_path = format!("{version_dir}/bin/glsl_analyzer");
 
         if !fs::metadata(&binary_path).is_ok_and(|stat| stat.is_file()) {
-            zed::set_language_server_installation_status(
+            vector::set_language_server_installation_status(
                 language_server_id,
                 &vector::LanguageServerInstallationStatus::Downloading,
             );

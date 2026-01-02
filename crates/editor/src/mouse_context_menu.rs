@@ -8,7 +8,6 @@ use crate::{
 };
 use gpui::prelude::FluentBuilder;
 use gpui::{Context, DismissEvent, Entity, Focusable as _, Pixels, Point, Subscription, Window};
-use settings::Settings;
 use std::ops::Range;
 use text::PointUtf16;
 use workspace::OpenInTerminal;

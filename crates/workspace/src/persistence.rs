@@ -1875,7 +1875,6 @@ mod tests {
     };
     use gpui;
     use pretty_assertions::assert_eq;
-    use remote::SshConnectionOptions;
     use std::{thread, time::Duration};
 
     #[gpui::test]
@@ -2539,21 +2538,10 @@ mod tests {
             user_toolchains: Default::default(),
         };
 
-        let connection_id = db
-            .get_or_create_remote_connection(RemoteConnectionOptions::Ssh(SshConnectionOptions {
-                host: "my-host".into(),
-                port: Some(1234),
-                ..Default::default()
-            }))
-            .await
-            .unwrap();
-
         let workspace_5 = SerializedWorkspace {
             id: WorkspaceId(5),
-            paths: PathList::default(),
-            location: SerializedWorkspaceLocation::Remote(
-                db.remote_connection(connection_id).unwrap(),
-            ),
+            paths: PathList::new(&["/tmp5"]),
+            location: SerializedWorkspaceLocation::Local,
             center_group: Default::default(),
             window_bounds: Default::default(),
             display: Default::default(),
@@ -2586,6 +2574,7 @@ mod tests {
         db.save_workspace(workspace_3.clone()).await;
         thread::sleep(Duration::from_millis(1000)); // Force timestamps to increment
         db.save_workspace(workspace_4.clone()).await;
+        db.save_workspace(workspace_5.clone()).await;
         db.save_workspace(workspace_6.clone()).await;
 
         let locations = db.session_workspaces("session-id-1".to_owned()).unwrap();
@@ -2597,11 +2586,12 @@ mod tests {
 
         let locations = db.session_workspaces("session-id-2".to_owned()).unwrap();
         assert_eq!(locations.len(), 2);
-        assert_eq!(locations[0].0, PathList::default());
+        assert_eq!(locations[0].0, PathList::new(&["/tmp5"]));
         assert_eq!(locations[0].1, Some(50));
-        assert_eq!(locations[0].2, Some(connection_id));
         assert_eq!(locations[1].0, PathList::new(&["/tmp3"]));
         assert_eq!(locations[1].1, Some(30));
+        assert_eq!(locations[0].2, None);
+        assert_eq!(locations[1].2, None);
 
         let locations = db.session_workspaces("session-id-3".to_owned()).unwrap();
         assert_eq!(locations.len(), 1);
@@ -2711,247 +2701,6 @@ mod tests {
                     PathList::new(&[dir4.path(), dir3.path(), dir2.path()])
                 ),
             ]
-        );
-    }
-
-    #[gpui::test]
-    async fn test_last_session_workspace_locations_remote() {
-        let db =
-            WorkspaceDb::open_test_db("test_serializing_workspaces_last_session_workspaces_remote")
-                .await;
-
-        let remote_connections = [
-            ("host-1", "my-user-1"),
-            ("host-2", "my-user-2"),
-            ("host-3", "my-user-3"),
-            ("host-4", "my-user-4"),
-        ]
-        .into_iter()
-        .map(|(host, user)| async {
-            let options = RemoteConnectionOptions::Ssh(SshConnectionOptions {
-                host: host.into(),
-                username: Some(user.to_string()),
-                ..Default::default()
-            });
-            db.get_or_create_remote_connection(options.clone())
-                .await
-                .unwrap();
-            options
-        })
-        .collect::<Vec<_>>();
-
-        let remote_connections = futures::future::join_all(remote_connections).await;
-
-        let workspaces = [
-            (1, remote_connections[0].clone(), 9),
-            (2, remote_connections[1].clone(), 5),
-            (3, remote_connections[2].clone(), 8),
-            (4, remote_connections[3].clone(), 2),
-        ]
-        .into_iter()
-        .map(|(id, remote_connection, window_id)| SerializedWorkspace {
-            id: WorkspaceId(id),
-            paths: PathList::default(),
-            location: SerializedWorkspaceLocation::Remote(remote_connection),
-            center_group: Default::default(),
-            window_bounds: Default::default(),
-            display: Default::default(),
-            docks: Default::default(),
-            centered_layout: false,
-            session_id: Some("one-session".to_owned()),
-            breakpoints: Default::default(),
-            window_id: Some(window_id),
-            user_toolchains: Default::default(),
-        })
-        .collect::<Vec<_>>();
-
-        for workspace in workspaces.iter() {
-            db.save_workspace(workspace.clone()).await;
-        }
-
-        let stack = Some(Vec::from([
-            WindowId::from(2), // Top
-            WindowId::from(8),
-            WindowId::from(5),
-            WindowId::from(9), // Bottom
-        ]));
-
-        let have = db
-            .last_session_workspace_locations("one-session", stack)
-            .unwrap();
-        assert_eq!(have.len(), 4);
-        assert_eq!(
-            have[0],
-            (
-                SerializedWorkspaceLocation::Remote(remote_connections[3].clone()),
-                PathList::default()
-            )
-        );
-        assert_eq!(
-            have[1],
-            (
-                SerializedWorkspaceLocation::Remote(remote_connections[2].clone()),
-                PathList::default()
-            )
-        );
-        assert_eq!(
-            have[2],
-            (
-                SerializedWorkspaceLocation::Remote(remote_connections[1].clone()),
-                PathList::default()
-            )
-        );
-        assert_eq!(
-            have[3],
-            (
-                SerializedWorkspaceLocation::Remote(remote_connections[0].clone()),
-                PathList::default()
-            )
-        );
-    }
-
-    #[gpui::test]
-    async fn test_get_or_create_ssh_project() {
-        let db = WorkspaceDb::open_test_db("test_get_or_create_ssh_project").await;
-
-        let host = "example.com".to_string();
-        let port = Some(22_u16);
-        let user = Some("user".to_string());
-
-        let connection_id = db
-            .get_or_create_remote_connection(RemoteConnectionOptions::Ssh(SshConnectionOptions {
-                host: host.clone().into(),
-                port,
-                username: user.clone(),
-                ..Default::default()
-            }))
-            .await
-            .unwrap();
-
-        // Test that calling the function again with the same parameters returns the same project
-        let same_connection = db
-            .get_or_create_remote_connection(RemoteConnectionOptions::Ssh(SshConnectionOptions {
-                host: host.clone().into(),
-                port,
-                username: user.clone(),
-                ..Default::default()
-            }))
-            .await
-            .unwrap();
-
-        assert_eq!(connection_id, same_connection);
-
-        // Test with different parameters
-        let host2 = "otherexample.com".to_string();
-        let port2 = None;
-        let user2 = Some("otheruser".to_string());
-
-        let different_connection = db
-            .get_or_create_remote_connection(RemoteConnectionOptions::Ssh(SshConnectionOptions {
-                host: host2.clone().into(),
-                port: port2,
-                username: user2.clone(),
-                ..Default::default()
-            }))
-            .await
-            .unwrap();
-
-        assert_ne!(connection_id, different_connection);
-    }
-
-    #[gpui::test]
-    async fn test_get_or_create_ssh_project_with_null_user() {
-        let db = WorkspaceDb::open_test_db("test_get_or_create_ssh_project_with_null_user").await;
-
-        let (host, port, user) = ("example.com".to_string(), None, None);
-
-        let connection_id = db
-            .get_or_create_remote_connection(RemoteConnectionOptions::Ssh(SshConnectionOptions {
-                host: host.clone().into(),
-                port,
-                username: None,
-                ..Default::default()
-            }))
-            .await
-            .unwrap();
-
-        let same_connection_id = db
-            .get_or_create_remote_connection(RemoteConnectionOptions::Ssh(SshConnectionOptions {
-                host: host.clone().into(),
-                port,
-                username: user.clone(),
-                ..Default::default()
-            }))
-            .await
-            .unwrap();
-
-        assert_eq!(connection_id, same_connection_id);
-    }
-
-    #[gpui::test]
-    async fn test_get_remote_connections() {
-        let db = WorkspaceDb::open_test_db("test_get_remote_connections").await;
-
-        let connections = [
-            ("example.com".to_string(), None, None),
-            (
-                "anotherexample.com".to_string(),
-                Some(123_u16),
-                Some("user2".to_string()),
-            ),
-            ("yetanother.com".to_string(), Some(345_u16), None),
-        ];
-
-        let mut ids = Vec::new();
-        for (host, port, user) in connections.iter() {
-            ids.push(
-                db.get_or_create_remote_connection(RemoteConnectionOptions::Ssh(
-                    SshConnectionOptions {
-                        host: host.clone().into(),
-                        port: *port,
-                        username: user.clone(),
-                        ..Default::default()
-                    },
-                ))
-                .await
-                .unwrap(),
-            );
-        }
-
-        let stored_connections = db.remote_connections().unwrap();
-        assert_eq!(
-            stored_connections,
-            [
-                (
-                    ids[0],
-                    RemoteConnectionOptions::Ssh(SshConnectionOptions {
-                        host: "example.com".into(),
-                        port: None,
-                        username: None,
-                        ..Default::default()
-                    }),
-                ),
-                (
-                    ids[1],
-                    RemoteConnectionOptions::Ssh(SshConnectionOptions {
-                        host: "anotherexample.com".into(),
-                        port: Some(123),
-                        username: Some("user2".into()),
-                        ..Default::default()
-                    }),
-                ),
-                (
-                    ids[2],
-                    RemoteConnectionOptions::Ssh(SshConnectionOptions {
-                        host: "yetanother.com".into(),
-                        port: Some(345),
-                        username: None,
-                        ..Default::default()
-                    }),
-                ),
-            ]
-            .into_iter()
-            .collect::<HashMap<_, _>>(),
         );
     }
 

@@ -23,7 +23,6 @@ use std::{
     any::{Any, TypeId},
     ops::Range,
     path::Path,
-    sync::Arc,
     time::Duration,
 };
 use theme::Theme;

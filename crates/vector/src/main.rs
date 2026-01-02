@@ -261,7 +261,7 @@ fn main() {
     let session_id = Uuid::new_v4().to_string();
     let session = app
         .background_executor()
-        .spawn(Session::new(session_id.clone()));
+        .spawn(Session::new(session_id));
 
     let (open_listener, mut open_rx) = OpenListener::new();
 
@@ -340,7 +340,6 @@ fn main() {
             open_listener.open(RawOpenRequest {
                 urls,
                 diff_paths: Vec::new(),
-                ..Default::default()
             })
         }
     });
@@ -380,6 +379,7 @@ fn main() {
         zlog_settings::init(cx);
         handle_settings_file_changes(user_settings_file_rx, global_settings_file_rx, cx);
         handle_keymap_file_changes(user_keymap_file_rx, cx);
+        auto_update::init(cx);
 
         // Strict offline: provide a blocked HTTP client so any accidental network usage fails fast.
         let http = Arc::new(HttpClientWithUrl::new_url(
@@ -466,7 +466,7 @@ fn main() {
 
         let app_state = Arc::new(AppState {
             languages,
-            http_client: http.clone(),
+            http_client: http,
             workspace_store,
             fs: fs.clone(),
             build_window_options,
@@ -586,7 +586,6 @@ fn main() {
             open_listener.open(RawOpenRequest {
                 urls,
                 diff_paths,
-                ..Default::default()
             })
         }
 
@@ -594,7 +593,7 @@ fn main() {
             .next()
             .now_or_never()
             .flatten()
-            .and_then(|request| OpenRequest::parse(request, cx).log_err())
+            .and_then(|request| OpenRequest::parse(request).log_err())
         {
             Some(request) => {
                 handle_open_request(request, app_state.clone(), cx);
@@ -617,7 +616,7 @@ fn main() {
         cx.spawn(async move |cx| {
             while let Some(urls) = open_rx.next().await {
                 cx.update(|cx| {
-                    if let Some(request) = OpenRequest::parse(urls, cx).log_err() {
+                    if let Some(request) = OpenRequest::parse(urls).log_err() {
                         handle_open_request(request, app_state.clone(), cx);
                     }
                 })

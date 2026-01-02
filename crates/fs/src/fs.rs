@@ -300,6 +300,19 @@ impl MTime {
     }
 }
 
+impl From<proto::Timestamp> for MTime {
+    fn from(timestamp: proto::Timestamp) -> Self {
+        MTime::from_seconds_and_nanos(timestamp.seconds, timestamp.nanos)
+    }
+}
+
+impl From<MTime> for proto::Timestamp {
+    fn from(mtime: MTime) -> Self {
+        let (seconds, nanos) = mtime.to_seconds_and_nanos_for_persistence().unwrap_or_default();
+        proto::Timestamp { seconds, nanos }
+    }
+}
+
 pub struct RealFs {
     bundled_git_binary_path: Option<PathBuf>,
     executor: BackgroundExecutor,

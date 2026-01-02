@@ -44,6 +44,7 @@ const MAX_SHORT_SHA_LENGTH: usize = 8;
 
 pub fn init(cx: &mut App) {
     TitleBarSettings::register(cx);
+    system_window_tabs::SystemWindowTabs::init(cx);
 
     cx.observe_new(|workspace: &mut Workspace, window, cx| {
         let Some(window) = window else {

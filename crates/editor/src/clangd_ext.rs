@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use anyhow::Context as _;
 use gpui::{App, Context, Entity, Window};
 use language::Language;
-use project::lsp_store::lsp_ext_command::SwitchSourceHeaderResult;
 use util::paths::PathStyle;
 use workspace::{OpenOptions, OpenVisible};
 

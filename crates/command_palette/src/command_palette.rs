@@ -365,21 +365,6 @@ impl CommandPaletteDelegate {
     }
 }
 
-fn is_vector_url_candidate(input: &str, cx: &App) -> bool {
-    if input.starts_with("vector://") {
-        return true;
-    }
-
-    let Some(app_state) = AppState::try_global(cx).and_then(|state| state.upgrade()) else {
-        return false;
-    };
-
-    input
-        .strip_prefix(&app_state.http_client.base_url())
-        .and_then(|rest| rest.strip_prefix('/'))
-        .is_some()
-}
-
 impl PickerDelegate for CommandPaletteDelegate {
     type ListItem = ListItem;
 

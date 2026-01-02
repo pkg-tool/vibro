@@ -290,7 +290,7 @@ impl TrustedWorktreesStore {
 
         cx.emit(TrustedWorktreesEvent::Trusted(
             weak_worktree_store,
-            trusted_paths.clone(),
+            trusted_paths,
         ));
     }
 
@@ -568,8 +568,8 @@ mod tests {
         cx: &mut TestAppContext,
     ) -> Entity<TrustedWorktreesStore> {
         cx.update(|cx| {
-            init(HashMap::default(), None, None, cx);
-            track_worktree_trust(worktree_store, None, None, None, cx);
+            init(HashMap::default(), cx);
+            track_worktree_trust(worktree_store, None, cx);
             TrustedWorktrees::try_get_global(cx).expect("global should be set")
         })
     }

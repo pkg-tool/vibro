@@ -19,6 +19,7 @@ gpui.workspace = true
 http_client.workspace = true
 log.workspace = true
 paths.workspace = true
+reqwest_client.workspace = true
 release_channel.workspace = true
 semver.workspace = true
 serde.workspace = true

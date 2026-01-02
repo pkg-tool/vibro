@@ -882,14 +882,11 @@ impl AppState {
         let fs = fs::FakeFs::new(cx.background_executor().clone());
         <dyn Fs>::set_global(fs.clone(), cx);
         let languages = Arc::new(LanguageRegistry::test(cx.background_executor().clone()));
-        let clock = Arc::new(clock::FakeSystemClock::new());
         let http_client = http_client::FakeHttpClient::with_404_response();
-        let client = Client::new(clock, http_client, cx);
         let session = cx.new(|cx| AppSession::new(Session::test(), cx));
         let workspace_store = cx.new(WorkspaceStore::new);
 
         theme::init(theme::LoadThemes::JustBase, cx);
-        client::init(&client, cx);
 
         Arc::new(Self {
             http_client,
@@ -1125,16 +1122,12 @@ impl Workspace {
             .detach();
         }
 
-        cx.subscribe_in(&project, window, move |this, _, event, window, cx| {
-            match event {
-                project::Event::RemoteIdChanged(_) => {
-                    this.update_window_title(window, cx);
-                }
-
-                project::Event::WorktreeUpdatedEntries(worktree_id, _) => {
-                    if let Some(trusted_worktrees) = TrustedWorktrees::try_get_global(cx) {
-                        trusted_worktrees.update(cx, |trusted_worktrees, cx| {
-                            trusted_worktrees.can_trust(
+            cx.subscribe_in(&project, window, move |this, _, event, window, cx| {
+                match event {
+                    project::Event::WorktreeUpdatedEntries(worktree_id, _) => {
+                        if let Some(trusted_worktrees) = TrustedWorktrees::try_get_global(cx) {
+                            trusted_worktrees.update(cx, |trusted_worktrees, cx| {
+                                trusted_worktrees.can_trust(
                                 &this.project().read(cx).worktree_store(),
                                 *worktree_id,
                                 cx,
@@ -2274,13 +2267,6 @@ impl Workspace {
                 }
             })?;
 
-            let workspace_count = cx.update(|_window, cx| {
-                cx.windows()
-                    .iter()
-                    .filter(|window| window.downcast::<Workspace>().is_some())
-                    .count()
-            })?;
-
             #[cfg(target_os = "macos")]
             let save_last_workspace = false;
 
@@ -2411,7 +2397,7 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Task<Result<bool>> {
-        if self.project.read(cx).is_disconnected() {
+        if self.project.read(cx).is_disconnected(cx) {
             return Task::ready(Ok(true));
         }
         let dirty_items = self
@@ -2449,7 +2435,7 @@ impl Workspace {
                         (serialize_tasks, remaining_dirty_items)
                     })?;
 
-                futures::future::try_join_all(serialize_tasks).await?;
+                try_join_all(serialize_tasks).await?;
 
                 if remaining_dirty_items.len() > 1 {
                     let answer = workspace.update_in(cx, |_, window, cx| {
@@ -3995,7 +3981,7 @@ impl Workspace {
                 self.remove_pane(pane.clone(), focus_on_pane.clone(), window, cx);
             }
             pane::Event::ActivateItem {
-                local: _,
+                local,
                 focus_changed,
             } => {
                 window.invalidate_character_coordinates();
@@ -4305,7 +4291,8 @@ impl Workspace {
     }
 
     fn update_window_edited(&mut self, window: &mut Window, cx: &mut App) {
-        let is_edited = !self.project.read(cx).is_disconnected() && !self.dirty_items.is_empty();
+        let is_edited =
+            !self.project.read(cx).is_disconnected(cx) && !self.dirty_items.is_empty();
         if is_edited != self.window_edited {
             self.window_edited = is_edited;
             window.set_window_edited(self.window_edited)
@@ -5189,9 +5176,8 @@ impl Workspace {
         use node_runtime::NodeRuntime;
         use session::Session;
 
-        let client = project.read(cx).client();
-        let user_store = project.read(cx).user_store();
-        let workspace_store = cx.new(|cx| WorkspaceStore::new(client.clone(), cx));
+        let http_client = http_client::FakeHttpClient::with_404_response();
+        let workspace_store = cx.new(WorkspaceStore::new);
         let session = cx.new(|cx| AppSession::new(Session::test(), cx));
         window.activate_window();
         let app_state = Arc::new(AppState {

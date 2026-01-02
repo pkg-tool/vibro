@@ -27,6 +27,7 @@ mod environment;
 use buffer_diff::BufferDiff;
 use context_server_store::ContextServerStore;
 pub use environment::ProjectEnvironmentEvent;
+#[cfg(feature = "collab")]
 use git::repository::get_git_committer;
 use git_store::{Repository, RepositoryId};
 pub mod search_history;
@@ -38,8 +39,9 @@ use crate::{
     git_store::GitStore,
     lsp_store::{SymbolLocation, log_store::LogKind},
     project_search::SearchResultsHandle,
-    trusted_worktrees::{PathTrust, RemoteHostLocation, TrustedWorktrees},
 };
+#[cfg(feature = "collab")]
+use crate::trusted_worktrees::{PathTrust, RemoteHostLocation, TrustedWorktrees};
 pub use git_store::{
     ConflictRegion, ConflictSet, ConflictSetSnapshot, ConflictSetUpdate,
     git_traversal::{ChildEntriesGitIter, GitEntry, GitEntryRef, GitTraversal},
@@ -63,11 +65,9 @@ use debugger::{
 };
 use encoding_rs;
 pub use environment::ProjectEnvironment;
-use futures::{
-    StreamExt,
-    channel::mpsc::{self, UnboundedReceiver},
-    future::try_join_all,
-};
+use futures::{StreamExt, future::try_join_all};
+#[cfg(feature = "collab")]
+use futures::channel::mpsc::{self, UnboundedReceiver};
 pub use image_store::{ImageItem, ImageStore};
 use image_store::{ImageItemEvent, ImageStoreEvent};
 
@@ -78,23 +78,27 @@ use gpui::{
 };
 use http_client::HttpClient;
 use language::{
-    Buffer, BufferEvent, Capability, CodeLabel, CursorShape, DiskState, Language, LanguageName,
+    Buffer, BufferEvent, Capability, CodeLabel, DiskState, Language, LanguageName,
     LanguageRegistry, PointUtf16, ToOffset, ToPointUtf16, Toolchain, ToolchainMetadata,
     ToolchainScope, Transaction, Unclipped, language_settings::InlayHintKind,
-    proto::split_operations,
 };
+#[cfg(feature = "collab")]
+use language::proto::split_operations;
 use lsp::{
     CodeActionKind, CompletionContext, CompletionItemKind, DocumentHighlightKind, InsertTextMode,
     LanguageServerBinary, LanguageServerId, LanguageServerName, LanguageServerSelector,
-    MessageActionItem,
 };
+#[cfg(feature = "collab")]
+use lsp::MessageActionItem;
 use lsp_command::*;
 use lsp_store::{CompletionDocumentation, LspFormatTarget, OpenLspBufferHandle};
 pub use manifest_tree::ManifestProvidersStore;
 use node_runtime::NodeRuntime;
 pub use prettier_store::PrettierStore;
 use project_settings::{ProjectSettings, SettingsObserver, SettingsObserverEvent};
-use rpc::{proto, ErrorCode};
+use rpc::proto;
+#[cfg(feature = "collab")]
+use rpc::ErrorCode;
 use search::{SearchInputKind, SearchQuery, SearchResult};
 use search_history::SearchHistory;
 use settings::{InvalidSettingsError, RegisterSetting, Settings, SettingsLocation, SettingsStore};
@@ -105,9 +109,8 @@ use std::{
     borrow::Cow,
     collections::BTreeMap,
     ffi::OsString,
-    ops::{Not as _, Range},
+    ops::Range,
     path::{Path, PathBuf},
-    pin::pin,
     str::{self, FromStr},
     sync::Arc,
     time::Duration,
@@ -116,6 +119,7 @@ use std::{
 use task_store::TaskStore;
 use terminals::Terminals;
 use text::{Anchor, BufferId, OffsetRangeExt, Point, Rope};
+#[cfg(feature = "collab")]
 use toolchain_store::EmptyToolchainStore;
 use util::{
     ResultExt as _, maybe,
@@ -425,6 +429,8 @@ pub enum CompletionSource {
         server_id: LanguageServerId,
         /// The raw completion provided by the language server.
         lsp_completion: Box<lsp::CompletionItem>,
+        /// A set of defaults for this completion item.
+        lsp_defaults: Option<Arc<lsp::CompletionListItemDefaults>>,
         /// Whether this completion has been resolved, to ensure it happens once per completion.
         resolved: bool,
     },
@@ -1716,8 +1722,6 @@ impl Project {
         init_worktree_trust: bool,
         cx: &mut gpui::TestAppContext,
     ) -> Entity<Project> {
-        use clock::FakeSystemClock;
-
         let languages = LanguageRegistry::test(cx.executor());
         let http_client = http_client::FakeHttpClient::with_404_response();
         let project = cx.update(|cx| {
@@ -2500,7 +2504,7 @@ impl Project {
         path: impl Into<ProjectPath>,
         cx: &mut App,
     ) -> Task<Result<Entity<Buffer>>> {
-        if self.is_disconnected() {
+        if self.is_disconnected(cx) {
             return Task::ready(Err(anyhow!("Project is disconnected")));
         }
 
@@ -2540,7 +2544,7 @@ impl Project {
         buffer: Entity<Buffer>,
         cx: &mut Context<Self>,
     ) -> Task<Result<Entity<BufferDiff>>> {
-        if self.is_disconnected() {
+        if self.is_disconnected(cx) {
             return Task::ready(Err(anyhow!("Project is disconnected")));
         }
         self.git_store
@@ -2552,7 +2556,7 @@ impl Project {
         buffer: Entity<Buffer>,
         cx: &mut Context<Self>,
     ) -> Task<Result<Entity<BufferDiff>>> {
-        if self.is_disconnected() {
+        if self.is_disconnected(cx) {
             return Task::ready(Err(anyhow!("Project is disconnected")));
         }
         self.git_store.update(cx, |git_store, cx| {
@@ -2623,7 +2627,7 @@ impl Project {
         path: impl Into<ProjectPath>,
         cx: &mut Context<Self>,
     ) -> Task<Result<Entity<ImageItem>>> {
-        if self.is_disconnected() {
+        if self.is_disconnected(cx) {
             return Task::ready(Err(anyhow!("Project is disconnected")));
         }
 
@@ -5220,6 +5224,7 @@ impl Completion {
     }
 }
 
+#[cfg(feature = "collab")]
 fn proto_to_prompt(level: proto::language_server_prompt_request::Level) -> gpui::PromptLevel {
     match level {
         proto::language_server_prompt_request::Level::Info(_) => gpui::PromptLevel::Info,

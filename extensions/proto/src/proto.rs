@@ -21,9 +21,9 @@ impl vector::Extension for ProtobufExtension {
 
     fn language_server_command(
         &mut self,
-        language_server_id: &zed_extension_api::LanguageServerId,
-        worktree: &zed_extension_api::Worktree,
-    ) -> zed_extension_api::Result<zed_extension_api::Command> {
+        language_server_id: &vector::LanguageServerId,
+        worktree: &vector::Worktree,
+    ) -> Result<vector::Command> {
         match language_server_id.as_ref() {
             ProtobufLanguageServer::SERVER_NAME => self
                 .protobuf_language_server
@@ -46,18 +46,18 @@ impl vector::Extension for ProtobufExtension {
 
     fn language_server_workspace_configuration(
         &mut self,
-        server_id: &zed::LanguageServerId,
-        worktree: &zed::Worktree,
-    ) -> Result<Option<zed::serde_json::Value>> {
+        server_id: &vector::LanguageServerId,
+        worktree: &vector::Worktree,
+    ) -> Result<Option<vector::serde_json::Value>> {
         LspSettings::for_worktree(server_id.as_ref(), worktree)
             .map(|lsp_settings| lsp_settings.settings)
     }
 
     fn language_server_initialization_options(
         &mut self,
-        server_id: &zed::LanguageServerId,
-        worktree: &zed::Worktree,
-    ) -> Result<Option<zed_extension_api::serde_json::Value>> {
+        server_id: &vector::LanguageServerId,
+        worktree: &vector::Worktree,
+    ) -> Result<Option<vector::serde_json::Value>> {
         LspSettings::for_worktree(server_id.as_ref(), worktree)
             .map(|lsp_settings| lsp_settings.initialization_options)
     }

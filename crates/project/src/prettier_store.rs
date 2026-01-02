@@ -2,7 +2,6 @@ use std::{
     ops::ControlFlow,
     path::{Path, PathBuf},
     sync::Arc,
-    time::Duration,
 };
 
 use anyhow::{Context as _, Result, anyhow};
@@ -756,80 +755,4 @@ impl PrettierInstance {
     pub async fn server(&self) -> Option<Arc<LanguageServer>> {
         self.prettier.clone()?.await.ok()?.server().cloned()
     }
-}
-
-async fn install_prettier_packages(
-    fs: &dyn Fs,
-    plugins_to_install: HashSet<Arc<str>>,
-    node: NodeRuntime,
-) -> anyhow::Result<()> {
-    let packages_to_versions = future::try_join_all(
-        plugins_to_install
-            .iter()
-            .chain(Some(&"prettier".into()))
-            .map(|package_name| async {
-                let returned_package_name = package_name.to_string();
-                let latest_version = node
-                    .npm_package_latest_version(package_name)
-                    .await
-                    .with_context(|| {
-                        format!("fetching latest npm version for package {returned_package_name}")
-                    })?;
-                anyhow::Ok((returned_package_name, latest_version.to_string()))
-            }),
-    )
-    .await
-    .context("fetching latest npm versions")?;
-
-    let default_prettier_dir = default_prettier_dir().as_path();
-    match fs.metadata(default_prettier_dir).await.with_context(|| {
-        format!("fetching FS metadata for default prettier dir {default_prettier_dir:?}")
-    })? {
-        Some(prettier_dir_metadata) => anyhow::ensure!(
-            prettier_dir_metadata.is_dir,
-            "default prettier dir {default_prettier_dir:?} is not a directory"
-        ),
-        None => fs
-            .create_dir(default_prettier_dir)
-            .await
-            .with_context(|| format!("creating default prettier dir {default_prettier_dir:?}"))?,
-    }
-
-    log::info!("Installing default prettier and plugins: {packages_to_versions:?}");
-    let borrowed_packages = packages_to_versions
-        .iter()
-        .map(|(package, version)| (package.as_str(), version.as_str()))
-        .collect::<Vec<_>>();
-    node.npm_install_packages(default_prettier_dir, &borrowed_packages)
-        .await
-        .context("fetching formatter packages")?;
-    anyhow::Ok(())
-}
-
-async fn save_prettier_server_file(fs: &dyn Fs) -> anyhow::Result<()> {
-    let prettier_wrapper_path = default_prettier_dir().join(prettier::PRETTIER_SERVER_FILE);
-    fs.save(
-        &prettier_wrapper_path,
-        &text::Rope::from(prettier::PRETTIER_SERVER_JS),
-        text::LineEnding::Unix,
-    )
-    .await
-    .with_context(|| {
-        format!(
-            "writing {} file at {prettier_wrapper_path:?}",
-            prettier::PRETTIER_SERVER_FILE
-        )
-    })?;
-    Ok(())
-}
-
-async fn should_write_prettier_server_file(fs: &dyn Fs) -> bool {
-    let prettier_wrapper_path = default_prettier_dir().join(prettier::PRETTIER_SERVER_FILE);
-    if !fs.is_file(&prettier_wrapper_path).await {
-        return true;
-    }
-    let Ok(prettier_server_file_contents) = fs.load(&prettier_wrapper_path).await else {
-        return true;
-    };
-    prettier_server_file_contents != prettier::PRETTIER_SERVER_JS
 }

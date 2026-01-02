@@ -12,7 +12,6 @@ use extension::api::{ExtensionApiManifest, ExtensionProvides};
 use extension::extension_builder::{CompileExtensionOptions, ExtensionBuilder};
 use language::LanguageConfig;
 use reqwest_client::ReqwestClient;
-use rpc::ExtensionProvides;
 use tokio::process::Command;
 use tree_sitter::{Language, Query, WasmStore};
 

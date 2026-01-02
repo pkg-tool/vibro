@@ -23,6 +23,7 @@ anyhow.workspace = true
 askpass.workspace = true
 assets.workspace = true
 audio.workspace = true
+auto_update.workspace = true
 backtrace.workspace = true
 bincode.workspace = true
 breadcrumbs.workspace = true
@@ -192,7 +193,7 @@ osx_minimum_system_version = "10.15.7"
 osx_info_plist_exts = ["resources/info/*"]
 osx_url_schemes = ["vector"]
 
-[package.metadata.bundle-stable]
+[package.metadata.bundle]
 icon = ["resources/app-icon@2x.png", "resources/app-icon.png"]
 identifier = "dev.vector.Vector"
 name = "Vector"
