@@ -2,11 +2,7 @@ use crate::stdout_is_a_pty;
 use backtrace::{self, Backtrace};
 use chrono::Utc;
 use release_channel::{AppCommitSha, RELEASE_CHANNEL, ReleaseChannel};
-use std::{
-    env,
-    ffi::c_void,
-    sync::atomic::Ordering,
-};
+use std::{env, ffi::c_void, sync::atomic::Ordering};
 use std::{io::Write, panic, sync::atomic::AtomicU32, thread};
 use util::ResultExt;
 
@@ -55,11 +51,9 @@ mod system_info {
         {
             use std::path::Path;
 
-            let content = if let Ok(file) = std::fs::read_to_string(&Path::new("/etc/os-release"))
-            {
+            let content = if let Ok(file) = std::fs::read_to_string(&Path::new("/etc/os-release")) {
                 file
-            } else if let Ok(file) = std::fs::read_to_string(&Path::new("/usr/lib/os-release"))
-            {
+            } else if let Ok(file) = std::fs::read_to_string(&Path::new("/usr/lib/os-release")) {
                 file
             } else {
                 log::error!("Failed to load /etc/os-release, /usr/lib/os-release");
@@ -117,10 +111,7 @@ struct PanicReport {
     backtrace: Vec<String>,
 }
 
-pub fn init_panic_hook(
-    app_version: String,
-    app_commit_sha: Option<AppCommitSha>,
-) {
+pub fn init_panic_hook(app_version: String, app_commit_sha: Option<AppCommitSha>) {
     let is_pty = stdout_is_a_pty();
 
     panic::set_hook(Box::new(move |info| {

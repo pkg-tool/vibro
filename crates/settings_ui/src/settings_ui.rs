@@ -32,8 +32,8 @@ use ui::{
 };
 use ui_input::{NumberField, NumberFieldMode, NumberFieldType};
 use util::{ResultExt as _, paths::PathStyle, rel_path::RelPath};
-use workspace::{AppState, OpenOptions, OpenVisible, Workspace, client_side_decorations};
 use vector_actions::{OpenProjectSettings, OpenSettings, OpenSettingsAt};
+use workspace::{AppState, OpenOptions, OpenVisible, Workspace, client_side_decorations};
 
 use crate::components::{
     EnumVariantDropdown, SettingsInputField, SettingsSectionHeader, font_picker, icon_theme_picker,

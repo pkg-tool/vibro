@@ -52,10 +52,7 @@ use util::debug_panic;
 
 use crate::{project_settings::ProjectSettings, worktree_store::WorktreeStore};
 
-pub fn init(
-    db_trusted_paths: DbTrustedPaths,
-    cx: &mut App,
-) {
+pub fn init(db_trusted_paths: DbTrustedPaths, cx: &mut App) {
     if TrustedWorktrees::try_get_global(cx).is_none() {
         let trusted_worktrees = cx.new(|_| TrustedWorktreesStore::new(db_trusted_paths));
         cx.set_global(TrustedWorktrees(trusted_worktrees))

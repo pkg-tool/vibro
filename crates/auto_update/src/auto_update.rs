@@ -1,8 +1,6 @@
 use anyhow::{Context as _, Result};
 use db::kvp::KEY_VALUE_STORE;
-use gpui::{
-    App, AppContext as _, AsyncApp, Context, Entity, Global, Task, Window, actions,
-};
+use gpui::{App, AppContext as _, AsyncApp, Context, Entity, Global, Task, Window, actions};
 use http_client::{AsyncBody, HttpClient, HttpRequestExt as _, Method, RedirectPolicy, Url};
 use release_channel::{AppCommitSha, AppVersion, ReleaseChannel};
 use reqwest_client::ReqwestClient;
@@ -122,7 +120,8 @@ pub fn init(cx: &mut App) {
             pending_poll: None,
         };
 
-        let mut update_subscription = should_poll_for_updates(cx).then(|| updater.start_polling(cx));
+        let mut update_subscription =
+            should_poll_for_updates(cx).then(|| updater.start_polling(cx));
 
         cx.observe_global::<SettingsStore>(move |updater: &mut AutoUpdater, cx| {
             let should_poll = should_poll_for_updates(cx);
@@ -198,9 +197,11 @@ impl AutoUpdater {
     }
 
     pub fn start_polling(&self, cx: &mut Context<Self>) -> Task<Result<()>> {
-        cx.spawn(async move |this, cx| loop {
-            this.update(cx, |this, cx| this.poll(UpdateCheckType::Automatic, cx))?;
-            cx.background_executor().timer(POLL_INTERVAL).await;
+        cx.spawn(async move |this, cx| {
+            loop {
+                this.update(cx, |this, cx| this.poll(UpdateCheckType::Automatic, cx))?;
+                cx.background_executor().timer(POLL_INTERVAL).await;
+            }
         })
     }
 
@@ -318,67 +319,74 @@ impl AutoUpdater {
 
         let update_url = expand_template(&update_url, release_channel, &installed_version);
 
-        let (version_check, download_url, new_release_token) = if looks_like_manifest_url(&update_url)
-        {
-            let manifest_url = Url::parse(&update_url).context("invalid auto_update_url")?;
-            let asset =
-                fetch_release_asset(&http_client, &manifest_url, release_channel, &installed_version)
-                    .await?;
+        let (version_check, download_url, new_release_token) =
+            if looks_like_manifest_url(&update_url) {
+                let manifest_url = Url::parse(&update_url).context("invalid auto_update_url")?;
+                let asset = fetch_release_asset(
+                    &http_client,
+                    &manifest_url,
+                    release_channel,
+                    &installed_version,
+                )
+                .await?;
 
-            let version_check = parse_version_check_type(release_channel, &asset.version);
+                let version_check = parse_version_check_type(release_channel, &asset.version);
 
-            if !should_download_manifest_update(
-                release_channel,
-                app_commit_sha.as_deref(),
-                &installed_version,
-                &version_check,
-                &previous_status,
-            ) {
-                return this.update(cx, |this, cx| {
-                    this.status = match previous_status {
-                        AutoUpdateStatus::Updated { .. } => previous_status,
-                        _ => AutoUpdateStatus::Idle,
-                    };
-                    cx.notify();
-                });
-            }
+                if !should_download_manifest_update(
+                    release_channel,
+                    app_commit_sha.as_deref(),
+                    &installed_version,
+                    &version_check,
+                    &previous_status,
+                ) {
+                    return this.update(cx, |this, cx| {
+                        this.status = match previous_status {
+                            AutoUpdateStatus::Updated { .. } => previous_status,
+                            _ => AutoUpdateStatus::Idle,
+                        };
+                        cx.notify();
+                    });
+                }
 
-            let download_url_raw = expand_template(&asset.url, release_channel, &installed_version);
-            let download_url = Url::parse(&download_url_raw)
-                .or_else(|_| manifest_url.join(&download_url_raw))
-                .context("invalid download url in update manifest")?;
+                let download_url_raw =
+                    expand_template(&asset.url, release_channel, &installed_version);
+                let download_url = Url::parse(&download_url_raw)
+                    .or_else(|_| manifest_url.join(&download_url_raw))
+                    .context("invalid download url in update manifest")?;
 
-            (version_check, download_url, None)
-        } else {
-            let download_url = Url::parse(&update_url).context("invalid auto_update_url")?;
-            let token = fetch_artifact_token(&http_client, &download_url).await?;
-            let token_key = last_seen_asset_token_key(release_channel);
-            if let Some(token) = token.as_ref()
-                && let Some(previous) = KEY_VALUE_STORE.read_kvp(&token_key)?
-                && previous == *token
-            {
-                return this.update(cx, |this, cx| {
-                    this.status = match previous_status {
-                        AutoUpdateStatus::Updated { .. } => previous_status,
-                        _ => AutoUpdateStatus::Idle,
-                    };
-                    cx.notify();
-                });
-            }
+                (version_check, download_url, None)
+            } else {
+                let download_url = Url::parse(&update_url).context("invalid auto_update_url")?;
+                let token = fetch_artifact_token(&http_client, &download_url).await?;
+                let token_key = last_seen_asset_token_key(release_channel);
+                if let Some(token) = token.as_ref()
+                    && let Some(previous) = KEY_VALUE_STORE.read_kvp(&token_key)?
+                    && previous == *token
+                {
+                    return this.update(cx, |this, cx| {
+                        this.status = match previous_status {
+                            AutoUpdateStatus::Updated { .. } => previous_status,
+                            _ => AutoUpdateStatus::Idle,
+                        };
+                        cx.notify();
+                    });
+                }
 
-            if matches!(check_type, UpdateCheckType::Automatic) && token.is_none() {
-                log::info!("auto-update URL did not provide cache headers; skipping automatic download");
-                return this.update(cx, |this, cx| {
-                    this.status = AutoUpdateStatus::Idle;
-                    cx.notify();
-                });
-            }
+                if matches!(check_type, UpdateCheckType::Automatic) && token.is_none() {
+                    log::info!(
+                        "auto-update URL did not provide cache headers; skipping automatic download"
+                    );
+                    return this.update(cx, |this, cx| {
+                        this.status = AutoUpdateStatus::Idle;
+                        cx.notify();
+                    });
+                }
 
-            let version_check = VersionCheckType::Sha(AppCommitSha::new(
-                token.clone().unwrap_or_else(|| "manual".to_string()),
-            ));
-            (version_check, download_url, token)
-        };
+                let version_check = VersionCheckType::Sha(AppCommitSha::new(
+                    token.clone().unwrap_or_else(|| "manual".to_string()),
+                ));
+                (version_check, download_url, token)
+            };
 
         this.update(cx, |this, cx| {
             this.status = AutoUpdateStatus::Downloading {
@@ -412,7 +420,9 @@ impl AutoUpdater {
         this.update(cx, |this, cx| {
             this.set_should_show_update_notification(true, cx)
                 .detach_and_log_err(cx);
-            this.status = AutoUpdateStatus::Updated { version: version_check };
+            this.status = AutoUpdateStatus::Updated {
+                version: version_check,
+            };
             cx.notify();
         })
     }
@@ -497,7 +507,11 @@ fn looks_like_manifest_url(url: &str) -> bool {
     url.ends_with(".json") || url.ends_with(".jsonc")
 }
 
-fn expand_template(template: &str, release_channel: ReleaseChannel, current_version: &Version) -> String {
+fn expand_template(
+    template: &str,
+    release_channel: ReleaseChannel,
+    current_version: &Version,
+) -> String {
     template
         .replace("{channel}", release_channel.dev_name())
         .replace("{os}", OS)
@@ -539,7 +553,9 @@ fn should_download_manifest_update(
     fetched_version: &VersionCheckType,
     previous_status: &AutoUpdateStatus,
 ) -> bool {
-    if let AutoUpdateStatus::Updated { version: cached, .. } = previous_status
+    if let AutoUpdateStatus::Updated {
+        version: cached, ..
+    } = previous_status
         && cached == fetched_version
     {
         return false;
@@ -547,7 +563,8 @@ fn should_download_manifest_update(
 
     match fetched_version {
         VersionCheckType::Semantic(fetched) => {
-            strip_semver_build_pre(fetched.clone()) > strip_semver_build_pre(installed_version.clone())
+            strip_semver_build_pre(fetched.clone())
+                > strip_semver_build_pre(installed_version.clone())
         }
         VersionCheckType::Sha(fetched_sha) => {
             if let Some(app_commit_sha) = app_commit_sha
@@ -594,7 +611,10 @@ async fn fetch_release_asset(
     })
 }
 
-async fn fetch_artifact_token(http_client: &Arc<dyn HttpClient>, url: &Url) -> Result<Option<String>> {
+async fn fetch_artifact_token(
+    http_client: &Arc<dyn HttpClient>,
+    url: &Url,
+) -> Result<Option<String>> {
     let request = http_client::Builder::new()
         .method(Method::HEAD)
         .uri(url.as_str())
@@ -641,7 +661,9 @@ async fn download_release(
 ) -> Result<()> {
     let mut target_file = File::create(target_path).await?;
 
-    let mut response = http_client.get(url.as_str(), AsyncBody::default(), true).await?;
+    let mut response = http_client
+        .get(url.as_str(), AsyncBody::default(), true)
+        .await?;
     anyhow::ensure!(
         response.status().is_success(),
         "failed to download update: {:?}",

@@ -668,8 +668,11 @@ mod linux {
 
                 // libexec is the standard, lib/vector is for some distros,
                 // ./vector is for the target directory in development builds.
-                let possible_locations =
-                    ["../libexec/vector-editor", "../lib/vector/vector-editor", "./vector"];
+                let possible_locations = [
+                    "../libexec/vector-editor",
+                    "../lib/vector/vector-editor",
+                    "./vector",
+                ];
                 possible_locations
                     .iter()
                     .find_map(|p| dir.join(p).canonicalize().ok().filter(|path| path != &cli))

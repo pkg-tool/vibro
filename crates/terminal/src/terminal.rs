@@ -1584,7 +1584,10 @@ impl Terminal {
         self.last_content = Self::make_content(&terminal, &self.last_content);
     }
 
-    fn make_content(term: &Term<AlacrittyListener>, last_content: &TerminalContent) -> TerminalContent {
+    fn make_content(
+        term: &Term<AlacrittyListener>,
+        last_content: &TerminalContent,
+    ) -> TerminalContent {
         let content = term.renderable_content();
 
         // Pre-allocate with estimated size to reduce reallocations

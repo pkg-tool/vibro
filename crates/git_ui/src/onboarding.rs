@@ -8,10 +8,8 @@ use workspace::{ModalView, Workspace};
 use crate::git_panel::GitPanel;
 
 macro_rules! git_onboarding_event {
-    ($name:expr) => {
-    };
-    ($name:expr, $($key:ident $(= $value:expr)?),+ $(,)?) => {
-    };
+    ($name:expr) => {};
+    ($name:expr, $($key:ident $(= $value:expr)?),+ $(,)?) => {};
 }
 
 /// Introduces user to the Git Panel and overall improved Git support

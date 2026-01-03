@@ -544,7 +544,9 @@ impl Worker {
                 confirm_contents_will_match_tx,
                 Some(fs),
             ),
-            FindSearchCandidates::OpenBuffersOnly => (unbounded().1, unbounded().1, unbounded().0, None),
+            FindSearchCandidates::OpenBuffersOnly => {
+                (unbounded().1, unbounded().1, unbounded().0, None)
+            }
         };
         // WorkerA: grabs a request for "find all matches in file/a" <- takes 5 minutes
         // right after: WorkerB: grabs a request for "find all matches in file/b" <- takes 5 seconds

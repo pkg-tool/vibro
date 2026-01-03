@@ -38,8 +38,8 @@ use futures::channel::{mpsc, oneshot};
 use futures::io::BufReader;
 #[cfg(any())]
 use futures::{AsyncBufReadExt as _, TryStreamExt};
-use futures::{SinkExt, StreamExt};
 use futures::{FutureExt, future::Shared};
+use futures::{SinkExt, StreamExt};
 use gpui::{
     App, AppContext, AsyncApp, BackgroundExecutor, Context, Entity, EventEmitter, SharedString,
     Task, WeakEntity,
@@ -1628,7 +1628,8 @@ impl Session {
             Events::ProgressUpdate(_) => {}
             Events::Invalidated(_) => {}
             Events::Other(event) => {
-                if event.event == "launchBrowserInCompanion" || event.event == "killCompanionBrowser"
+                if event.event == "launchBrowserInCompanion"
+                    || event.event == "killCompanionBrowser"
                 {
                     log::debug!("Ignoring DAP event `{}` in offline build", event.event);
                 }

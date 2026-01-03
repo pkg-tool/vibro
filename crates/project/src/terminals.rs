@@ -450,8 +450,9 @@ impl Project {
     ) -> Shared<Task<Option<HashMap<String, String>>>> {
         if let Some(path) = &path {
             let shell = Shell::Program(shell.to_string());
-            self.environment
-                .update(cx, |project_env, cx| project_env.local_directory_environment(&shell, path.clone(), cx))
+            self.environment.update(cx, |project_env, cx| {
+                project_env.local_directory_environment(&shell, path.clone(), cx)
+            })
         } else {
             Task::ready(None).shared()
         }

@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
     any::{TypeId, type_name},
     cell::{BorrowMutError, Ref, RefCell, RefMut},
@@ -9,7 +10,6 @@ use std::{
     sync::{Arc, atomic::Ordering::SeqCst},
     time::{Duration, Instant},
 };
-use std::sync::atomic::{AtomicBool, Ordering};
 
 use anyhow::{Context as _, Result, anyhow};
 use derive_more::{Deref, DerefMut};

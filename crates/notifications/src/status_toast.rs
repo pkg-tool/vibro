@@ -2,8 +2,8 @@ use std::rc::Rc;
 
 use gpui::{DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, IntoElement};
 use ui::{Tooltip, prelude::*};
-use workspace::{ToastAction, ToastView};
 use vector_actions::toast;
+use workspace::{ToastAction, ToastView};
 
 #[derive(Clone, Copy)]
 pub struct ToastIcon {
@@ -180,11 +180,9 @@ impl Component for StatusToast {
         let dismiss_button_example =
             StatusToast::new("Dismiss Button", cx, |this, _| this.dismiss_button(true));
 
-        let icon_example = StatusToast::new(
-            "Extension installed",
-            cx,
-            |this, _| this.icon(ToastIcon::new(IconName::Check).color(Color::Muted)),
-        );
+        let icon_example = StatusToast::new("Extension installed", cx, |this, _| {
+            this.icon(ToastIcon::new(IconName::Check).color(Color::Muted))
+        });
 
         let success_example = StatusToast::new("Pushed 4 changes to `main`", cx, |this, _| {
             this.icon(ToastIcon::new(IconName::Check).color(Color::Success))

@@ -12,9 +12,7 @@ use encoding_rs::Encoding;
 use fs::{Fs, MTime, PathEvent, RemoveOptions, Watcher, copy_recursive};
 use futures::{
     FutureExt as _, Stream, StreamExt,
-    channel::{
-        mpsc::{self, UnboundedSender},
-    },
+    channel::mpsc::{self, UnboundedSender},
     select_biased, stream,
     task::Poll,
 };
@@ -33,11 +31,7 @@ use language::DiskState;
 #[cfg(feature = "collab")]
 use parking_lot::Mutex;
 use paths::{local_settings_folder_name, local_vscode_folder_name};
-use postage::{
-    barrier,
-    prelude::Stream as _,
-    watch,
-};
+use postage::{barrier, prelude::Stream as _, watch};
 pub use settings::WorktreeId;
 use settings::{Settings, SettingsLocation, SettingsStore};
 use smallvec::{SmallVec, smallvec};
@@ -62,13 +56,13 @@ use std::{
 };
 use sum_tree::{Bias, Dimensions, Edit, KeyedItem, SeekTarget, SumTree, Summary, TreeMap, TreeSet};
 use text::{LineEnding, Rope};
+#[cfg(feature = "collab")]
+use util::paths::PathMatcher;
 use util::{
     ResultExt, debug_panic, maybe,
     paths::{PathStyle, SanitizedPath, home_dir},
     rel_path::RelPath,
 };
-#[cfg(feature = "collab")]
-use util::paths::PathMatcher;
 pub use worktree_settings::WorktreeSettings;
 
 use crate::ignore::IgnoreKind;

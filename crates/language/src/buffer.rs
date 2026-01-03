@@ -1,5 +1,6 @@
 pub mod row_chunk;
 
+use crate::proto;
 use crate::{
     DebuggerTextObject, LanguageScope, Outline, OutlineConfig, PLAIN_TEXT, RunnableCapture,
     RunnableTag, TextObject, TreeSitterOptions,
@@ -15,7 +16,6 @@ use crate::{
     text_diff::text_diff,
     unified_diff,
 };
-use crate::proto;
 pub use crate::{
     Grammar, Language, LanguageRegistry,
     diagnostic_set::DiagnosticSet,
@@ -988,8 +988,8 @@ impl Buffer {
         let buffer = TextBuffer::new(replica_id, buffer_id, message.base_text);
         let mut this = Self::build(buffer, file, capability);
 
-        let line_ending = rpc::proto::LineEnding::from_i32(message.line_ending)
-            .context("missing line_ending")?;
+        let line_ending =
+            rpc::proto::LineEnding::from_i32(message.line_ending).context("missing line_ending")?;
         this.text
             .set_line_ending(proto::deserialize_line_ending(line_ending));
 

@@ -23,10 +23,10 @@ use git_ui::commit_view::CommitViewToolbar;
 use git_ui::git_panel::GitPanel;
 use git_ui::project_diff::ProjectDiffToolbar;
 use gpui::{
-    Action, App, AppContext as _, Context, DismissEvent, Element, Entity,
-    Focusable, KeyBinding, ParentElement, PathPromptOptions, PromptLevel, ReadGlobal, SharedString,
-    TitlebarOptions, UpdateGlobal, WeakEntity, Window, WindowKind, WindowOptions, actions,
-    image_cache, point, px, retain_all,
+    Action, App, AppContext as _, Context, DismissEvent, Element, Entity, Focusable, KeyBinding,
+    ParentElement, PathPromptOptions, PromptLevel, ReadGlobal, SharedString, TitlebarOptions,
+    UpdateGlobal, WeakEntity, Window, WindowKind, WindowOptions, actions, image_cache, point, px,
+    retain_all,
 };
 use image_viewer::ImageInfo;
 use language::Capability;
@@ -67,20 +67,16 @@ use util::markdown::MarkdownString;
 use util::rel_path::RelPath;
 use util::{ResultExt, asset_str};
 use uuid::Uuid;
+use vector_actions::{OpenSettingsFile, OpenVectorUrl, Quit};
 use vim_mode_setting::VimModeSetting;
-use workspace::notifications::{
-    NotificationId, dismiss_app_notification, show_app_notification,
-};
+use workspace::notifications::{NotificationId, dismiss_app_notification, show_app_notification};
 use workspace::{
     AppState, NewFile, NewWindow, OpenLog, Toast, Workspace, WorkspaceSettings,
     create_and_open_local_file, notifications::simple_message_notification::MessageNotification,
     open_new,
 };
-use workspace::{
-    CloseIntent, CloseWindow, RestoreBanner, with_active_or_new_workspace,
-};
+use workspace::{CloseIntent, CloseWindow, RestoreBanner, with_active_or_new_workspace};
 use workspace::{Pane, notifications::DetachAndPromptErr};
-use vector_actions::{OpenSettingsFile, OpenVectorUrl, Quit};
 
 actions!(
     vector,
@@ -315,10 +311,7 @@ pub fn build_window_options(display_uuid: Option<Uuid>, cx: &mut App) -> WindowO
     }
 }
 
-pub fn initialize_workspace(
-    app_state: Arc<AppState>,
-    cx: &mut App,
-) {
+pub fn initialize_workspace(app_state: Arc<AppState>, cx: &mut App) {
     let mut _on_close_subscription = bind_on_window_closed(cx);
     cx.observe_global::<SettingsStore>(move |cx| {
         // A 1.92 regression causes unused-assignment to trigger on this variable.
@@ -569,10 +562,7 @@ fn show_software_emulation_warning_if_needed(
     }
 }
 
-fn initialize_panels(
-    window: &mut Window,
-    cx: &mut Context<Workspace>,
-) {
+fn initialize_panels(window: &mut Window, cx: &mut Context<Workspace>) {
     cx.spawn_in(window, async move |workspace_handle, cx| {
         let project_panel = ProjectPanel::load(workspace_handle.clone(), cx.clone());
         let outline_panel = OutlinePanel::load(workspace_handle.clone(), cx.clone());
@@ -834,9 +824,8 @@ fn register_actions(
                             let buffer = project.update(cx, |project, cx| {
                                 project.create_local_buffer("", None, true, cx)
                             });
-                            let editor = cx.new(|cx| {
-                                Editor::for_buffer(buffer, Some(project), window, cx)
-                            });
+                            let editor =
+                                cx.new(|cx| Editor::for_buffer(buffer, Some(project), window, cx));
                             workspace.add_item_to_active_pane(
                                 Box::new(editor),
                                 None,
@@ -865,8 +854,7 @@ fn register_actions(
                     .detach();
                 }
             }
-        })
-        ;
+        });
 
     #[cfg(not(target_os = "windows"))]
     workspace.register_action(install_cli);
@@ -1155,10 +1143,7 @@ fn notify_settings_errors(result: settings::SettingsParseResult, is_user: bool, 
                             .primary_message("Open Settings File")
                             .primary_icon(IconName::Settings)
                             .primary_on_click(|window, cx| {
-                                window.dispatch_action(
-                                    OpenSettingsFile.boxed_clone(),
-                                    cx,
-                                );
+                                window.dispatch_action(OpenSettingsFile.boxed_clone(), cx);
                                 cx.emit(DismissEvent);
                             })
                     })

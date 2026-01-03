@@ -19,6 +19,10 @@ pub mod vue_language_server_ext;
 mod inlay_hint_cache;
 
 use self::inlay_hint_cache::BufferInlayHints;
+#[cfg(feature = "collab")]
+use crate::Project;
+#[cfg(feature = "collab")]
+use crate::lsp_store::log_store::{GlobalLogStore, LanguageServerKind};
 use crate::{
     CodeAction, ColorPresentation, Completion, CompletionDisplayOptions, CompletionResponse,
     CompletionSource, CoreCompletion, DocumentColor, Hover, InlayHint, InlayId, LocationLink,
@@ -39,13 +43,8 @@ use crate::{
     worktree_store::{WorktreeStore, WorktreeStoreEvent},
     yarn::YarnPathStore,
 };
-#[cfg(feature = "collab")]
-use crate::Project;
-#[cfg(feature = "collab")]
-use crate::lsp_store::log_store::{GlobalLogStore, LanguageServerKind};
 use anyhow::{Context as _, Result, anyhow};
 use async_trait::async_trait;
-use rpc::{TypedEnvelope, proto};
 use clock::Global;
 use collections::{BTreeMap, BTreeSet, HashMap, HashSet, btree_map};
 use futures::{
@@ -94,6 +93,7 @@ use rpc::{
     AnyProtoClient, ErrorCode, ErrorExt as _,
     proto::{LspRequestId, LspRequestMessage as _},
 };
+use rpc::{TypedEnvelope, proto};
 use semver::Version;
 use serde::Serialize;
 use serde_json::Value;
@@ -3729,7 +3729,7 @@ pub struct RemoteLspStore {
 pub struct RemoteLspStore;
 
 pub(crate) enum LspStoreMode {
-    Local(LocalLspStore),   // ssh host and collab host
+    Local(LocalLspStore), // ssh host and collab host
     #[cfg(feature = "collab")]
     Remote(RemoteLspStore), // collab guest
 }
@@ -8316,7 +8316,10 @@ impl LspStore {
 
     pub fn disconnected_from_ssh_remote(&mut self) {
         #[cfg(feature = "collab")]
-        if let LspStoreMode::Remote(RemoteLspStore { upstream_client, .. }) = &mut self.mode {
+        if let LspStoreMode::Remote(RemoteLspStore {
+            upstream_client, ..
+        }) = &mut self.mode
+        {
             upstream_client.take();
         }
     }
@@ -8555,7 +8558,9 @@ impl LspStore {
         let local = match &mut self.mode {
             LspStoreMode::Local(local_lsp_store) => local_lsp_store,
             #[cfg(feature = "collab")]
-            LspStoreMode::Remote(_) => anyhow::bail!("update_worktree_diagnostics called on remote"),
+            LspStoreMode::Remote(_) => {
+                anyhow::bail!("update_worktree_diagnostics called on remote")
+            }
         };
 
         let summaries_for_tree = self.diagnostic_summaries.entry(worktree_id).or_default();

@@ -35,13 +35,13 @@ mod yarn;
 
 use dap::inline_value::{InlineValueLocation, VariableLookupKind, VariableScope};
 
+#[cfg(feature = "collab")]
+use crate::trusted_worktrees::{PathTrust, RemoteHostLocation, TrustedWorktrees};
 use crate::{
     git_store::GitStore,
     lsp_store::{SymbolLocation, log_store::LogKind},
     project_search::SearchResultsHandle,
 };
-#[cfg(feature = "collab")]
-use crate::trusted_worktrees::{PathTrust, RemoteHostLocation, TrustedWorktrees};
 pub use git_store::{
     ConflictRegion, ConflictSet, ConflictSetSnapshot, ConflictSetUpdate,
     git_traversal::{ChildEntriesGitIter, GitEntry, GitEntryRef, GitTraversal},
@@ -65,40 +65,40 @@ use debugger::{
 };
 use encoding_rs;
 pub use environment::ProjectEnvironment;
-use futures::{StreamExt, future::try_join_all};
 #[cfg(feature = "collab")]
 use futures::channel::mpsc::{self, UnboundedReceiver};
+use futures::{StreamExt, future::try_join_all};
 pub use image_store::{ImageItem, ImageStore};
 use image_store::{ImageItemEvent, ImageStoreEvent};
 
 use ::git::{blame::Blame, status::FileStatus};
 use gpui::{
-    App, AppContext, AsyncApp, Context, Entity, EventEmitter, Hsla, SharedString,
-    Task, WeakEntity, Window,
+    App, AppContext, AsyncApp, Context, Entity, EventEmitter, Hsla, SharedString, Task, WeakEntity,
+    Window,
 };
 use http_client::HttpClient;
+#[cfg(feature = "collab")]
+use language::proto::split_operations;
 use language::{
     Buffer, BufferEvent, Capability, CodeLabel, DiskState, Language, LanguageName,
     LanguageRegistry, PointUtf16, ToOffset, ToPointUtf16, Toolchain, ToolchainMetadata,
     ToolchainScope, Transaction, Unclipped, language_settings::InlayHintKind,
 };
 #[cfg(feature = "collab")]
-use language::proto::split_operations;
+use lsp::MessageActionItem;
 use lsp::{
     CodeActionKind, CompletionContext, CompletionItemKind, DocumentHighlightKind, InsertTextMode,
     LanguageServerBinary, LanguageServerId, LanguageServerName, LanguageServerSelector,
 };
-#[cfg(feature = "collab")]
-use lsp::MessageActionItem;
 use lsp_command::*;
 use lsp_store::{CompletionDocumentation, LspFormatTarget, OpenLspBufferHandle};
 pub use manifest_tree::ManifestProvidersStore;
 use node_runtime::NodeRuntime;
 pub use prettier_store::PrettierStore;
 use project_settings::{ProjectSettings, SettingsObserver, SettingsObserverEvent};
-use rpc::proto;
 #[cfg(feature = "collab")]
 use rpc::ErrorCode;
+use rpc::proto;
 use search::{SearchInputKind, SearchQuery, SearchResult};
 use search_history::SearchHistory;
 use settings::{InvalidSettingsError, RegisterSetting, Settings, SettingsLocation, SettingsStore};
@@ -2870,62 +2870,60 @@ impl Project {
                 language_server_id,
                 name,
                 message,
-            } => {
-                match message {
-                    proto::update_language_server::Variant::MetadataUpdated(update) => {
-                        self.lsp_store.update(cx, |lsp_store, _| {
-                            if let Some(capabilities) = update
-                                .capabilities
+            } => match message {
+                proto::update_language_server::Variant::MetadataUpdated(update) => {
+                    self.lsp_store.update(cx, |lsp_store, _| {
+                        if let Some(capabilities) = update
+                            .capabilities
+                            .as_ref()
+                            .and_then(|capabilities| serde_json::from_str(capabilities).ok())
+                        {
+                            lsp_store
+                                .lsp_server_capabilities
+                                .insert(*language_server_id, capabilities);
+                        }
+
+                        if let Some(language_server_status) = lsp_store
+                            .language_server_statuses
+                            .get_mut(language_server_id)
+                        {
+                            if let Some(binary) = &update.binary {
+                                language_server_status.binary = Some(LanguageServerBinary {
+                                    path: PathBuf::from(&binary.path),
+                                    arguments: binary
+                                        .arguments
+                                        .iter()
+                                        .map(OsString::from)
+                                        .collect(),
+                                    env: None,
+                                });
+                            }
+
+                            language_server_status.configuration = update
+                                .configuration
                                 .as_ref()
-                                .and_then(|capabilities| serde_json::from_str(capabilities).ok())
-                            {
-                                lsp_store
-                                    .lsp_server_capabilities
-                                    .insert(*language_server_id, capabilities);
-                            }
+                                .and_then(|config_str| serde_json::from_str(config_str).ok());
 
-                            if let Some(language_server_status) = lsp_store
-                                .language_server_statuses
-                                .get_mut(language_server_id)
-                            {
-                                if let Some(binary) = &update.binary {
-                                    language_server_status.binary = Some(LanguageServerBinary {
-                                        path: PathBuf::from(&binary.path),
-                                        arguments: binary
-                                            .arguments
-                                            .iter()
-                                            .map(OsString::from)
-                                            .collect(),
-                                        env: None,
-                                    });
-                                }
-
-                                language_server_status.configuration = update
-                                    .configuration
-                                    .as_ref()
-                                    .and_then(|config_str| serde_json::from_str(config_str).ok());
-
-                                language_server_status.workspace_folders = update
-                                    .workspace_folders
-                                    .iter()
-                                    .filter_map(|uri_str| lsp::Uri::from_str(uri_str).ok())
-                                    .collect();
-                            }
+                            language_server_status.workspace_folders = update
+                                .workspace_folders
+                                .iter()
+                                .filter_map(|uri_str| lsp::Uri::from_str(uri_str).ok())
+                                .collect();
+                        }
+                    });
+                }
+                proto::update_language_server::Variant::RegisteredForBuffer(update) => {
+                    if let Some(buffer_id) = BufferId::new(update.buffer_id).ok() {
+                        cx.emit(Event::LanguageServerBufferRegistered {
+                            buffer_id,
+                            server_id: *language_server_id,
+                            buffer_abs_path: PathBuf::from(&update.buffer_abs_path),
+                            name: name.clone(),
                         });
                     }
-                    proto::update_language_server::Variant::RegisteredForBuffer(update) => {
-                        if let Some(buffer_id) = BufferId::new(update.buffer_id).ok() {
-                            cx.emit(Event::LanguageServerBufferRegistered {
-                                buffer_id,
-                                server_id: *language_server_id,
-                                buffer_abs_path: PathBuf::from(&update.buffer_abs_path),
-                                name: name.clone(),
-                            });
-                        }
-                    }
-                    _ => (),
                 }
-            }
+                _ => (),
+            },
             LspStoreEvent::Notification(message) => cx.emit(Event::Toast {
                 notification_id: "lsp".into(),
                 message: message.clone(),
@@ -3048,11 +3046,9 @@ impl Project {
         }
     }
 
-    fn on_worktree_added(&mut self, _worktree: &Entity<Worktree>, _: &mut Context<Self>) {
-    }
+    fn on_worktree_added(&mut self, _worktree: &Entity<Worktree>, _: &mut Context<Self>) {}
 
-    fn on_worktree_released(&mut self, _id_to_remove: WorktreeId, _cx: &mut Context<Self>) {
-    }
+    fn on_worktree_released(&mut self, _id_to_remove: WorktreeId, _cx: &mut Context<Self>) {}
 
     fn on_buffer_event(
         &mut self,
@@ -3380,8 +3376,9 @@ impl Project {
         cx: &mut Context<Self>,
     ) -> Task<Result<Option<Vec<LocationLink>>>> {
         let position = position.to_point_utf16(buffer.read(cx));
-        self.lsp_store
-            .update(cx, |lsp_store, cx| lsp_store.definitions(buffer, position, cx))
+        self.lsp_store.update(cx, |lsp_store, cx| {
+            lsp_store.definitions(buffer, position, cx)
+        })
     }
 
     pub fn declarations<T: ToPointUtf16>(
@@ -3391,8 +3388,9 @@ impl Project {
         cx: &mut Context<Self>,
     ) -> Task<Result<Option<Vec<LocationLink>>>> {
         let position = position.to_point_utf16(buffer.read(cx));
-        self.lsp_store
-            .update(cx, |lsp_store, cx| lsp_store.declarations(buffer, position, cx))
+        self.lsp_store.update(cx, |lsp_store, cx| {
+            lsp_store.declarations(buffer, position, cx)
+        })
     }
 
     pub fn type_definitions<T: ToPointUtf16>(
@@ -3402,8 +3400,9 @@ impl Project {
         cx: &mut Context<Self>,
     ) -> Task<Result<Option<Vec<LocationLink>>>> {
         let position = position.to_point_utf16(buffer.read(cx));
-        self.lsp_store
-            .update(cx, |lsp_store, cx| lsp_store.type_definitions(buffer, position, cx))
+        self.lsp_store.update(cx, |lsp_store, cx| {
+            lsp_store.type_definitions(buffer, position, cx)
+        })
     }
 
     pub fn implementations<T: ToPointUtf16>(
@@ -3413,8 +3412,9 @@ impl Project {
         cx: &mut Context<Self>,
     ) -> Task<Result<Option<Vec<LocationLink>>>> {
         let position = position.to_point_utf16(buffer.read(cx));
-        self.lsp_store
-            .update(cx, |lsp_store, cx| lsp_store.implementations(buffer, position, cx))
+        self.lsp_store.update(cx, |lsp_store, cx| {
+            lsp_store.implementations(buffer, position, cx)
+        })
     }
 
     pub fn references<T: ToPointUtf16>(
@@ -3424,8 +3424,9 @@ impl Project {
         cx: &mut Context<Self>,
     ) -> Task<Result<Option<Vec<Location>>>> {
         let position = position.to_point_utf16(buffer.read(cx));
-        self.lsp_store
-            .update(cx, |lsp_store, cx| lsp_store.references(buffer, position, cx))
+        self.lsp_store.update(cx, |lsp_store, cx| {
+            lsp_store.references(buffer, position, cx)
+        })
     }
 
     pub fn document_highlights<T: ToPointUtf16>(

@@ -7,13 +7,10 @@ use anyhow::{Context as _, Result, anyhow};
 #[cfg(feature = "collab")]
 use client::Client;
 use collections::{HashMap, HashSet, hash_map};
-use futures::{Future, FutureExt as _, future::Shared};
 #[cfg(feature = "collab")]
 use futures::channel::oneshot;
-use gpui::{
-    App, AppContext as _, Context, Entity, EventEmitter, Subscription, Task, WeakEntity,
-};
-use language::{Buffer, BufferEvent, Capability, DiskState, File as _, Language};
+use futures::{Future, FutureExt as _, future::Shared};
+use gpui::{App, AppContext as _, Context, Entity, EventEmitter, Subscription, Task, WeakEntity};
 #[cfg(feature = "collab")]
 use language::Operation;
 #[cfg(feature = "collab")]
@@ -21,20 +18,24 @@ use language::proto::{
     deserialize_line_ending, deserialize_version, serialize_line_ending, serialize_version,
     split_operations,
 };
-use rpc::{ErrorCode, ErrorExt as _, proto::{self}};
+use language::{Buffer, BufferEvent, Capability, DiskState, File as _, Language};
 #[cfg(feature = "collab")]
 use rpc::{AnyProtoClient, TypedEnvelope};
+use rpc::{
+    ErrorCode, ErrorExt as _,
+    proto::{self},
+};
 
-use std::{io, sync::Arc};
 #[cfg(feature = "collab")]
 use std::time::Instant;
+use std::{io, sync::Arc};
 use text::{BufferId, ReplicaId};
-use util::{ResultExt as _, debug_panic, rel_path::RelPath};
 #[cfg(feature = "collab")]
 use util::maybe;
-use worktree::{File, PathChange, ProjectEntryId, Worktree};
+use util::{ResultExt as _, debug_panic, rel_path::RelPath};
 #[cfg(feature = "collab")]
 use worktree::WorktreeId;
+use worktree::{File, PathChange, ProjectEntryId, Worktree};
 
 /// A set of open buffers.
 pub struct BufferStore {
@@ -80,7 +81,9 @@ struct LocalBufferStore {
 }
 
 enum OpenBuffer {
-    Complete { buffer: WeakEntity<Buffer> },
+    Complete {
+        buffer: WeakEntity<Buffer>,
+    },
     #[cfg(feature = "collab")]
     Operations(Vec<Operation>),
 }
@@ -555,7 +558,9 @@ impl LocalBufferStore {
                 }
                 if let Some(entry_id) = new_file.entry_id {
                     if let Some(local) = this.as_local_mut() {
-                        local.local_buffer_ids_by_entry_id.insert(entry_id, buffer_id);
+                        local
+                            .local_buffer_ids_by_entry_id
+                            .insert(entry_id, buffer_id);
                     }
                 }
             }
@@ -656,7 +661,9 @@ impl LocalBufferStore {
                     );
                     if let Some(entry_id) = file.entry_id {
                         if let Some(local) = this.as_local_mut() {
-                            local.local_buffer_ids_by_entry_id.insert(entry_id, buffer_id);
+                            local
+                                .local_buffer_ids_by_entry_id
+                                .insert(entry_id, buffer_id);
                         }
                     }
                 }
@@ -1629,7 +1636,9 @@ impl BufferStore {
             );
             if let Some(entry_id) = file.entry_id {
                 if let Some(local) = self.as_local_mut() {
-                    local.local_buffer_ids_by_entry_id.insert(entry_id, buffer_id);
+                    local
+                        .local_buffer_ids_by_entry_id
+                        .insert(entry_id, buffer_id);
                 }
             }
         }
@@ -1658,7 +1667,9 @@ impl BufferStore {
         _push_to_history: bool,
         _cx: &mut Context<Self>,
     ) -> Task<Result<ProjectTransaction>> {
-        Task::ready(Err(anyhow!("remote project transactions are not supported")))
+        Task::ready(Err(anyhow!(
+            "remote project transactions are not supported"
+        )))
     }
 
     pub fn wait_for_remote_buffer(

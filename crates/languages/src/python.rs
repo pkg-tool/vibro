@@ -1171,13 +1171,19 @@ fn find_worktree_virtual_env(worktree_root: &Path) -> Option<PythonEnvironment> 
     }
 
     let executable = if cfg!(windows) {
-        [venv_root.join("Scripts").join("python.exe"), venv_root.join("Scripts").join("python")]
-            .into_iter()
-            .find(|path| path.is_file())
+        [
+            venv_root.join("Scripts").join("python.exe"),
+            venv_root.join("Scripts").join("python"),
+        ]
+        .into_iter()
+        .find(|path| path.is_file())
     } else {
-        [venv_root.join("bin").join("python3"), venv_root.join("bin").join("python")]
-            .into_iter()
-            .find(|path| path.is_file())
+        [
+            venv_root.join("bin").join("python3"),
+            venv_root.join("bin").join("python"),
+        ]
+        .into_iter()
+        .find(|path| path.is_file())
     }?;
 
     Some(PythonEnvironment {

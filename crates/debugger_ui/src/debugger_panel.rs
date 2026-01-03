@@ -36,13 +36,13 @@ use ui::{
 };
 use util::rel_path::RelPath;
 use util::{ResultExt, debug_panic, maybe};
+use vector_actions::ToggleFocus;
 use workspace::SplitDirection;
 use workspace::item::SaveOptions;
 use workspace::{
     Item, Pane, Workspace,
     dock::{DockPosition, Panel, PanelEvent},
 };
-use vector_actions::ToggleFocus;
 
 pub struct DebuggerHistoryFeatureFlag;
 

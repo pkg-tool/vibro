@@ -196,7 +196,9 @@ impl VectorSyntaxToken {
             VectorSyntaxToken::Boolean => vec!["constant.language"],
             VectorSyntaxToken::Comment => vec!["comment"],
             VectorSyntaxToken::CommentDoc => vec!["comment.block.documentation"],
-            VectorSyntaxToken::Constant => vec!["constant", "constant.language", "constant.character"],
+            VectorSyntaxToken::Constant => {
+                vec!["constant", "constant.language", "constant.character"]
+            }
             VectorSyntaxToken::Constructor => {
                 vec![
                     "entity.name.tag",

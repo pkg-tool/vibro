@@ -737,7 +737,12 @@ impl language::File for GitBlob {
         language::proto::File {
             worktree_id: self.worktree_id.to_proto(),
             entry_id: None,
-            path: self.path.as_ref().as_std_path().to_string_lossy().into_owned(),
+            path: self
+                .path
+                .as_ref()
+                .as_std_path()
+                .to_string_lossy()
+                .into_owned(),
             mtime: None,
             is_deleted: self.is_deleted,
             is_historic: true,

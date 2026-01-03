@@ -13391,7 +13391,7 @@ impl Editor {
                 });
             } else {
                 log::error!(
-                     "No entry in selection_history found for undo. \
+                    "No entry in selection_history found for undo. \
                      This may correspond to a bug where undo does not update the selection. \
                      If this is occurring, please add details to \
                      https://github.com/vector-editor/vector/issues/22692"
@@ -13421,7 +13421,7 @@ impl Editor {
                 });
             } else {
                 log::error!(
-                     "No entry in selection_history found for redo. \
+                    "No entry in selection_history found for redo. \
                      This may correspond to a bug where undo does not update the selection. \
                      If this is occurring, please add details to \
                      https://github.com/vector-editor/vector/issues/22692"

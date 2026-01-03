@@ -56,12 +56,12 @@ use std::{
 };
 use theme::ThemeSettings;
 use ui::{
-    Color, ContextMenu, DecoratedIcon, Icon, IconDecoration, IconDecorationKind,
-    IndentGuideColors, IndentGuideLayout, KeyBinding, Label, LabelSize, ListItem, ListItemSpacing,
-    ScrollAxes, ScrollableHandle, Scrollbars, StickyCandidate, Tooltip, WithScrollbar, prelude::*,
-    v_flex,
+    Color, ContextMenu, DecoratedIcon, Icon, IconDecoration, IconDecorationKind, IndentGuideColors,
+    IndentGuideLayout, KeyBinding, Label, LabelSize, ListItem, ListItemSpacing, ScrollAxes,
+    ScrollableHandle, Scrollbars, StickyCandidate, Tooltip, WithScrollbar, prelude::*, v_flex,
 };
 use util::{ResultExt, TakeUntilExt, TryFutureExt, maybe, paths::compare_paths, rel_path::RelPath};
+use vector_actions::{project_panel::ToggleFocus, workspace::OpenWithSystem};
 use workspace::{
     DraggedSelection, OpenInTerminal, OpenOptions, OpenVisible, PreviewTabsSettings, SelectedEntry,
     SplitDirection, Workspace,
@@ -69,7 +69,6 @@ use workspace::{
     notifications::{DetachAndPromptErr, NotifyResultExt, NotifyTaskExt},
 };
 use worktree::CreatedEntry;
-use vector_actions::{project_panel::ToggleFocus, workspace::OpenWithSystem};
 
 const PROJECT_PANEL_KEY: &str = "ProjectPanel";
 const NEW_ENTRY_ID: ProjectEntryId = ProjectEntryId::MAX;
@@ -831,39 +830,49 @@ impl ProjectPanel {
                     allow_preview,
                 } => {
                     if let Some(worktree) = project.read(cx).worktree_for_entry(entry_id, cx)
-                        && let Some(entry) = worktree.read(cx).entry_for_id(entry_id) {
-                            let file_path = entry.path.clone();
-                            let worktree_id = worktree.read(cx).id();
-                            let entry_id = entry.id;
+                        && let Some(entry) = worktree.read(cx).entry_for_id(entry_id)
+                    {
+                        let file_path = entry.path.clone();
+                        let worktree_id = worktree.read(cx).id();
+                        let entry_id = entry.id;
 
-                            workspace
-                                .open_path_preview(
-                                    ProjectPath {
-                                        worktree_id,
-                                        path: file_path,
-                                    },
-                                    None,
-                                    focus_opened_item,
-                                    allow_preview,
-                                    true,
-                                    window, cx,
-                                )
-                                .detach_and_prompt_err("Failed to open file", window, cx, |_e, _, _| None);
+                        workspace
+                            .open_path_preview(
+                                ProjectPath {
+                                    worktree_id,
+                                    path: file_path,
+                                },
+                                None,
+                                focus_opened_item,
+                                allow_preview,
+                                true,
+                                window,
+                                cx,
+                            )
+                            .detach_and_prompt_err(
+                                "Failed to open file",
+                                window,
+                                cx,
+                                |_e, _, _| None,
+                            );
 
-                            if let Some(project_panel) = project_panel.upgrade() {
-                                // Always select and mark the entry, regardless of whether it is opened or not.
-                                project_panel.update(cx, |project_panel, _| {
-                                    let entry = SelectedEntry { worktree_id, entry_id };
-                                    project_panel.marked_entries.clear();
-                                    project_panel.marked_entries.push(entry);
-                                    project_panel.state.selection = Some(entry);
-                                });
-                                if !focus_opened_item {
-                                    let focus_handle = project_panel.read(cx).focus_handle.clone();
-                                    window.focus(&focus_handle, cx);
-                                }
+                        if let Some(project_panel) = project_panel.upgrade() {
+                            // Always select and mark the entry, regardless of whether it is opened or not.
+                            project_panel.update(cx, |project_panel, _| {
+                                let entry = SelectedEntry {
+                                    worktree_id,
+                                    entry_id,
+                                };
+                                project_panel.marked_entries.clear();
+                                project_panel.marked_entries.push(entry);
+                                project_panel.state.selection = Some(entry);
+                            });
+                            if !focus_opened_item {
+                                let focus_handle = project_panel.read(cx).focus_handle.clone();
+                                window.focus(&focus_handle, cx);
                             }
                         }
+                    }
                 }
                 &Event::SplitEntry {
                     entry_id,
@@ -871,19 +880,21 @@ impl ProjectPanel {
                     split_direction,
                 } => {
                     if let Some(worktree) = project.read(cx).worktree_for_entry(entry_id, cx)
-                        && let Some(entry) = worktree.read(cx).entry_for_id(entry_id) {
-                            workspace
-                                .split_path_preview(
-                                    ProjectPath {
-                                        worktree_id: worktree.read(cx).id(),
-                                        path: entry.path.clone(),
-                                    },
-                                    allow_preview,
-                                    split_direction,
-                                    window, cx,
-                                )
-                                .detach_and_log_err(cx);
-                        }
+                        && let Some(entry) = worktree.read(cx).entry_for_id(entry_id)
+                    {
+                        workspace
+                            .split_path_preview(
+                                ProjectPath {
+                                    worktree_id: worktree.read(cx).id(),
+                                    path: entry.path.clone(),
+                                },
+                                allow_preview,
+                                split_direction,
+                                window,
+                                cx,
+                            )
+                            .detach_and_log_err(cx);
+                    }
                 }
 
                 _ => {}

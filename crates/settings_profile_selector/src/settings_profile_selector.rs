@@ -8,11 +8,13 @@ use ui::{HighlightedLabel, ListItem, ListItemSpacing, prelude::*};
 use workspace::{ModalView, Workspace};
 
 pub fn init(cx: &mut App) {
-    cx.on_action(|_: &vector_actions::settings_profile_selector::Toggle, cx| {
-        workspace::with_active_or_new_workspace(cx, |workspace, window, cx| {
-            toggle_settings_profile_selector(workspace, window, cx);
-        });
-    });
+    cx.on_action(
+        |_: &vector_actions::settings_profile_selector::Toggle, cx| {
+            workspace::with_active_or_new_workspace(cx, |workspace, window, cx| {
+                toggle_settings_profile_selector(workspace, window, cx);
+            });
+        },
+    );
 }
 
 fn toggle_settings_profile_selector(
@@ -283,12 +285,12 @@ mod tests {
     use editor;
     use gpui::{TestAppContext, UpdateGlobal, VisualTestContext};
     use menu::{Cancel, Confirm, SelectNext, SelectPrevious};
-	    use project::{FakeFs, Project};
-	    use serde_json::json;
-	    use settings::Settings;
-	    use theme::{self, ThemeSettings};
-	    use workspace::{self, AppState};
-	    use vector_actions::settings_profile_selector;
+    use project::{FakeFs, Project};
+    use serde_json::json;
+    use settings::Settings;
+    use theme::{self, ThemeSettings};
+    use vector_actions::settings_profile_selector;
+    use workspace::{self, AppState};
 
     async fn init_test(
         profiles_json: serde_json::Value,

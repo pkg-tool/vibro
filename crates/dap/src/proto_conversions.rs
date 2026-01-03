@@ -1,9 +1,9 @@
 use anyhow::{Context as _, Result};
+use dap_types::{OutputEventCategory, OutputEventGroup, ScopePresentationHint, Source};
 use proto::{
     self, DapChecksum, DapChecksumAlgorithm, DapEvaluateContext, DapModule, DapScope,
     DapScopePresentationHint, DapSource, DapSourcePresentationHint, DapStackFrame, DapVariable,
 };
-use dap_types::{OutputEventCategory, OutputEventGroup, ScopePresentationHint, Source};
 use std::net::Ipv4Addr;
 use task::TcpArgumentsTemplate;
 

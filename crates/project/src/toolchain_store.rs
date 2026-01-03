@@ -21,9 +21,9 @@ use rpc::{
 };
 use settings::WorktreeId;
 use task::Shell;
-use util::rel_path::RelPath;
 #[cfg(feature = "collab")]
 use util::ResultExt as _;
+use util::rel_path::RelPath;
 
 use crate::{
     ProjectEnvironment, ProjectPath,

@@ -15,9 +15,7 @@ use async_trait::async_trait;
 use collections::HashMap;
 use dap::{
     Capabilities, DapRegistry, DebugRequest, EvaluateArgumentsContext, StackFrameId,
-    adapters::{
-        DapDelegate, DebugAdapterBinary, DebugAdapterName, DebugTaskDefinition,
-    },
+    adapters::{DapDelegate, DebugAdapterBinary, DebugAdapterName, DebugTaskDefinition},
     client::SessionId,
     inline_value::VariableLookupKind,
     messages::Message,
@@ -32,8 +30,8 @@ use gpui::{App, AppContext, Context, Entity, EventEmitter, SharedString, Task};
 use http_client::HttpClient;
 use language::{Buffer, LanguageToolchainStore};
 use node_runtime::NodeRuntime;
-use settings::InlayHintKind;
 use serde::{Deserialize, Serialize};
+use settings::InlayHintKind;
 use settings::{Settings, SettingsLocation, WorktreeId};
 use std::{
     borrow::Borrow,
@@ -369,12 +367,7 @@ impl DapStore {
             async move |this, cx| {
                 let binary = this
                     .update(cx, |this, cx| {
-                        this.get_debug_adapter_binary(
-                            definition.clone(),
-                            &worktree,
-                            console,
-                            cx,
-                        )
+                        this.get_debug_adapter_binary(definition.clone(), &worktree, console, cx)
                     })?
                     .await?;
                 session

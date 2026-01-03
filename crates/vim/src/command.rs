@@ -35,9 +35,9 @@ use util::{
     paths::PathStyle,
     rel_path::{RelPath, RelPathBuf},
 };
+use vector_actions::{OpenDocs, RevealTarget};
 use workspace::{Item, SaveIntent, Workspace, notifications::NotifyResultExt};
 use workspace::{SplitDirection, notifications::DetachAndPromptErr};
-use vector_actions::{OpenDocs, RevealTarget};
 
 use crate::{
     ToggleMarksView, ToggleRegistersView, Vim,

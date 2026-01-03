@@ -594,8 +594,10 @@ impl KeymapEditor {
                 return;
             }
 
-            this.update(cx, |this, cx| this.scroll_to_item(0, ScrollStrategy::Top, cx))
-                .ok();
+            this.update(cx, |this, cx| {
+                this.scroll_to_item(0, ScrollStrategy::Top, cx)
+            })
+            .ok();
         }));
     }
 

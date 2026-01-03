@@ -800,7 +800,9 @@ impl BreakpointStore {
                 }
                 let (worktree, relative_path) = mode
                     .worktree_store
-                    .update(cx, |this, cx| this.find_or_create_worktree(&path, false, cx))?
+                    .update(cx, |this, cx| {
+                        this.find_or_create_worktree(&path, false, cx)
+                    })?
                     .await?;
                 let buffer = mode
                     .buffer_store

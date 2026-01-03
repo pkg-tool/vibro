@@ -30,10 +30,10 @@ use git::{
     TrashUntrackedFiles, UnstageAll,
 };
 use gpui::{
-    Action, AsyncWindowContext, Bounds, ClickEvent, Corner, DismissEvent, Entity,
-    EventEmitter, FocusHandle, Focusable, KeyContext, MouseButton, MouseDownEvent, Point,
-    PromptLevel, ScrollStrategy, Subscription, Task, UniformListScrollHandle, WeakEntity, actions,
-    anchored, deferred, point, size, uniform_list,
+    Action, AsyncWindowContext, Bounds, ClickEvent, Corner, DismissEvent, Entity, EventEmitter,
+    FocusHandle, Focusable, KeyContext, MouseButton, MouseDownEvent, Point, PromptLevel,
+    ScrollStrategy, Subscription, Task, UniformListScrollHandle, WeakEntity, actions, anchored,
+    deferred, point, size, uniform_list,
 };
 use itertools::Itertools;
 use language::{Buffer, File};
@@ -64,11 +64,11 @@ use ui::{
 use util::paths::PathStyle;
 use util::{ResultExt, TryFutureExt, maybe};
 use workspace::SERIALIZATION_THROTTLE_TIME;
+use workspace::notifications::{DetachAndPromptErr as _, NotifyResultExt as _};
 use workspace::{
     Workspace,
     dock::{DockPosition, Panel, PanelEvent},
 };
-use workspace::notifications::{DetachAndPromptErr as _, NotifyResultExt as _};
 actions!(
     git_panel,
     [
@@ -680,9 +680,8 @@ impl GitPanel {
             // just to let us render a placeholder editor.
             // Once the active git repo is set, this buffer will be replaced.
             let temporary_buffer = cx.new(|cx| Buffer::local("", cx));
-            let commit_editor = cx.new(|cx| {
-                commit_message_editor(temporary_buffer, None, true, window, cx)
-            });
+            let commit_editor =
+                cx.new(|cx| commit_message_editor(temporary_buffer, None, true, window, cx));
 
             commit_editor.update(cx, |editor, cx| {
                 editor.clear(window, cx);

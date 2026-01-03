@@ -1,18 +1,30 @@
-(subject) @markup.heading
-(path) @string.special.path
-(branch) @string.special.symbol
-(commit) @constant
-(item) @markup.link.url
-(header) @tag
 (comment) @comment
+(generated_comment) @comment
 
-(change kind: "new file" @diff.plus)
-(change kind: "deleted" @diff.minus)
-(change kind: "modified" @diff.delta)
-(change kind: "renamed" @diff.delta.moved)
+(subject) @title
+(subject (overflow) @comment)
 
-(trailer
-  key: (trailer_key) @variable.other.member
-  value: (trailer_value) @string)
+(prefix (type) @keyword)
+(prefix (scope) @attribute)
+(prefix ["(" ")" ":"] @punctuation.delimiter)
+(prefix "!" @punctuation.special)
 
-[":" "=" "->" (scissors)] @punctuation.delimiter
+(title) @title
+(text) @comment
+
+(branch) @string.special.symbol
+(number) @number
+
+(change kind: (new) @string)
+(change kind: (modified) @keyword)
+(change kind: (deleted) @variable.special)
+(change kind: (renamed) @keyword)
+
+(filepath) @link_uri
+(arrow) @punctuation.delimiter
+(annotation) @comment
+
+(trailer (token) @attribute)
+(breaking_change (token) @variable.special)
+
+(scissor) @comment

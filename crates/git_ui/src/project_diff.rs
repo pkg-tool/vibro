@@ -1440,13 +1440,19 @@ impl RenderOnce for ProjectDiffEmptyState {
                         this.child(
                             v_flex()
                                 .child(Headline::new(ahead_string).size(HeadlineSize::Small))
-                                .child(Label::new("Remote operations disabled").color(Color::Muted)),
+                                .child(
+                                    Label::new("Remote operations disabled").color(Color::Muted),
+                                ),
                         )
                     } else if branch_not_on_remote {
                         this.child(
                             v_flex()
-                                .child(Headline::new("Branch Not Published").size(HeadlineSize::Small))
-                                .child(Label::new("Remote operations disabled").color(Color::Muted)),
+                                .child(
+                                    Headline::new("Branch Not Published").size(HeadlineSize::Small),
+                                )
+                                .child(
+                                    Label::new("Remote operations disabled").color(Color::Muted),
+                                ),
                         )
                     } else {
                         this.child(Label::new("Remote status unknown").color(Color::Muted))

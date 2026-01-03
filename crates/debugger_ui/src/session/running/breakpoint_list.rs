@@ -28,8 +28,8 @@ use ui::{
     ScrollAxes, StatefulInteractiveElement, Tooltip, WithScrollbar, prelude::*,
 };
 use util::rel_path::RelPath;
-use workspace::Workspace;
 use vector_actions::{ToggleEnableBreakpoint, UnsetBreakpoint};
+use workspace::Workspace;
 
 actions!(
     debugger,

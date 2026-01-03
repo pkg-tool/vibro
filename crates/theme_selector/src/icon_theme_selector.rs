@@ -13,8 +13,8 @@ use theme::{
 };
 use ui::{ListItem, ListItemSpacing, prelude::*, v_flex};
 use util::ResultExt;
-use workspace::{ModalView, ui::HighlightedLabel};
 use vector_actions::{ExtensionCategoryFilter, Extensions};
+use workspace::{ModalView, ui::HighlightedLabel};
 
 pub(crate) struct IconThemeSelector {
     picker: Entity<Picker<IconThemeSelectorDelegate>>,

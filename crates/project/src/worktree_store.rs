@@ -10,9 +10,9 @@ use futures::{FutureExt, future::Shared};
 use gpui::{
     App, AppContext as _, AsyncApp, Context, Entity, EntityId, EventEmitter, Task, WeakEntity,
 };
-use rpc::proto::{self};
 #[cfg(feature = "collab")]
 use rpc::AnyProtoClient;
+use rpc::proto::{self};
 #[cfg(feature = "collab")]
 use rpc::{TypedEnvelope, proto::REMOTE_SERVER_PROJECT_ID};
 #[cfg(feature = "collab")]

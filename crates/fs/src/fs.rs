@@ -308,7 +308,9 @@ impl From<proto::Timestamp> for MTime {
 
 impl From<MTime> for proto::Timestamp {
     fn from(mtime: MTime) -> Self {
-        let (seconds, nanos) = mtime.to_seconds_and_nanos_for_persistence().unwrap_or_default();
+        let (seconds, nanos) = mtime
+            .to_seconds_and_nanos_for_persistence()
+            .unwrap_or_default();
         proto::Timestamp { seconds, nanos }
     }
 }

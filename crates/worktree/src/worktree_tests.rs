@@ -3,9 +3,9 @@ use crate::{EntryKind, Event, PathChange, Worktree, WorktreeModelHandle};
 use anyhow::Result;
 use encoding_rs;
 use fs::{FakeFs, Fs, RealFs, RemoveOptions};
-use git::{DOT_GIT, REPO_EXCLUDE};
 #[cfg(feature = "remote")]
 use git::GITIGNORE;
+use git::{DOT_GIT, REPO_EXCLUDE};
 use gpui::{BackgroundExecutor, BorrowAppContext, TestAppContext};
 use parking_lot::Mutex;
 use postage::prelude::Stream as _;

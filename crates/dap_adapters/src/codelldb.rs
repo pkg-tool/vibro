@@ -43,7 +43,6 @@ impl CodeLldbDebugAdapter {
             configuration,
         })
     }
-
 }
 
 #[async_trait(?Send)]

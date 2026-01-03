@@ -260,12 +260,8 @@ impl http_client::HttpClient for ReqwestClient {
                 RedirectPolicy::FollowAll => 100,
             };
 
-            let mut current_url = Url::parse(&parts.uri.to_string()).map_err(|e| {
-                anyhow!(
-                    "invalid url {:?}: {e}",
-                    parts.uri.to_string()
-                )
-            })?;
+            let mut current_url = Url::parse(&parts.uri.to_string())
+                .map_err(|e| anyhow!("invalid url {:?}: {e}", parts.uri.to_string()))?;
 
             let (stream, bytes) = match body {
                 Body::Empty => (None, None),
@@ -275,7 +271,9 @@ impl http_client::HttpClient for ReqwestClient {
 
             let mut response = if let Some(stream) = stream {
                 if redirects_remaining > 0 {
-                    return Err(anyhow!("cannot follow redirects for streaming request bodies"));
+                    return Err(anyhow!(
+                        "cannot follow redirects for streaming request bodies"
+                    ));
                 }
 
                 let request = client

@@ -1,8 +1,8 @@
 // Disable command line from opening on release mode
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod reliability;
 mod app;
+mod reliability;
 
 use anyhow::{Context as _, Error, Result};
 use clap::Parser;
@@ -19,6 +19,12 @@ use http_client::{BlockedHttpClient, HttpClientWithUrl};
 use language::LanguageRegistry;
 use onboarding::{FIRST_OPEN, show_onboarding_view};
 
+use crate::app::eager_load_active_theme_and_icon_theme;
+use crate::app::{
+    OpenListener, OpenRequest, OpenRequestKind, RawOpenRequest, app_menus, build_window_options,
+    derive_paths_with_position, handle_cli_connection, handle_keymap_file_changes,
+    handle_settings_file_changes, initialize_workspace, open_paths_with_positions,
+};
 use assets::Assets;
 use node_runtime::{NodeBinaryOptions, NodeRuntime};
 use parking_lot::Mutex;
@@ -40,12 +46,6 @@ use workspace::{
     AppState, PathList, SerializedWorkspaceLocation, Toast, Workspace, WorkspaceSettings,
     WorkspaceStore, notifications::NotificationId,
 };
-use crate::app::{
-    OpenListener, OpenRequest, OpenRequestKind, RawOpenRequest, app_menus, build_window_options,
-    derive_paths_with_position, handle_cli_connection, handle_keymap_file_changes,
-    handle_settings_file_changes, initialize_workspace, open_paths_with_positions,
-};
-use crate::app::eager_load_active_theme_and_icon_theme;
 
 #[cfg(feature = "mimalloc")]
 #[global_allocator]
@@ -259,9 +259,7 @@ fn main() {
     let app = Application::new().with_assets(Assets);
 
     let session_id = Uuid::new_v4().to_string();
-    let session = app
-        .background_executor()
-        .spawn(Session::new(session_id));
+    let session = app.background_executor().spawn(Session::new(session_id));
 
     let (open_listener, mut open_rx) = OpenListener::new();
 
@@ -583,10 +581,7 @@ fn main() {
             .collect();
 
         if !urls.is_empty() || !diff_paths.is_empty() {
-            open_listener.open(RawOpenRequest {
-                urls,
-                diff_paths,
-            })
+            open_listener.open(RawOpenRequest { urls, diff_paths })
         }
 
         match open_rx

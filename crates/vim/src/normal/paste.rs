@@ -88,13 +88,14 @@ impl Vim {
                     }
                 }
 
-                let first_selection_indent_column = clipboard_selections
-                    .as_ref()
-                    .and_then(|clipboard_selections| {
-                        clipboard_selections
-                            .first()
-                            .map(|selection| selection.first_line_indent)
-                    });
+                let first_selection_indent_column =
+                    clipboard_selections
+                        .as_ref()
+                        .and_then(|clipboard_selections| {
+                            clipboard_selections
+                                .first()
+                                .map(|selection| selection.first_line_indent)
+                        });
                 let before = action.before || vim.mode == Mode::VisualLine;
 
                 let mut edits = Vec::new();

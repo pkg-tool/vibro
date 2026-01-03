@@ -17,9 +17,9 @@ use std::num::NonZeroU64;
 use std::path::PathBuf;
 use std::sync::Arc;
 use util::{ResultExt, rel_path::RelPath};
-use worktree::{LoadedBinaryFile, PathChange, Worktree};
 #[cfg(feature = "collab")]
 use worktree::WorktreeId;
+use worktree::{LoadedBinaryFile, PathChange, Worktree};
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, PartialOrd, Ord, Eq)]
 pub struct ImageId(NonZeroU64);

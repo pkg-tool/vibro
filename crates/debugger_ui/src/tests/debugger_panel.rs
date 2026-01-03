@@ -4,8 +4,7 @@ use crate::{
     *,
 };
 use dap::{
-    ErrorResponse, Message,
-    RunInTerminalRequestArguments, SourceBreakpoint,
+    ErrorResponse, Message, RunInTerminalRequestArguments, SourceBreakpoint,
     StartDebuggingRequestArguments, StartDebuggingRequestArgumentsRequest,
     adapters::DebugTaskDefinition,
     client::SessionId,

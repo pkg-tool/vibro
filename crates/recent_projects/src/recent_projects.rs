@@ -8,17 +8,14 @@ use picker::{
     Picker, PickerDelegate,
     highlighted_match_with_paths::{HighlightedMatch, HighlightedMatchWithPaths},
 };
-use std::{
-    path::Path,
-    sync::Arc,
-};
+use std::{path::Path, sync::Arc};
 use ui::{KeyBinding, ListItem, ListItemSpacing, Tooltip, prelude::*, tooltip_container};
 use util::{ResultExt, paths::PathExt};
-use workspace::{
-    CloseIntent, HistoryManager, ModalView, SerializedWorkspaceLocation, WORKSPACE_DB,
-    PathList, Workspace, WorkspaceId,
-};
 use vector_actions::OpenRecent;
+use workspace::{
+    CloseIntent, HistoryManager, ModalView, PathList, SerializedWorkspaceLocation, WORKSPACE_DB,
+    Workspace, WorkspaceId,
+};
 
 pub fn init(cx: &mut App) {
     cx.observe_new(RecentProjects::register).detach();
@@ -279,7 +276,8 @@ impl PickerDelegate for RecentProjectsDelegate {
                                 if continue_replacing {
                                     workspace
                                         .update_in(cx, |workspace, window, cx| {
-                                            workspace.open_workspace_for_paths(true, paths, window, cx)
+                                            workspace
+                                                .open_workspace_for_paths(true, paths, window, cx)
                                         })?
                                         .await
                                 } else {
@@ -344,18 +342,13 @@ impl PickerDelegate for RecentProjectsDelegate {
                 .toggle_state(selected)
                 .inset(true)
                 .spacing(ListItemSpacing::Sparse)
-                .child(
-                    h_flex()
-                        .flex_grow()
-                        .gap_3()
-                        .child({
-                            let mut highlighted = highlighted_match.clone();
-                            if !self.render_paths {
-                                highlighted.paths.clear();
-                            }
-                            highlighted.render(window, cx)
-                        }),
-                )
+                .child(h_flex().flex_grow().gap_3().child({
+                    let mut highlighted = highlighted_match.clone();
+                    if !self.render_paths {
+                        highlighted.paths.clear();
+                    }
+                    highlighted.render(window, cx)
+                }))
                 .map(|el| {
                     let delete_button = div()
                         .child(
@@ -515,38 +508,40 @@ struct MatchTooltip {
 
 impl Render for MatchTooltip {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        tooltip_container(cx, |div, _| self.highlighted_location.render_paths_children(div))
+        tooltip_container(cx, |div, _| {
+            self.highlighted_location.render_paths_children(div)
+        })
     }
 }
 
 #[cfg(test)]
-	mod tests {
-	    use std::path::PathBuf;
+mod tests {
+    use std::path::PathBuf;
 
-	    use dap::debugger_settings::DebuggerSettings;
-	    use editor::Editor;
-	    use gpui::{TestAppContext, UpdateGlobal, WindowHandle};
-	    use serde_json::json;
-	    use settings::{Settings as _, SettingsStore};
-	    use util::path;
-	    use workspace::{AppState, open_paths};
+    use dap::debugger_settings::DebuggerSettings;
+    use editor::Editor;
+    use gpui::{TestAppContext, UpdateGlobal, WindowHandle};
+    use serde_json::json;
+    use settings::{Settings as _, SettingsStore};
+    use util::path;
+    use workspace::{AppState, open_paths};
 
     use super::*;
 
     #[gpui::test]
-	    async fn test_prompts_on_dirty_before_submit(cx: &mut TestAppContext) {
-	        let app_state = init_test(cx);
+    async fn test_prompts_on_dirty_before_submit(cx: &mut TestAppContext) {
+        let app_state = init_test(cx);
 
-	        cx.update(|cx| {
-	            SettingsStore::update_global(cx, |store, cx| {
-	                store.update_user_settings(cx, |settings| {
-	                    settings
-	                        .session
-	                        .get_or_insert_with(Default::default)
-	                        .restore_unsaved_buffers = Some(false);
-	                });
-	            });
-	        });
+        cx.update(|cx| {
+            SettingsStore::update_global(cx, |store, cx| {
+                store.update_user_settings(cx, |settings| {
+                    settings
+                        .session
+                        .get_or_insert_with(Default::default)
+                        .restore_unsaved_buffers = Some(false);
+                });
+            });
+        });
 
         app_state
             .fs
@@ -668,13 +663,13 @@ impl Render for MatchTooltip {
             .unwrap()
     }
 
-	    fn init_test(cx: &mut TestAppContext) -> Arc<AppState> {
-	        cx.update(|cx| {
-	            let state = AppState::test(cx);
-	            crate::init(cx);
-	            editor::init(cx);
-	            DebuggerSettings::register(cx);
-	            state
-	        })
-	    }
-	}
+    fn init_test(cx: &mut TestAppContext) -> Arc<AppState> {
+        cx.update(|cx| {
+            let state = AppState::test(cx);
+            crate::init(cx);
+            editor::init(cx);
+            DebuggerSettings::register(cx);
+            state
+        })
+    }
+}

@@ -182,8 +182,7 @@ impl CommitModal {
             let panel_editor = git_panel.commit_editor.clone();
 
             cx.new(|cx| {
-                let mut editor =
-                    commit_message_editor(buffer, None, false, window, cx);
+                let mut editor = commit_message_editor(buffer, None, false, window, cx);
                 editor.sync_selections(panel_editor, cx).detach();
 
                 editor
@@ -544,11 +543,11 @@ impl Render for CommitModal {
                     this.toggle_branch_selector(window, cx);
                 }),
             )
-            .on_action(
-                cx.listener(|this, _: &vector_actions::git::CheckoutBranch, window, cx| {
+            .on_action(cx.listener(
+                |this, _: &vector_actions::git::CheckoutBranch, window, cx| {
                     this.toggle_branch_selector(window, cx);
-                }),
-            )
+                },
+            ))
             .on_action(
                 cx.listener(|this, _: &vector_actions::git::Switch, window, cx| {
                     this.toggle_branch_selector(window, cx);

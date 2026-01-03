@@ -192,7 +192,10 @@ async fn test_fetch_initial_stack_frames_and_go_to_stack_frame(
 
         stack_frame_list.update(cx, |stack_frame_list, cx| {
             assert_eq!(Some(1), stack_frame_list.opened_stack_frame_id());
-            assert_eq!(json!(stack_frames), json!(stack_frame_list.dap_stack_frames(cx)));
+            assert_eq!(
+                json!(stack_frames),
+                json!(stack_frame_list.dap_stack_frames(cx))
+            );
         });
     });
 }
@@ -392,7 +395,10 @@ async fn test_select_stack_frame(executor: BackgroundExecutor, cx: &mut TestAppC
 
     stack_frame_list.update(cx, |stack_frame_list, cx| {
         assert_eq!(Some(1), stack_frame_list.opened_stack_frame_id());
-        assert_eq!(json!(stack_frames), json!(stack_frame_list.dap_stack_frames(cx)));
+        assert_eq!(
+            json!(stack_frames),
+            json!(stack_frame_list.dap_stack_frames(cx))
+        );
     });
 
     // select second stack frame
@@ -407,7 +413,10 @@ async fn test_select_stack_frame(executor: BackgroundExecutor, cx: &mut TestAppC
 
     stack_frame_list.update(cx, |stack_frame_list, cx| {
         assert_eq!(Some(2), stack_frame_list.opened_stack_frame_id());
-        assert_eq!(json!(stack_frames), json!(stack_frame_list.dap_stack_frames(cx)));
+        assert_eq!(
+            json!(stack_frames),
+            json!(stack_frame_list.dap_stack_frames(cx))
+        );
     });
 
     let _ = workspace.update(cx, |workspace, window, cx| {
@@ -999,23 +1008,23 @@ async fn test_stack_frame_filter(executor: BackgroundExecutor, cx: &mut TestAppC
                 .running_state()
                 .update(cx, |state, _| state.stack_frame_list().clone());
 
-                stack_frame_list.update(cx, |stack_frame_list, cx| {
-                    stack_frame_list.build_entries(true, window, cx);
+            stack_frame_list.update(cx, |stack_frame_list, cx| {
+                stack_frame_list.build_entries(true, window, cx);
 
-                    // Verify we have the expected collapsed structure
-                    assert_eq!(
-                        summarize_stack_frame_entries(stack_frame_list.entries()),
-                        vec![
-                            StackFrameEntrySummary::Normal(stack_frames_for_assertions[0].id),
-                            StackFrameEntrySummary::Collapsed(vec![
-                                stack_frames_for_assertions[1].id,
-                                stack_frames_for_assertions[2].id,
-                                stack_frames_for_assertions[3].id,
-                            ]),
-                            StackFrameEntrySummary::Normal(stack_frames_for_assertions[4].id),
-                        ],
-                    );
-                });
+                // Verify we have the expected collapsed structure
+                assert_eq!(
+                    summarize_stack_frame_entries(stack_frame_list.entries()),
+                    vec![
+                        StackFrameEntrySummary::Normal(stack_frames_for_assertions[0].id),
+                        StackFrameEntrySummary::Collapsed(vec![
+                            stack_frames_for_assertions[1].id,
+                            stack_frames_for_assertions[2].id,
+                            stack_frames_for_assertions[3].id,
+                        ]),
+                        StackFrameEntrySummary::Normal(stack_frames_for_assertions[4].id),
+                    ],
+                );
+            });
 
             stack_frame_list
         });
@@ -1052,18 +1061,18 @@ async fn test_stack_frame_filter(executor: BackgroundExecutor, cx: &mut TestAppC
             "Should see all 5 frames after toggling back"
         );
 
-            // Test 3: Verify collapsed entries stay expanded
-            stack_frame_list.expand_collapsed_entry(1, cx);
-            assert_eq!(
-                summarize_stack_frame_entries(stack_frame_list.entries()),
-                vec![
-                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[0].id),
-                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[1].id),
-                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[2].id),
-                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[3].id),
-                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[4].id),
-                ],
-            );
+        // Test 3: Verify collapsed entries stay expanded
+        stack_frame_list.expand_collapsed_entry(1, cx);
+        assert_eq!(
+            summarize_stack_frame_entries(stack_frame_list.entries()),
+            vec![
+                StackFrameEntrySummary::Normal(stack_frames_for_assertions[0].id),
+                StackFrameEntrySummary::Normal(stack_frames_for_assertions[1].id),
+                StackFrameEntrySummary::Normal(stack_frames_for_assertions[2].id),
+                StackFrameEntrySummary::Normal(stack_frames_for_assertions[3].id),
+                StackFrameEntrySummary::Normal(stack_frames_for_assertions[4].id),
+            ],
+        );
 
         stack_frame_list
             .toggle_frame_filter(Some(project::debugger::session::ThreadStatus::Stopped), cx);
@@ -1095,20 +1104,20 @@ async fn test_stack_frame_filter(executor: BackgroundExecutor, cx: &mut TestAppC
             ]
         );
 
-            // Verify entries remain expanded
-            assert_eq!(
-                summarize_stack_frame_entries(stack_frame_list.entries()),
-                vec![
-                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[0].id),
-                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[1].id),
-                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[2].id),
-                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[3].id),
-                    StackFrameEntrySummary::Normal(stack_frames_for_assertions[4].id),
-                ],
-                "Expanded entries should remain expanded after toggling filter"
-            );
-        });
-    }
+        // Verify entries remain expanded
+        assert_eq!(
+            summarize_stack_frame_entries(stack_frame_list.entries()),
+            vec![
+                StackFrameEntrySummary::Normal(stack_frames_for_assertions[0].id),
+                StackFrameEntrySummary::Normal(stack_frames_for_assertions[1].id),
+                StackFrameEntrySummary::Normal(stack_frames_for_assertions[2].id),
+                StackFrameEntrySummary::Normal(stack_frames_for_assertions[3].id),
+                StackFrameEntrySummary::Normal(stack_frames_for_assertions[4].id),
+            ],
+            "Expanded entries should remain expanded after toggling filter"
+        );
+    });
+}
 
 #[gpui::test]
 async fn test_stack_frame_filter_persistence(

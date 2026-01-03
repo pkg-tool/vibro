@@ -28,6 +28,7 @@ use lsp::{
     DocumentHighlightKind, LanguageServer, LanguageServerId, LinkedEditingRangeServerCapabilities,
     OneOf, RenameOptions, ServerCapabilities,
 };
+use rpc::proto::{self, PeerId};
 use serde_json::Value;
 use signature_help::{lsp_to_proto_signature, proto_to_lsp_signature};
 use std::{
@@ -35,7 +36,6 @@ use std::{
 };
 use text::{BufferId, LineEnding};
 use util::{ResultExt as _, debug_panic};
-use rpc::proto::{self, PeerId};
 
 pub use signature_help::SignatureHelp;
 

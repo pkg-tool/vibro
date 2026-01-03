@@ -8,6 +8,7 @@ pub mod pane;
 pub mod pane_group;
 mod path_list;
 mod persistence;
+mod project_branch_status_item;
 pub mod searchable;
 mod security_modal;
 mod status_bar;
@@ -44,8 +45,8 @@ use gpui::{
     SystemWindowTabController, Task, Tiling, WeakEntity, WindowBounds, WindowHandle, WindowId,
     WindowOptions, actions, canvas, point, relative, size, transparent_black,
 };
-use http_client::HttpClientWithUrl;
 pub use history_manager::*;
+use http_client::HttpClientWithUrl;
 pub use item::{
     Item, ItemHandle, ItemSettings, PreviewTabsSettings, ProjectItem, SerializableItem,
     SerializableItemHandle, WeakItemHandle,
@@ -116,11 +117,11 @@ use util::{
     serde::default_true,
 };
 use uuid::Uuid;
+use vector_actions::Spawn;
 pub use workspace_settings::{
     AutosaveSetting, BottomDockLayout, RestoreOnStartupBehavior, StatusBarSettings, TabBarSettings,
-    WorkspaceSettings,
+    TitleBarSettings, WorkspaceSettings,
 };
-use vector_actions::Spawn;
 
 use crate::{
     item::ItemBufferKind,
@@ -661,7 +662,9 @@ impl ProjectItemRegistry {
                     match project_item.await.with_context(|| {
                         format!(
                             "opening project path {:?}",
-                            entry_abs_path.as_deref().unwrap_or(&project_path.path.as_std_path())
+                            entry_abs_path
+                                .as_deref()
+                                .unwrap_or(&project_path.path.as_std_path())
                         )
                     }) {
                         Ok(project_item) => {
@@ -686,14 +689,15 @@ impl ProjectItemRegistry {
                         Err(e) => {
                             log::warn!("Failed to open a project item: {e:#}");
                             if let Some(abs_path) = entry_abs_path.as_deref().filter(|_| is_file)
-                                && let Some(broken_project_item_view) = cx.update(|window, cx| {
-                                    T::for_broken_project_item(abs_path, is_local, &e, window, cx)
-                                })?
+                                && let Some(broken_project_item_view) =
+                                    cx.update(|window, cx| {
+                                        T::for_broken_project_item(
+                                            abs_path, is_local, &e, window, cx,
+                                        )
+                                    })?
                             {
                                 let build_workspace_item = Box::new(
-                                    move |_: &mut Pane,
-                                          _: &mut Window,
-                                          cx: &mut Context<Pane>| {
+                                    move |_: &mut Pane, _: &mut Window, cx: &mut Context<Pane>| {
                                         cx.new(|_| broken_project_item_view).boxed_clone()
                                     },
                                 )
@@ -724,7 +728,6 @@ impl ProjectItemRegistry {
         };
         open_project_item
     }
-
 }
 
 type WorkspaceItemBuilder =
@@ -1122,12 +1125,12 @@ impl Workspace {
             .detach();
         }
 
-            cx.subscribe_in(&project, window, move |this, _, event, window, cx| {
-                match event {
-                    project::Event::WorktreeUpdatedEntries(worktree_id, _) => {
-                        if let Some(trusted_worktrees) = TrustedWorktrees::try_get_global(cx) {
-                            trusted_worktrees.update(cx, |trusted_worktrees, cx| {
-                                trusted_worktrees.can_trust(
+        cx.subscribe_in(&project, window, move |this, _, event, window, cx| {
+            match event {
+                project::Event::WorktreeUpdatedEntries(worktree_id, _) => {
+                    if let Some(trusted_worktrees) = TrustedWorktrees::try_get_global(cx) {
+                        trusted_worktrees.update(cx, |trusted_worktrees, cx| {
+                            trusted_worktrees.can_trust(
                                 &this.project().read(cx).worktree_store(),
                                 *worktree_id,
                                 cx,
@@ -1280,11 +1283,19 @@ impl Workspace {
         let left_dock_buttons = cx.new(|cx| PanelButtons::new(left_dock.clone(), cx));
         let bottom_dock_buttons = cx.new(|cx| PanelButtons::new(bottom_dock.clone(), cx));
         let right_dock_buttons = cx.new(|cx| PanelButtons::new(right_dock.clone(), cx));
+        let project_branch_status_item = cx.new(|cx| {
+            project_branch_status_item::ProjectBranchStatusItem::new(
+                project.clone(),
+                weak_handle.clone(),
+                cx,
+            )
+        });
         let status_bar = cx.new(|cx| {
             let mut status_bar = StatusBar::new(&center_pane.clone(), window, cx);
             status_bar.add_left_item(left_dock_buttons, window, cx);
-            status_bar.add_right_item(right_dock_buttons, window, cx);
             status_bar.add_right_item(bottom_dock_buttons, window, cx);
+            status_bar.add_right_item(project_branch_status_item, window, cx);
+            status_bar.add_right_item(right_dock_buttons, window, cx);
             status_bar
         });
 
@@ -4291,8 +4302,7 @@ impl Workspace {
     }
 
     fn update_window_edited(&mut self, window: &mut Window, cx: &mut App) {
-        let is_edited =
-            !self.project.read(cx).is_disconnected(cx) && !self.dirty_items.is_empty();
+        let is_edited = !self.project.read(cx).is_disconnected(cx) && !self.dirty_items.is_empty();
         if is_edited != self.window_edited {
             self.window_edited = is_edited;
             window.set_window_edited(self.window_edited)

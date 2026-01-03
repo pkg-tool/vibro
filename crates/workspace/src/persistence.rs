@@ -40,7 +40,8 @@ use crate::{
 };
 
 use model::{
-    GroupId, ItemId, PaneId, SerializedItem, SerializedPane, SerializedPaneGroup, SerializedWorkspace,
+    GroupId, ItemId, PaneId, SerializedItem, SerializedPane, SerializedPaneGroup,
+    SerializedWorkspace,
 };
 
 use self::model::{DockStructure, SerializedWorkspaceLocation};
@@ -956,9 +957,7 @@ impl WorkspaceDb {
                     remote_connection_id IS NULL
                 LIMIT 1
             })
-            .and_then(|mut prepared_statement| {
-                (prepared_statement)(root_paths.serialize().paths)
-            })
+            .and_then(|mut prepared_statement| (prepared_statement)(root_paths.serialize().paths))
             .context("No workspaces found")
             .warn_on_err()
             .flatten()?;

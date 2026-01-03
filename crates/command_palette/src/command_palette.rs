@@ -24,8 +24,8 @@ use postage::{sink::Sink, stream::Stream};
 use settings::Settings;
 use ui::{HighlightedLabel, KeyBinding, ListItem, ListItemSpacing, prelude::*};
 use util::ResultExt;
-use workspace::{ModalView, Workspace, WorkspaceSettings};
 use vector_actions::{OpenVectorUrl, command_palette::Toggle};
+use workspace::{ModalView, Workspace, WorkspaceSettings};
 
 pub fn init(cx: &mut App) {
     command_palette_hooks::init(cx);

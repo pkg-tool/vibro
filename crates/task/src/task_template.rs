@@ -10,7 +10,7 @@ use util::{ResultExt, truncate_and_remove_front};
 
 use crate::{
     AttachRequest, ResolvedTask, RevealTarget, Shell, SpawnInTerminal, TaskContext, TaskId,
-    VariableName, VECTOR_VARIABLE_NAME_PREFIX, ZED_VARIABLE_NAME_PREFIX,
+    VECTOR_VARIABLE_NAME_PREFIX, VariableName, ZED_VARIABLE_NAME_PREFIX,
     serde_helpers::non_empty_string_vec,
 };
 

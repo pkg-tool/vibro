@@ -2,7 +2,6 @@ mod application_menu;
 pub mod platform_title_bar;
 mod platforms;
 mod system_window_tabs;
-mod title_bar_settings;
 mod window_controls;
 
 #[cfg(feature = "stories")]
@@ -25,13 +24,11 @@ use project::Project;
 use settings::Settings as _;
 use smallvec::SmallVec;
 use theme::ActiveTheme;
-use title_bar_settings::TitleBarSettings;
 use ui::{
-    Button, ButtonStyle, ContextMenu, IconName, IconSize, PopoverMenu, Tooltip, h_flex,
-    prelude::*,
+    Button, ButtonStyle, ContextMenu, IconName, IconSize, PopoverMenu, Tooltip, h_flex, prelude::*,
 };
-use workspace::Workspace;
 use vector_actions::OpenRecent;
+use workspace::{TitleBarSettings, Workspace};
 
 pub fn restore_banner(_: &mut App) {}
 
@@ -186,8 +183,8 @@ impl Render for TitleBar {
                         h_flex()
                             .gap_1()
                             .map(|title_bar| {
-                                let mut render_project_items = title_bar_settings.show_branch_name
-                                    || title_bar_settings.show_project_items;
+                                let mut render_project_items =
+                                    title_bar_settings.show_project_items;
                                 title_bar
                                     .when_some(self.application_menu.clone(), |title_bar, menu| {
                                         render_project_items &=
@@ -195,22 +192,14 @@ impl Render for TitleBar {
                                         title_bar.child(menu)
                                     })
                                     .when(render_project_items, |title_bar| {
-                                        title_bar
-                                            .when(
-                                                title_bar_settings.show_project_items,
-                                                |title_bar| {
-                                                    title_bar
-                                                        .children(self.render_project_host(cx))
-                                                        .child(self.render_project_name(cx))
-                                                },
-                                            )
-                                            .when(
-                                                title_bar_settings.show_branch_name,
-                                                |title_bar| {
-                                                    title_bar
-                                                        .children(self.render_project_branch(cx))
-                                                },
-                                            )
+                                        title_bar.when(
+                                            title_bar_settings.show_project_items,
+                                            |title_bar| {
+                                                title_bar
+                                                    .children(self.render_project_host(cx))
+                                                    .child(self.render_project_name(cx))
+                                            },
+                                        )
                                     })
                             })
                             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation()),
@@ -441,7 +430,10 @@ impl TitleBar {
                             "Icon Themes…",
                             vector_actions::icon_theme_selector::Toggle::default().boxed_clone(),
                         )
-                        .action("Extensions", vector_actions::Extensions::default().boxed_clone())
+                        .action(
+                            "Extensions",
+                            vector_actions::Extensions::default().boxed_clone(),
+                        )
                 })
                 .into()
             })

@@ -7,18 +7,13 @@ use anyhow::Context as _;
 use collections::HashMap;
 use fs::Fs;
 use gpui::{App, Context, Entity, EventEmitter, Task};
-use language::{
-    ContextLocation, ContextProvider as _, LanguageToolchainStore, Location,
-};
+use language::{ContextLocation, ContextProvider as _, LanguageToolchainStore, Location};
 use settings::{InvalidSettingsError, SettingsLocation};
 use task::{TaskContext, TaskVariables};
 use util::ResultExt;
 use worktree::File;
 
-use crate::{
-    BasicContextProvider, Inventory, ProjectEnvironment,
-    worktree_store::WorktreeStore,
-};
+use crate::{BasicContextProvider, Inventory, ProjectEnvironment, worktree_store::WorktreeStore};
 
 // platform-dependent warning
 pub enum TaskStore {

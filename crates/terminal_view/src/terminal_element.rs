@@ -5,13 +5,14 @@ use gpui::{
     GlobalElementId, HighlightStyle, Hitbox, Hsla, InputHandler, InteractiveElement, Interactivity,
     IntoElement, LayoutId, Length, ModifiersChangedEvent, MouseButton, MouseMoveEvent, Pixels,
     Point, ShapedLine, StatefulInteractiveElement, StrikethroughStyle, Styled, TextRun, TextStyle,
-    UTF16Selection, UnderlineStyle, WhiteSpace, Window, div, fill, point, px, relative,
-    size,
+    UTF16Selection, UnderlineStyle, WhiteSpace, Window, div, fill, point, px, relative, size,
 };
 use itertools::Itertools;
 use language::CursorShape;
 use settings::Settings;
+use std::mem;
 use std::time::Instant;
+use std::{fmt::Debug, ops::RangeInclusive, rc::Rc};
 use terminal::{
     IndexedCell, Terminal, TerminalBounds, TerminalContent,
     alacritty_terminal::{
@@ -29,8 +30,6 @@ use theme::{ActiveTheme, Theme, ThemeSettings};
 use ui::utils::ensure_minimum_contrast;
 use ui::{ParentElement, Tooltip};
 use util::ResultExt;
-use std::mem;
-use std::{fmt::Debug, ops::RangeInclusive, rc::Rc};
 
 use crate::{BlockContext, BlockProperties, ContentMode, TerminalMode, TerminalView};
 

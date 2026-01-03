@@ -163,4 +163,3 @@ impl RenderOnce for WindowControl {
             })
     }
 }
-

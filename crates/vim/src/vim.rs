@@ -313,7 +313,8 @@ pub fn init(cx: &mut App) {
 
         workspace.register_action(|_, _: &ToggleProjectPanelFocus, window, cx| {
             if Vim::take_count(cx).is_none() {
-                window.dispatch_action(vector_actions::project_panel::ToggleFocus.boxed_clone(), cx);
+                window
+                    .dispatch_action(vector_actions::project_panel::ToggleFocus.boxed_clone(), cx);
             }
         });
 
@@ -1404,10 +1405,7 @@ impl Vim {
         let editor = editor.read(cx);
         let editor_mode = editor.mode();
 
-        if editor_mode.is_full()
-            && !newest_selection_empty
-            && self.mode == Mode::Normal
-        {
+        if editor_mode.is_full() && !newest_selection_empty && self.mode == Mode::Normal {
             if preserve_selection {
                 self.switch_mode(Mode::Visual, true, window, cx);
             } else {

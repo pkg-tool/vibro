@@ -5,8 +5,8 @@ use crate::{
 };
 use anyhow::Result;
 use gpui::{
-    Along, AnyView, AnyWeakView, Axis, Bounds, Entity, Hsla, IntoElement, Pixels,
-    Point, StyleRefinement, WeakEntity, Window, point, size,
+    Along, AnyView, AnyWeakView, Axis, Bounds, Entity, Hsla, IntoElement, Pixels, Point,
+    StyleRefinement, WeakEntity, Window, point, size,
 };
 use parking_lot::Mutex;
 use schemars::JsonSchema;

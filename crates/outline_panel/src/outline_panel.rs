@@ -5069,7 +5069,9 @@ impl Render for OutlinePanel {
             .when(is_local, |el| {
                 el.on_action(cx.listener(Self::reveal_in_finder))
             })
-            .when(is_local, |el| el.on_action(cx.listener(Self::open_in_terminal)))
+            .when(is_local, |el| {
+                el.on_action(cx.listener(Self::open_in_terminal))
+            })
             .on_mouse_down(
                 MouseButton::Right,
                 cx.listener(move |outline_panel, event: &MouseDownEvent, window, cx| {

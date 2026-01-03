@@ -1341,7 +1341,10 @@ impl Render for FailedToSpawnTerminal {
                         ButtonLike::new("open-settings-ui")
                             .child(Label::new("Edit Settings").size(LabelSize::Small))
                             .on_click(|_, window, cx| {
-                                window.dispatch_action(vector_actions::OpenSettings.boxed_clone(), cx);
+                                window.dispatch_action(
+                                    vector_actions::OpenSettings.boxed_clone(),
+                                    cx,
+                                );
                             }),
                         popover_menu.into_any_element(),
                     )),
@@ -1383,10 +1386,12 @@ impl Render for TerminalPanel {
                     &self.active_pane,
                     &workspace_handle,
                 );
-                registrar.size_full().child(
-                    self.center
-                        .render(workspace.zoomed_item(), &decorator, window, cx),
-                )
+                registrar.size_full().child(self.center.render(
+                    workspace.zoomed_item(),
+                    &decorator,
+                    window,
+                    cx,
+                ))
             })
             .ok()
             .map(|div| {

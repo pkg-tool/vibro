@@ -5,7 +5,9 @@ use project::{FakeFs, Fs as _, Project};
 use serde_json::json;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use task::{DebugRequest, DebugScenario, LaunchRequest, TaskContext, VariableName, VectorDebugConfig};
+use task::{
+    DebugRequest, DebugScenario, LaunchRequest, TaskContext, VariableName, VectorDebugConfig,
+};
 use text::Point;
 use util::path;
 

@@ -62,4 +62,3 @@ pub struct ExtensionMetadata {
 pub struct GetExtensionsResponse {
     pub data: Vec<ExtensionMetadata>,
 }
-

@@ -37,9 +37,11 @@ actions!(
 );
 
 pub fn register(workspace: &mut Workspace) {
-    workspace.register_action(|workspace, branch: &vector_actions::git::Branch, window, cx| {
-        open(workspace, branch, window, cx);
-    });
+    workspace.register_action(
+        |workspace, branch: &vector_actions::git::Branch, window, cx| {
+            open(workspace, branch, window, cx);
+        },
+    );
     workspace.register_action(switch);
     workspace.register_action(checkout_branch);
 }

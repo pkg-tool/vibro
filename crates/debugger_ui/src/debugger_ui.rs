@@ -11,8 +11,8 @@ use stack_trace_view::StackTraceView;
 use tasks_ui::{Spawn, TaskOverrides};
 use ui::{FluentBuilder, InteractiveElement};
 use util::maybe;
-use workspace::{ItemHandle, ShutdownDebugAdapters, Workspace};
 use vector_actions::ToggleFocus;
+use workspace::{ItemHandle, ShutdownDebugAdapters, Workspace};
 
 pub mod attach_modal;
 pub mod debugger_panel;

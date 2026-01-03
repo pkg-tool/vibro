@@ -38,7 +38,9 @@ pub fn init(http_client: Arc<dyn HttpClient>, cx: &mut App) {
 
     let mut provider = all_language_settings(None, cx).edit_predictions.provider;
     if provider == language::language_settings::EditPredictionProvider::Supermaven {
-        supermaven.update(cx, |supermaven, cx| supermaven.start(http_client.clone(), cx));
+        supermaven.update(cx, |supermaven, cx| {
+            supermaven.start(http_client.clone(), cx)
+        });
     }
 
     cx.observe_global::<SettingsStore>(move |cx| {
@@ -46,7 +48,9 @@ pub fn init(http_client: Arc<dyn HttpClient>, cx: &mut App) {
         if new_provider != provider {
             provider = new_provider;
             if provider == language::language_settings::EditPredictionProvider::Supermaven {
-                supermaven.update(cx, |supermaven, cx| supermaven.start(http_client.clone(), cx));
+                supermaven.update(cx, |supermaven, cx| {
+                    supermaven.start(http_client.clone(), cx)
+                });
             } else {
                 supermaven.update(cx, |supermaven, _cx| supermaven.stop());
             }
@@ -93,8 +97,7 @@ impl Supermaven {
     pub fn start(&mut self, http_client: Arc<dyn HttpClient>, cx: &mut Context<Self>) {
         if let Self::Starting = self {
             cx.spawn(async move |this, cx| {
-                let binary_path =
-                    supermaven_api::get_supermaven_agent_path(http_client).await?;
+                let binary_path = supermaven_api::get_supermaven_agent_path(http_client).await?;
 
                 this.update(cx, |this, cx| {
                     if let Self::Starting = this {

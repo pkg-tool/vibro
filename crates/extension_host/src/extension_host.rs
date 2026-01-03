@@ -25,9 +25,7 @@ use futures::{
     },
     select_biased,
 };
-use gpui::{
-    App, AppContext as _, Context, Entity, EventEmitter, Global, Task, actions,
-};
+use gpui::{App, AppContext as _, Context, Entity, EventEmitter, Global, Task, actions};
 use http_client::{HttpClient, HttpClientWithUrl};
 use language::{
     LanguageConfig, LanguageMatcher, LanguageName, LanguageQueries, LoadedLanguage,
@@ -48,10 +46,7 @@ use std::{
     time::{Duration, Instant},
 };
 use util::ResultExt;
-use wasm_host::{
-    WasmExtension, WasmHost,
-    wit::is_supported_wasm_api_version,
-};
+use wasm_host::{WasmExtension, WasmHost, wit::is_supported_wasm_api_version};
 
 pub use extension::{
     ExtensionLibraryKind, GrammarManifestEntry, OldExtensionManifest, SchemaVersion,
@@ -178,18 +173,18 @@ pub fn init(
 ) {
     ExtensionSettings::register(cx);
 
-        let store = cx.new(move |cx| {
-            ExtensionStore::new(
-                paths::extensions_dir().clone(),
-                None,
-                extension_host_proxy,
-                fs,
-                http_client.clone(),
-                http_client.clone(),
-                node_runtime,
-                cx,
-            )
-        });
+    let store = cx.new(move |cx| {
+        ExtensionStore::new(
+            paths::extensions_dir().clone(),
+            None,
+            extension_host_proxy,
+            fs,
+            http_client.clone(),
+            http_client.clone(),
+            node_runtime,
+            cx,
+        )
+    });
 
     cx.on_action(|_: &ReloadExtensions, cx| {
         let store = cx.global::<GlobalExtensionStore>().0.clone();
@@ -540,11 +535,7 @@ impl ExtensionStore {
             provides.insert(ExtensionProvides::DebugAdapters);
         }
 
-        let wasm_api_version = manifest
-            .lib
-            .version
-            .as_ref()
-            .map(ToString::to_string);
+        let wasm_api_version = manifest.lib.version.as_ref().map(ToString::to_string);
 
         ExtensionMetadata {
             id: manifest.id.clone(),
@@ -1333,7 +1324,6 @@ impl ExtensionStore {
             Ok(())
         })
     }
-
 }
 
 fn load_plugin_queries(root_path: &Path) -> LanguageQueries {

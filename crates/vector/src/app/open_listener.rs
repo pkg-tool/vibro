@@ -117,7 +117,6 @@ impl OpenRequest {
 
         Ok(())
     }
-
 }
 
 #[derive(Clone)]
@@ -563,8 +562,8 @@ pub async fn derive_paths_with_position(
 
 #[cfg(test)]
 mod tests {
-    use crate::app::{open_listener::open_local_workspace, tests::init_test};
     use super::{OpenRequest, OpenRequestKind, RawOpenRequest};
+    use crate::app::{open_listener::open_local_workspace, tests::init_test};
     use cli::{
         CliResponse,
         ipc::{self},

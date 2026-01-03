@@ -77,7 +77,10 @@ pub fn init(languages: Arc<LanguageRegistry>, fs: Arc<dyn Fs>, node: NodeRuntime
         ("regex", tree_sitter_regex::LANGUAGE.into()),
         ("rust", tree_sitter_rust::LANGUAGE.into()),
         ("tsx", tree_sitter_typescript::LANGUAGE_TSX.into()),
-        ("typescript", tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into()),
+        (
+            "typescript",
+            tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+        ),
         ("yaml", tree_sitter_yaml::LANGUAGE.into()),
         ("gitcommit", tree_sitter_gitcommit::language()),
     ]);
@@ -429,4 +432,12 @@ fn load_queries(name: &str) -> LanguageQueries {
         }
     }
     result
+}
+
+#[cfg(all(test, feature = "tree-sitter-gitcommit"))]
+mod gitcommit_query_tests {
+    #[test]
+    fn gitcommit_queries_parse() {
+        let _ = crate::language("gitcommit", tree_sitter_gitcommit::language());
+    }
 }

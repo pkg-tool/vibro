@@ -7,7 +7,7 @@ use serde::Deserialize;
 use smallvec::SmallVec;
 use ui::{ContextMenu, PopoverMenu, PopoverMenuHandle, Tooltip, prelude::*};
 
-use crate::title_bar_settings::TitleBarSettings;
+use workspace::TitleBarSettings;
 
 actions!(
     app_menu,

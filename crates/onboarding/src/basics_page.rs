@@ -9,9 +9,9 @@ use theme::{
     ThemeSettings,
 };
 use ui::{
-    ParentElement as _, StatefulInteractiveElement, SwitchField, TintColor,
-    ToggleButtonGroup, ToggleButtonGroupSize, ToggleButtonSimple, ToggleButtonWithIcon, Tooltip,
-    prelude::*, rems_from_px,
+    ParentElement as _, StatefulInteractiveElement, SwitchField, TintColor, ToggleButtonGroup,
+    ToggleButtonGroupSize, ToggleButtonSimple, ToggleButtonWithIcon, Tooltip, prelude::*,
+    rems_from_px,
 };
 use vim_mode_setting::VimModeSetting;
 

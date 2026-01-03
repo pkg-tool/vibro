@@ -19,8 +19,8 @@ use ui::{
 };
 
 use util::{ResultExt, truncate_and_trailoff};
-use workspace::{ModalView, Workspace};
 pub use vector_actions::{Rerun, Spawn};
+use workspace::{ModalView, Workspace};
 
 /// A modal used to spawn new tasks.
 pub struct TasksModalDelegate {

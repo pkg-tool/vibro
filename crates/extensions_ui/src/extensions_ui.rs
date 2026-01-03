@@ -3,9 +3,9 @@ mod components;
 use std::time::Duration;
 use std::{ops::Range, sync::Arc};
 
-use extension::api::{ExtensionMetadata, ExtensionProvides};
 use collections::BTreeSet;
 use editor::{Editor, EditorElement, EditorStyle};
+use extension::api::{ExtensionMetadata, ExtensionProvides};
 use extension_host::{ExtensionManifest, ExtensionOperation, ExtensionStore};
 use fuzzy::{StringMatchCandidate, match_strings};
 use gpui::{
@@ -18,14 +18,12 @@ use project::DirectoryLister;
 use settings::Settings as _;
 use strum::IntoEnumIterator as _;
 use theme::ThemeSettings;
-use ui::{
-    ContextMenu, PopoverMenu, ScrollAxes, Scrollbars, Tooltip, WithScrollbar, prelude::*,
-};
+use ui::{ContextMenu, PopoverMenu, ScrollAxes, Scrollbars, Tooltip, WithScrollbar, prelude::*};
+use vector_actions::ExtensionCategoryFilter;
 use workspace::{
     Workspace, WorkspaceId,
     item::{Item, ItemEvent},
 };
-use vector_actions::ExtensionCategoryFilter;
 
 use crate::components::ExtensionCard;
 
@@ -147,7 +145,6 @@ pub fn init(cx: &mut App) {
                     })
                     .detach();
             });
-
     })
     .detach();
 }
@@ -349,10 +346,9 @@ impl ExtensionsPage {
             .cloned()
             .collect::<Vec<_>>();
 
-        let remote_extensions =
-            extension_store
-                .read(cx)
-                .fetch_extensions(search.as_deref(), provides_filter.as_ref());
+        let remote_extensions = extension_store
+            .read(cx)
+            .fetch_extensions(search.as_deref(), provides_filter.as_ref());
 
         cx.spawn(async move |this, cx| {
             let dev_extensions = if let Some(search) = search {
@@ -764,11 +760,12 @@ impl ExtensionsPage {
 
         match status.clone() {
             ExtensionStatus::NotInstalled => ExtensionCardButtons {
-                install_or_uninstall: Button::new(SharedString::from(extension.id.clone()), "Install")
-                    .disabled(true)
-                    .tooltip(|_, cx| {
-                        Tooltip::simple("Remote extension downloads are disabled.", cx)
-                    }),
+                install_or_uninstall: Button::new(
+                    SharedString::from(extension.id.clone()),
+                    "Install",
+                )
+                .disabled(true)
+                .tooltip(|_, cx| Tooltip::simple("Remote extension downloads are disabled.", cx)),
                 configure: None,
                 upgrade: None,
             },
@@ -1076,7 +1073,8 @@ impl Render for ExtensionsPage {
                     .size_full()
                     .overflow_y_hidden()
                     .map(|this| {
-                        let count = self.remote_extension_entries.len() + self.dev_extension_entries.len();
+                        let count =
+                            self.remote_extension_entries.len() + self.dev_extension_entries.len();
 
                         let list_content = if count == 0 {
                             this.py_4().child(self.render_empty_state(cx))
